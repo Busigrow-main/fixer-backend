@@ -7,8 +7,42 @@ import { SparePart, SparePartDocument } from './schemas/spare-part.schema';
 export class SparePartsService {
   constructor(@InjectModel(SparePart.name) private sparePartModel: Model<SparePartDocument>) {}
 
-  async findAll(): Promise<SparePart[]> {
-    return this.sparePartModel.find().exec();
+  async findAll(queryObj: any): Promise<any> {
+    const { q, category, page = 1, limit = 24 } = queryObj;
+    const filter: any = {};
+
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { category: { $regex: q, $options: 'i' } },
+        { partNumber: { $regex: q, $options: 'i' } },
+      ];
+    }
+    
+    if (category && category !== 'All') {
+      filter.category = category;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.sparePartModel.find(filter).skip(skip).limit(parseInt(limit)).exec(),
+      this.sparePartModel.countDocuments(filter).exec()
+    ]);
+
+    return {
+      data,
+      metadata: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getCategories(): Promise<string[]> {
+    return this.sparePartModel.distinct('category').exec();
   }
 
   async findBySlug(slug: string): Promise<SparePart> {

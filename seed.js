@@ -94,15 +94,48 @@ function cleanAndTransformRow(rawRow) {
   const rawPrice = transformed.price || 0;
   const formattedPrice = `₹${parseFloat(rawPrice).toLocaleString('en-IN')}`;
 
+  let rawName = transformed.name || 'Unknown Part';
+  let inferredManufacturer = 'Generic';
+  let inferredCategory = 'General Spare Parts'; // This will be the Manufacturer/Brand as per user request
+  let partType = 'Unknown Spare Part';
+
+  const BRANDS = ['SAMSUNG', 'WHIRLPOOL', 'LG', 'BOSCH', 'IFB', 'GODREJ', 'VIDEOCON', 'PANASONIC', 'HAIER', 'VOLTAS', 'MARUTI', 'MAHINDRA', 'TATA', 'HYUNDAI'];
+  const TYPES = ['PULSATOR', 'GEAR BOX', 'MOTOR', 'BELT', 'PUMP', 'VALVE', 'TIMER', 'PCB', 'HEATER', 'THERMOSTAT', 'SWITCH', 'CAP', 'HOSE', 'PIPE', 'FAN', 'COMPRESSOR', 'SENSOR', 'SHELF', 'DRAIN', 'SPIN CAP', 'SPIN LID', 'DOOR LOCK', 'BUFFER', 'CAPACITOR'];
+  
+  const upperName = rawName.toUpperCase();
+  
+  // 1. Identify Brand -> This will be our "Category" according to user
+  for (const brand of BRANDS) {
+    if (upperName.includes(brand)) {
+      inferredManufacturer = brand.charAt(0) + brand.slice(1).toLowerCase();
+      inferredCategory = inferredManufacturer; // Use Brand as Category
+      break;
+    }
+  }
+  
+  // 2. Identify Part Type -> This will be our "Name"
+  for (const t of TYPES) {
+    if (upperName.includes(t)) {
+      partType = t.charAt(0) + t.slice(1).toLowerCase();
+      break;
+    }
+  }
+
+  // If we couldn't find a specific type, use the stripped raw name
+  if (partType === 'Unknown Spare Part') {
+    partType = rawName.replace(/MARUTI|SAMSUNG|WHIRLPOOL|LG|BOSCH|IFB|GODREJ|VIDEOCON|PANASONIC|HAIER|VOLTAS/gi, '').trim();
+    if (partType.length < 3) partType = rawName;
+  }
+
   const finalDocument = {
-    slug: `maruti-${partNumberStr.toLowerCase()}`, 
+    slug: `part-${partNumberStr.toLowerCase()}`, 
     partNumber: partNumberStr,
-    name: transformed.name || 'Unknown Part',
-    category: transformed.category || 'Maruti Generic',
+    name: partType, // Specific part type
+    category: inferredCategory, // Manufacturer as category
     price: formattedPrice,
     image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800&auto=format&fit=crop', // Placeholder
-    description: `Official ${transformed.name || 'part'} for Maruti Suzuki vehicles.`,
-    manufacturer: 'Maruti Suzuki'
+    description: `High-quality ${partType} compatible with ${inferredManufacturer} appliances. Certified genuine component.`,
+    manufacturer: inferredManufacturer
   };
 
   return finalDocument;

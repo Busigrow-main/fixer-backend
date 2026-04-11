@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { SparePartsService } from './spare-parts.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -6,9 +6,14 @@ import { AuthGuard } from '@nestjs/passport';
 export class SparePartsController {
   constructor(private readonly sparePartsService: SparePartsService) {}
 
+  @Get('meta/categories')
+  async getCategories() {
+    return this.sparePartsService.getCategories();
+  }
+
   @Get()
-  async findAll() {
-    return this.sparePartsService.findAll();
+  async findAll(@Query() query: any) {
+    return this.sparePartsService.findAll(query);
   }
 
   @Get(':slug')
