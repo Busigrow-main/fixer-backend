@@ -8,15 +8,23 @@ export class BookingsService {
   constructor(@InjectModel(Booking.name) private bookingModel: Model<BookingDocument>) {}
 
   async findAllByUser(userId: string): Promise<Booking[]> {
-    return this.bookingModel.find({ userId }).populate('serviceId').exec();
+    return this.bookingModel.find({ userId }).populate('serviceId').sort({ createdAt: -1 }).exec();
   }
 
-  async findAllForAdmin(): Promise<Booking[]> {
-    return this.bookingModel.find().populate('userId serviceId').exec();
+  async findAllForAdmin(page = 1, limit = 20, status?: string): Promise<{ data: Booking[]; total: number }> {
+    const filter: any = {};
+    if (status && status !== 'ALL') filter.status = status;
+
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.bookingModel.find(filter).populate('userId serviceId').skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
+      this.bookingModel.countDocuments(filter).exec(),
+    ]);
+    return { data, total };
   }
 
   async findOne(id: string): Promise<Booking> {
-    const booking = await this.bookingModel.findById(id).populate('serviceId').exec();
+    const booking = await this.bookingModel.findById(id).populate('userId serviceId').exec();
     if (!booking) throw new NotFoundException('Booking not found');
     return booking;
   }
@@ -40,5 +48,19 @@ export class BookingsService {
     ).exec();
     if (!booking) throw new NotFoundException('Booking not found');
     return booking;
+  }
+
+  async countByStatus(): Promise<Record<string, number>> {
+    const results = await this.bookingModel.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]).exec();
+
+    const counts: Record<string, number> = {};
+    results.forEach((r: any) => { counts[r._id] = r.count; });
+    return counts;
+  }
+
+  async countAll(): Promise<number> {
+    return this.bookingModel.countDocuments().exec();
   }
 }

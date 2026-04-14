@@ -20,7 +20,7 @@ export class User {
   @Prop({ type: [{ label: String, zip: String, text: String }], default: [] })
   savedAddresses: Record<string, any>[];
 
-  @Prop({ default: 'CUSTOMER' })
+  @Prop({ default: 'CUSTOMER', enum: ['CUSTOMER', 'ADMIN'] })
   role: string;
 }
 

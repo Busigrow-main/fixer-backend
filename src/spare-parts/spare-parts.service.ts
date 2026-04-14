@@ -51,6 +51,12 @@ export class SparePartsService {
     return sparePart;
   }
 
+  async findById(id: string): Promise<SparePartDocument> {
+    const sparePart = await this.sparePartModel.findById(id).exec();
+    if (!sparePart) throw new NotFoundException('Spare Part not found');
+    return sparePart;
+  }
+
   async create(createSparePartDto: any): Promise<SparePart> {
     const createdSparePart = new this.sparePartModel(createSparePartDto);
     return createdSparePart.save();
@@ -66,5 +72,58 @@ export class SparePartsService {
     const deletedSparePart = await this.sparePartModel.findByIdAndDelete(id).exec();
     if (!deletedSparePart) throw new NotFoundException('Spare Part not found');
     return deletedSparePart;
+  }
+
+  async countAll(): Promise<number> {
+    return this.sparePartModel.countDocuments().exec();
+  }
+
+  async bulkUpsert(documents: any[]): Promise<any> {
+    const BATCH_SIZE = 500;
+    let totalInserted = 0;
+    let totalUpdated = 0;
+    const errors: { row: number; reason: string }[] = [];
+
+    for (let i = 0; i < documents.length; i += BATCH_SIZE) {
+      const batch = documents.slice(i, i + BATCH_SIZE);
+      
+      const operations = batch.map((doc, idx) => ({
+        updateOne: {
+          filter: { partNumber: doc.partNumber },
+          update: { $set: doc },
+          upsert: true
+        }
+      }));
+
+      try {
+        const result = await this.sparePartModel.bulkWrite(operations, { ordered: false });
+        totalInserted += result.upsertedCount;
+        totalUpdated += result.modifiedCount;
+      } catch (err: any) {
+        // Handle partial failures from ordered: false
+        if (err.result) {
+          totalInserted += err.result.nUpserted || 0;
+          totalUpdated += err.result.nModified || 0;
+        }
+        // Capture individual write errors
+        if (err.writeErrors) {
+          err.writeErrors.forEach((we: any) => {
+            errors.push({ row: i + we.index + 1, reason: we.errmsg || 'Write error' });
+          });
+        }
+      }
+    }
+
+    return {
+      totalProcessed: documents.length,
+      inserted: totalInserted,
+      updated: totalUpdated,
+      failed: errors.length,
+      errors: errors.slice(0, 100), // Cap error reporting
+    };
+  }
+
+  async exportAll(): Promise<SparePartDocument[]> {
+    return this.sparePartModel.find().lean().exec();
   }
 }

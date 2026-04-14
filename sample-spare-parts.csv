@@ -1,0 +1,11 @@
+partNumber,name,category,price,stock,manufacturer,seller,image
+SMSG-RF-001,Inverter Compressor Module,Refrigerator,6499,15,Samsung,Fixxer OEM Hub,https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800
+SMSG-RF-002,Thermostat Assembly,Refrigerator,1200,25,Samsung,Fixxer OEM Hub,https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800
+LG-WM-001,Drum Belt 8kg,Washing Machine,899,40,LG,Fixxer Parts Partner,https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800
+LG-WM-002,Pulsator Cap,Washing Machine,450,60,LG,Fixxer Parts Partner,https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800
+BSH-AC-001,Main Control PCB,Air Conditioner,3250,10,Bosch,Fixxer OEM Hub,https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=800
+WHP-MW-001,Magnetron 2M246,Microwave,1799,20,Whirlpool,City Appliance Spares,https://images.unsplash.com/photo-1585659722983-3a675dabf23d?q=80&w=800
+GDR-RF-001,Door Gasket Seal,Refrigerator,750,35,Godrej,Fixxer OEM Hub,https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800
+IFB-WM-001,Motor Assembly Front Load,Washing Machine,4500,8,IFB,Fixxer OEM Hub,https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800
+VLT-AC-001,Capacitor 35MFD,Air Conditioner,350,50,Voltas,Fixxer Parts Partner,https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=800
+PAN-MW-001,Turntable Motor,Microwave,650,30,Panasonic,City Appliance Spares,https://images.unsplash.com/photo-1585659722983-3a675dabf23d?q=80&w=800

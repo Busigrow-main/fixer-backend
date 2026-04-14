@@ -8,6 +8,7 @@ import { ServicesModule } from './services/services.module';
 import { SparePartsModule } from './spare-parts/spare-parts.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { PartOrdersModule } from './part-orders/part-orders.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PartOrdersModule } from './part-orders/part-orders.module';
     SparePartsModule,
     BookingsModule,
     PartOrdersModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

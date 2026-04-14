@@ -8,14 +8,20 @@ export class SparePart {
   @Prop({ required: true, unique: true, index: true })
   slug: string;
 
+  @Prop({ unique: true, sparse: true, index: true })
+  partNumber: string;
+
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   category: string;
 
   @Prop({ required: true })
   price: string;
+
+  @Prop({ default: 0 })
+  stock: number;
 
   @Prop()
   manufacturer: string;

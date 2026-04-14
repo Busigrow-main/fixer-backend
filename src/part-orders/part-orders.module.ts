@@ -8,5 +8,6 @@ import { PartOrder, PartOrderSchema } from './schemas/part-order.schema';
   imports: [MongooseModule.forFeature([{ name: PartOrder.name, schema: PartOrderSchema }])],
   controllers: [PartOrdersController],
   providers: [PartOrdersService],
+  exports: [PartOrdersService],
 })
 export class PartOrdersModule {}

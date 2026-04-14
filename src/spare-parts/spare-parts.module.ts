@@ -8,5 +8,6 @@ import { SparePart, SparePartSchema } from './schemas/spare-part.schema';
   imports: [MongooseModule.forFeature([{ name: SparePart.name, schema: SparePartSchema }])],
   controllers: [SparePartsController],
   providers: [SparePartsService],
+  exports: [SparePartsService],
 })
 export class SparePartsModule {}
