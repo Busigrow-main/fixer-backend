@@ -118,6 +118,9 @@ export class Booking {
   @Prop({ type: Types.ObjectId, ref: 'Booking' })
   parentId?: Types.ObjectId;
 
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Booking' }], default: [] })
+  claimBookingIds: Types.ObjectId[];
+
   @Prop({ default: false })
   isBilled: boolean;
 }

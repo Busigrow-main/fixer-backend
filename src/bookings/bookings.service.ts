@@ -214,17 +214,21 @@ export class BookingsService {
 
     // Default price logic with two-tier fallback
     if (serviceTotal === undefined || serviceTotal === 0) {
-      const service = await this.serviceModel.findById(booking.serviceId).exec();
-      if (service) {
-        // Tier 1: Specific Sub-category price
-        const subCat = service.subCategories.id(booking.subCategoryId);
-        if (subCat && subCat.price) {
-          serviceTotal = this.parseNumericPrice(subCat.price);
-        }
-        
-        // Tier 2: General Service Starting Price (if Tier 1 failed or is 0)
-        if (!serviceTotal && service.startingPrice) {
-          serviceTotal = this.parseNumericPrice(service.startingPrice);
+      if (booking.serviceType === 'WARRANTY_CHECK') {
+        serviceTotal = 0; // Warranty claims have zero base service charge
+      } else {
+        const service = await this.serviceModel.findById(booking.serviceId).exec();
+        if (service) {
+          // Tier 1: Specific Sub-category price
+          const subCat = service.subCategories.id(booking.subCategoryId);
+          if (subCat && subCat.price) {
+            serviceTotal = this.parseNumericPrice(subCat.price);
+          }
+          
+          // Tier 2: General Service Starting Price (if Tier 1 failed or is 0)
+          if (!serviceTotal && service.startingPrice) {
+            serviceTotal = this.parseNumericPrice(service.startingPrice);
+          }
         }
       }
     }
@@ -294,6 +298,10 @@ export class BookingsService {
       throw new BadRequestException('Warranty has expired or is not applicable');
     }
 
+    if (originalBooking.claimBookingIds && originalBooking.claimBookingIds.length > 0) {
+      throw new BadRequestException('A warranty claim has already been initiated for this booking.');
+    }
+
     // Create a new booking for the warranty check
     const claimBooking = new this.bookingModel({
       userId: originalBooking.userId,
@@ -310,6 +318,12 @@ export class BookingsService {
     });
 
     const saved = await claimBooking.save();
+
+    // Update original booking to include this claim ID
+    await this.bookingModel.findByIdAndUpdate(id, {
+      $push: { claimBookingIds: saved._id }
+    }).exec();
+
     return this.findOne(saved._id.toString());
   }
 
