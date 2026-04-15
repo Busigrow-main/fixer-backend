@@ -1,11 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { Booking, BookingDocument } from './schemas/booking.schema';
+import { Service, ServiceDocument } from '../services/schemas/service.schema';
 
 @Injectable()
 export class BookingsService {
-  constructor(@InjectModel(Booking.name) private bookingModel: Model<BookingDocument>) {}
+  constructor(
+    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
+  ) {}
 
   async findAllByUser(userId: string): Promise<Booking[]> {
     return this.bookingModel.find({ userId }).populate('serviceId').sort({ createdAt: -1 }).exec();
@@ -79,6 +80,43 @@ export class BookingsService {
     return booking;
   }
 
+  async updateProductDetails(id: string, details: any): Promise<Booking> {
+    const booking = await this.bookingModel.findByIdAndUpdate(
+      id,
+      { productDetails: details },
+      { new: true }
+    ).exec();
+    if (!booking) throw new NotFoundException('Booking not found');
+    return booking;
+  }
+
+  async updateServiceProperties(id: string, data: { serviceType?: string; paymentStatus?: string }): Promise<Booking> {
+    const booking = await this.bookingModel.findByIdAndUpdate(
+      id,
+      data,
+      { new: true }
+    ).exec();
+    if (!booking) throw new NotFoundException('Booking not found');
+    return booking;
+  }
+
+  async updateInvoiceManual(id: string, data: { serviceTotal?: number; additionalCharges?: any[] }): Promise<Booking> {
+    const booking = await this.bookingModel.findById(id).exec();
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const invoiceData = { ...(booking.invoiceData || {}) };
+    if (data.serviceTotal !== undefined) invoiceData.serviceTotal = data.serviceTotal;
+    if (data.additionalCharges !== undefined) invoiceData.additionalCharges = data.additionalCharges;
+
+    // Recalculate total
+    const partsTotal = invoiceData.partsTotal || 0;
+    const additionalTotal = (invoiceData.additionalCharges || []).reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
+    invoiceData.totalAmount = (invoiceData.serviceTotal || 0) + partsTotal + additionalTotal;
+
+    booking.invoiceData = invoiceData;
+    return booking.save();
+  }
+
   async finalizeInvoice(id: string): Promise<Booking> {
     // First generate the total amounts based on current visits/parts
     await this.generateInvoiceData(id);
@@ -119,7 +157,19 @@ export class BookingsService {
     if (!booking) throw new NotFoundException('Booking not found');
     
     let partsTotal = 0;
-    const serviceTotal = (booking.serviceId as any)?.price || 0; // Using price from serviceId if it exists
+    let serviceTotal = (booking.invoiceData as any)?.serviceTotal;
+
+    // Default price from subcategory if not already manually set
+    if (serviceTotal === undefined) {
+      const service = await this.serviceModel.findById(booking.serviceId).exec();
+      if (service) {
+        const subCat = service.subCategories.id(booking.subCategoryId);
+        if (subCat) {
+          serviceTotal = parseFloat(subCat.price.replace(/[₹,\s]/g, '')) || 0;
+        }
+      }
+    }
+    if (serviceTotal === undefined) serviceTotal = 0;
 
     if (booking.visits && booking.visits.length > 0) {
       for (const visit of booking.visits as any[]) {

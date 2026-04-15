@@ -36,6 +36,27 @@ export class Booking {
   })
   status: string;
 
+  @Prop({
+    type: String,
+    enum: ['REPAIR', 'INSTALLATION', 'MAINTENANCE', 'WARRANTY_CHECK'],
+    default: 'REPAIR'
+  })
+  serviceType: string;
+
+  @Prop({
+    type: String,
+    enum: ['UNPAID', 'PAID_CASH', 'PAID_ONLINE', 'WARRANTY_SERVICE'],
+    default: 'UNPAID'
+  })
+  paymentStatus: string;
+
+  @Prop({ type: Object, default: {} })
+  productDetails?: {
+    brand?: string;
+    modelNumber?: string;
+    serialNumber?: string;
+  };
+
   @Prop({ type: [String], default: [] })
   adminNotes: string[];
 
@@ -52,6 +73,8 @@ export class Booking {
     generatedAt?: Date;
     partsTotal?: number;
     serviceTotal?: number;
+    additionalCharges?: { label: string, amount: number }[];
+    grandTotal?: number;
   };
 
   @Prop({ type: Object, default: {} })

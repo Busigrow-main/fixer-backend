@@ -83,6 +83,21 @@ export class AdminController {
     return this.bookingsService.updateJobDetails(id, details);
   }
 
+  @Put('bookings/:id/product-details')
+  async updateProductDetails(@Param('id') id: string, @Body() details: any) {
+    return this.bookingsService.updateProductDetails(id, details);
+  }
+
+  @Put('bookings/:id/service-properties')
+  async updateServiceProperties(@Param('id') id: string, @Body() data: any) {
+    return this.bookingsService.updateServiceProperties(id, data);
+  }
+
+  @Put('bookings/:id/invoice-manual')
+  async updateInvoiceManual(@Param('id') id: string, @Body() data: any) {
+    return this.bookingsService.updateInvoiceManual(id, data);
+  }
+
   @Put('bookings/:id/finalize-invoice')
   async finalizeInvoice(@Param('id') id: string) {
     return this.bookingsService.finalizeInvoice(id);
