@@ -61,7 +61,6 @@ export class AdminService {
       'part_no': 'partNumber',
       'sku': 'partNumber',
       'inventory id': 'partNumber',
-      'description': 'name',
       'part name': 'name',
       'name': 'name',
       'mrp': 'price',
@@ -70,6 +69,14 @@ export class AdminService {
       'cost': 'price',
       'category': 'category',
       'group': 'category',
+      'appliance': 'category',
+      'subcategory': 'subCategory',
+      'sub category': 'subCategory',
+      'sub_category': 'subCategory',
+      'sub-category': 'subCategory',
+      'type': 'subCategory',
+      'appliance type': 'subCategory',
+      'model type': 'subCategory',
       'stock': 'stock',
       'quantity': 'stock',
       'qty': 'stock',
@@ -79,6 +86,28 @@ export class AdminService {
       'image url': 'image',
       'image_url': 'image',
       'seller': 'seller',
+      'description': 'description',
+      'desc': 'description',
+      'product description': 'description',
+      'details': 'description',
+      'warranty': 'warranty',
+      'warranty period': 'warranty',
+      'guarantee': 'warranty',
+      'delivery': 'deliveryEta',
+      'delivery eta': 'deliveryEta',
+      'delivery_eta': 'deliveryEta',
+      'delivery time': 'deliveryEta',
+      'shipping': 'deliveryEta',
+      'highlights': 'highlights',
+      'key points': 'highlights',
+      'features': 'highlights',
+      'key features': 'highlights',
+      'compatible models': 'compatibleModels',
+      'compatible_models': 'compatibleModels',
+      'compatibility': 'compatibleModels',
+      'fits models': 'compatibleModels',
+      'supports service': 'supportsServiceBooking',
+      'service booking': 'supportsServiceBooking',
     };
 
     rows.forEach((rawRow, index) => {
@@ -110,17 +139,36 @@ export class AdminService {
       const numericPrice = parseFloat(String(rawPrice).replace(/[₹,\s]/g, ''));
       const formattedPrice = isNaN(numericPrice) ? '₹0' : `₹${numericPrice.toLocaleString('en-IN')}`;
 
+      // Parse pipe-separated lists for highlights and compatibleModels
+      const parseList = (val: any): string[] => {
+        if (!val) return [];
+        return String(val).split('|').map(s => s.trim()).filter(Boolean);
+      };
+
+      // Parse boolean for supportsServiceBooking
+      const parseBool = (val: any): boolean => {
+        if (!val) return false;
+        const s = String(val).toLowerCase().trim();
+        return ['true', 'yes', '1', 'y'].includes(s);
+      };
+
       valid.push({
         slug: `part-${partNumber.toLowerCase()}`,
         partNumber,
         name: transformed.name,
         category: transformed.category || 'General',
+        subCategory: transformed.subCategory || '',
         price: formattedPrice,
         stock: parseInt(transformed.stock) || 0,
         manufacturer: transformed.manufacturer || 'Generic',
         seller: transformed.seller || 'Fixxer OEM Hub',
         image: transformed.image || 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800&auto=format&fit=crop',
-        description: `${transformed.name} — Genuine spare part (${partNumber})`,
+        description: transformed.description || `${transformed.name} — Genuine spare part (${partNumber})`,
+        warranty: transformed.warranty || '',
+        deliveryEta: transformed.deliveryEta || '',
+        highlights: parseList(transformed.highlights),
+        compatibleModels: parseList(transformed.compatibleModels),
+        supportsServiceBooking: parseBool(transformed.supportsServiceBooking),
       });
     });
 

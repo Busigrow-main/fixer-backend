@@ -129,12 +129,21 @@ export class AdminController {
     const parts = await this.sparePartsService.exportAll();
 
     // Build CSV
-    const headers = ['partNumber', 'name', 'category', 'price', 'stock', 'manufacturer', 'seller', 'image', 'description'];
+    const headers = ['partNumber', 'name', 'category', 'subCategory', 'price', 'stock', 'manufacturer', 'seller', 'description', 'warranty', 'delivery eta', 'highlights', 'compatible models', 'supports service', 'image'];
+    const fieldMap: Record<string, string> = {
+      'delivery eta': 'deliveryEta',
+      'compatible models': 'compatibleModels',
+      'supports service': 'supportsServiceBooking',
+    };
     const csvRows = [
       headers.join(','),
       ...parts.map((p: any) =>
         headers.map(h => {
-          const val = String(p[h] || '').replace(/"/g, '""');
+          const field = fieldMap[h] || h;
+          let val = p[field];
+          // Join arrays with pipe for CSV
+          if (Array.isArray(val)) val = val.join(' | ');
+          val = String(val ?? '').replace(/"/g, '""');
           return `"${val}"`;
         }).join(',')
       ),
@@ -169,7 +178,12 @@ export class AdminController {
   // ─── Template Downloads ───────────────────────────────────
   @Get('spare-parts/template')
   async downloadTemplate(@Res() res: Response) {
-    const csvContent = 'partNumber,name,category,price,stock,manufacturer,seller,image\nSAMPLE-001,Example Part,Refrigerator,1500,10,Samsung,Fixxer OEM Hub,https://example.com/image.jpg\nSAMPLE-002,Another Part,Washing Machine,2500,5,LG,Fixxer OEM Hub,https://example.com/image2.jpg';
+    const lines = [
+      'partNumber,name,category,subCategory,price,stock,manufacturer,seller,description,warranty,delivery eta,highlights,compatible models,supports service,image',
+      'SMSG-RF-001,Inverter Compressor Module,Refrigerator,Double Door,6499,15,Samsung,Fixxer OEM Hub,"High-efficiency compressor for premium refrigerators",12 months OEM warranty,2-3 business days,Factory-sealed copper winding | Low-noise inverter | Energy class A+,FrostPro 340L | EcoFreeze 390,yes,https://example.com/image.jpg',
+      'LG-WM-001,Drum Belt 8kg,Washing Machine,Front Load,899,40,LG,Fixxer Parts Partner,"Durable drive belt for smooth drum rotation",6 months replacement,Same day dispatch,Heat-resistant polymer | Anti-slip groove,WashMate 8 | HydroClean 7.5,yes,https://example.com/image2.jpg',
+    ];
+    const csvContent = lines.join('\n');
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=spare-parts-template.csv');

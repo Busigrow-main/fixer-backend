@@ -17,6 +17,9 @@ export class SparePart {
   @Prop({ required: true, index: true })
   category: string;
 
+  @Prop({ index: true })
+  subCategory: string;
+
   @Prop({ required: true })
   price: string;
 
