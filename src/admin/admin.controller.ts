@@ -63,6 +63,16 @@ export class AdminController {
     return this.bookingsService.findOne(id);
   }
 
+  @Put('bookings/:id/status')
+  async updateBookingStatus(@Param('id') id: string, @Body('status') status: string) {
+    return this.bookingsService.updateStatus(id, status);
+  }
+
+  @Post('bookings/:id/notes')
+  async addBookingNote(@Param('id') id: string, @Body('note') note: string) {
+    return this.bookingsService.addAdminNote(id, note);
+  }
+
   // ─── Part Orders (paginated) ──────────────────────────────
   @Get('part-orders')
   async getPartOrders(
@@ -71,6 +81,16 @@ export class AdminController {
     @Query('status') status?: string,
   ) {
     return this.partOrdersService.findAllForAdmin(parseInt(page), parseInt(limit), status);
+  }
+
+  @Put('part-orders/:id/status')
+  async updateOrderStatus(@Param('id') id: string, @Body('status') status: string) {
+    return this.partOrdersService.updateStatus(id, status);
+  }
+
+  @Put('part-orders/:id/tracking')
+  async attachTracking(@Param('id') id: string, @Body() trackingData: { courierName: string; trackingNumber: string }) {
+    return this.partOrdersService.attachTracking(id, trackingData);
   }
 
   // ─── Spare Parts Bulk Upload ──────────────────────────────

@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { SparePartsService } from './spare-parts.service';
 import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('api/v1/spare-parts')
 export class SparePartsController {
@@ -21,21 +23,25 @@ export class SparePartsController {
     return this.sparePartsService.findBySlug(slug);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
   @Post()
   async create(@Body() createSparePartDto: any) {
     return this.sparePartsService.create(createSparePartDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
   @Put(':id')
   async update(@Param('id') id: string, @Body() updateSparePartDto: any) {
     return this.sparePartsService.update(id, updateSparePartDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
   @Delete(':id')
   async delete(@Param('id') id: string) {
     return this.sparePartsService.delete(id);
   }
 }
+
