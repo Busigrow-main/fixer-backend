@@ -15,6 +15,19 @@ export class JobDetails {
   @Prop({ default: "" }) workDone: string;
   @Prop({ default: "" }) recommendations: string;
   @Prop({ default: "60 Days" }) warrantyPeriod: string;
+
+  // New Job Sheet Fields
+  @Prop({ default: "" }) asset: string;
+  @Prop({ default: "" }) warrantyCode: string;
+  @Prop({ default: "" }) warrantyDesc: string;
+  @Prop({ default: "" }) assetSaleDate: string;
+  @Prop({ default: "" }) assetExpiryDate: string;
+  @Prop({ default: "" }) contractCode: string;
+  @Prop({ default: "" }) contractDesc: string;
+  @Prop({ default: "" }) contractStartDate: string;
+  @Prop({ default: "" }) contractExpiryDate: string;
+  @Prop({ default: "" }) visitCategory: string;
+  @Prop({ default: "" }) invoiceNumber: string;
 }
 export const JobDetailsSchema = SchemaFactory.createForClass(JobDetails);
 

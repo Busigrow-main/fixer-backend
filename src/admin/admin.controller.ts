@@ -58,6 +58,27 @@ export class AdminController {
     return this.bookingsService.findAllForAdmin(parseInt(page), parseInt(limit), status);
   }
 
+  // ─── Bookings Export ──────────────────────────────────────
+  @Get('bookings/export')
+  async exportBookings(@Res() res: Response) {
+    const { data: bookings } = await this.bookingsService.findAllForAdmin(1, 100000);
+
+    const headers = ['_id', 'status', 'contactPhone', 'description', 'createdAt'];
+    const csvRows = [
+      headers.join(','),
+      ...bookings.map((b: any) =>
+        headers.map(h => {
+          const val = String(b[h] || '').replace(/"/g, '""');
+          return `"${val}"`;
+        }).join(',')
+      ),
+    ];
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=bookings-export.csv');
+    res.send(csvRows.join('\n'));
+  }
+
   @Get('bookings/:id')
   async getBooking(@Param('id') id: string) {
     return this.bookingsService.findOne(id);
@@ -209,26 +230,7 @@ export class AdminController {
     res.send(csvRows.join('\n'));
   }
 
-  // ─── Bookings Export ──────────────────────────────────────
-  @Get('bookings/export')
-  async exportBookings(@Res() res: Response) {
-    const { data: bookings } = await this.bookingsService.findAllForAdmin(1, 100000);
 
-    const headers = ['_id', 'status', 'contactPhone', 'description', 'createdAt'];
-    const csvRows = [
-      headers.join(','),
-      ...bookings.map((b: any) =>
-        headers.map(h => {
-          const val = String(b[h] || '').replace(/"/g, '""');
-          return `"${val}"`;
-        }).join(',')
-      ),
-    ];
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=bookings-export.csv');
-    res.send(csvRows.join('\n'));
-  }
 
   // ─── Template Downloads ───────────────────────────────────
   @Get('spare-parts/template')

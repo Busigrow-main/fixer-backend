@@ -8,14 +8,24 @@ export class Warranty {
   @Prop({ type: Types.ObjectId, ref: 'Booking', required: true })
   bookingId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Visit', required: true })
-  visitId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Visit' })
+  visitId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'SparePartUsage', required: true })
-  sparePartUsageId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'SparePartUsage' })
+  sparePartUsageId?: Types.ObjectId;
+
+  @Prop({
+    type: String,
+    enum: ['SERVICE', 'PART'],
+    default: 'SERVICE',
+  })
+  type: string;
 
   @Prop({ required: true, enum: ['IN_HOUSE', 'THIRD_PARTY'] })
   warrantyType: string;
+
+  @Prop()
+  description: string;
 
   @Prop({ required: true })
   startDate: Date;
@@ -25,7 +35,7 @@ export class Warranty {
 
   @Prop({
     type: String,
-    enum: ['ACTIVE', 'EXPIRED'],
+    enum: ['ACTIVE', 'EXPIRED', 'CLAIMED'],
     default: 'ACTIVE',
   })
   status: string;

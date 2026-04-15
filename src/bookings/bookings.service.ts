@@ -3,12 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Booking, BookingDocument } from './schemas/booking.schema';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
+import { WarrantiesService } from '../warranties/warranties.service';
 
 @Injectable()
 export class BookingsService {
   constructor(
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
+    private warrantiesService: WarrantiesService,
   ) {}
 
   async findAllByUser(userId: string): Promise<Booking[]> {
@@ -78,6 +80,21 @@ export class BookingsService {
             const expiryDate = new Date();
             expiryDate.setDate(expiryDate.getDate() + days);
             await this.bookingModel.findByIdAndUpdate(id, { warrantyExpiry: expiryDate }).exec();
+
+            // LOG IN WARRANTIES FOLDER (Collection)
+            try {
+              await this.warrantiesService.create({
+                bookingId: booking._id,
+                warrantyType: 'IN_HOUSE',
+                type: 'SERVICE',
+                description: `Base Service Warranty (${booking.jobDetails.warrantyPeriod})`,
+                startDate: new Date(),
+                endDate: expiryDate,
+                status: 'ACTIVE'
+              });
+            } catch (wErr) {
+              console.error('Warranty collection log failed:', wErr);
+            }
           }
         }
       } catch (err) {
