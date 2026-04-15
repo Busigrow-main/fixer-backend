@@ -58,6 +58,11 @@ export class AdminController {
     return this.bookingsService.findAllForAdmin(parseInt(page), parseInt(limit), status);
   }
 
+  @Get('bookings/:id')
+  async getBooking(@Param('id') id: string) {
+    return this.bookingsService.findOne(id);
+  }
+
   // ─── Part Orders (paginated) ──────────────────────────────
   @Get('part-orders')
   async getPartOrders(
