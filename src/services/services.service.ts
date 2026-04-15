@@ -23,7 +23,7 @@ export class ServicesService {
   }
 
   async update(id: string, updateServiceDto: any): Promise<Service> {
-    const updatedService = await this.serviceModel.findByIdAndUpdate(id, updateServiceDto, { new: true }).exec();
+    const updatedService = await this.serviceModel.findByIdAndUpdate(id, updateServiceDto, { returnDocument: 'after' }).exec();
     if (!updatedService) throw new NotFoundException('Service not found');
     return updatedService;
   }

@@ -35,7 +35,7 @@ export class PartOrdersService {
   }
 
   async updateStatus(id: string, status: string): Promise<PartOrder> {
-    const updatedOrder = await this.partOrderModel.findByIdAndUpdate(id, { status }, { new: true }).exec();
+    const updatedOrder = await this.partOrderModel.findByIdAndUpdate(id, { status }, { returnDocument: 'after' }).exec();
     if (!updatedOrder) throw new NotFoundException('Order not found');
     return updatedOrder;
   }
@@ -44,7 +44,7 @@ export class PartOrdersService {
     const updatedOrder = await this.partOrderModel.findByIdAndUpdate(
       id,
       { courierTracking: trackingData, status: 'DISPATCHED' },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
     if (!updatedOrder) throw new NotFoundException('Order not found');
     return updatedOrder;

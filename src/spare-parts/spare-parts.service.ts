@@ -63,7 +63,7 @@ export class SparePartsService {
   }
 
   async update(id: string, updateSparePartDto: any): Promise<SparePart> {
-    const updatedSparePart = await this.sparePartModel.findByIdAndUpdate(id, updateSparePartDto, { new: true }).exec();
+    const updatedSparePart = await this.sparePartModel.findByIdAndUpdate(id, updateSparePartDto, { returnDocument: 'after' }).exec();
     if (!updatedSparePart) throw new NotFoundException('Spare Part not found');
     return updatedSparePart;
   }

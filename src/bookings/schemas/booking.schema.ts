@@ -1,6 +1,41 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
+@Schema({ _id: false })
+export class ProductDetails {
+  @Prop({ default: "" }) brand: string;
+  @Prop({ default: "" }) modelNumber: string;
+  @Prop({ default: "" }) serialNumber: string;
+}
+export const ProductDetailsSchema = SchemaFactory.createForClass(ProductDetails);
+
+@Schema({ _id: false })
+export class JobDetails {
+  @Prop({ default: "" }) diagnosis: string;
+  @Prop({ default: "" }) workDone: string;
+  @Prop({ default: "" }) recommendations: string;
+  @Prop({ default: "60 Days" }) warrantyPeriod: string;
+}
+export const JobDetailsSchema = SchemaFactory.createForClass(JobDetails);
+
+@Schema({ _id: false })
+export class AdditionalCharge {
+  @Prop({ required: true }) label: string;
+  @Prop({ required: true, default: 0 }) amount: number;
+}
+export const AdditionalChargeSchema = SchemaFactory.createForClass(AdditionalCharge);
+
+@Schema({ _id: false })
+export class InvoiceData {
+  @Prop() url: string;
+  @Prop({ default: 0 }) serviceTotal: number;
+  @Prop({ default: 0 }) partsTotal: number;
+  @Prop({ type: [AdditionalChargeSchema], default: [] }) additionalCharges: AdditionalCharge[];
+  @Prop({ default: 0 }) totalAmount: number;
+  @Prop() generatedAt: Date;
+}
+export const InvoiceDataSchema = SchemaFactory.createForClass(InvoiceData);
+
 export type BookingDocument = Booking & Document;
 
 @Schema({ timestamps: true })
@@ -50,12 +85,14 @@ export class Booking {
   })
   paymentStatus: string;
 
-  @Prop({ type: Object, default: {} })
-  productDetails?: {
-    brand?: string;
-    modelNumber?: string;
-    serialNumber?: string;
-  };
+  @Prop({ type: ProductDetailsSchema, default: {} })
+  productDetails: ProductDetails;
+
+  @Prop({ type: JobDetailsSchema, default: {} })
+  jobDetails: JobDetails;
+
+  @Prop({ type: InvoiceDataSchema, default: {} })
+  invoiceData: InvoiceData;
 
   @Prop({ type: [String], default: [] })
   adminNotes: string[];
@@ -65,25 +102,6 @@ export class Booking {
 
   @Prop({ type: Types.ObjectId, ref: 'Feedback' })
   feedbackId?: Types.ObjectId;
-
-  @Prop({ type: Object })
-  invoiceData?: {
-    url?: string;
-    totalAmount?: number;
-    generatedAt?: Date;
-    partsTotal?: number;
-    serviceTotal?: number;
-    additionalCharges?: { label: string, amount: number }[];
-    grandTotal?: number;
-  };
-
-  @Prop({ type: Object, default: {} })
-  jobDetails?: {
-    diagnosis?: string;
-    workDone?: string;
-    recommendations?: string;
-    warrantyPeriod?: string;
-  };
 
   @Prop({ default: false })
   isBilled: boolean;

@@ -9,7 +9,10 @@ export class BookingsService {
   ) {}
 
   async findAllByUser(userId: string): Promise<Booking[]> {
-    return this.bookingModel.find({ userId }).populate('serviceId').sort({ createdAt: -1 }).exec();
+    return this.bookingModel.find({ userId })
+      .populate('userId serviceId')
+      .sort({ createdAt: -1 })
+      .exec();
   }
 
   async findAllForAdmin(page = 1, limit = 20, status?: string): Promise<{ data: Booking[]; total: number }> {
@@ -45,7 +48,7 @@ export class BookingsService {
   }
 
   async updateStatus(id: string, status: string): Promise<Booking> {
-    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status }, { new: true }).exec();
+    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status }, { returnDocument: 'after' }).exec();
     if (!updatedBooking) throw new NotFoundException('Booking not found');
     
     // Automatically generate the invoice when completed
@@ -64,7 +67,7 @@ export class BookingsService {
     const updatedBooking = await this.bookingModel.findByIdAndUpdate(
       id,
       { technicianId, status: 'ASSIGNED' },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
     if (!updatedBooking) throw new NotFoundException('Booking not found');
     return updatedBooking;
@@ -74,7 +77,7 @@ export class BookingsService {
     const booking = await this.bookingModel.findByIdAndUpdate(
       id, 
       { jobDetails: details },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
     if (!booking) throw new NotFoundException('Booking not found');
     return booking;
@@ -84,20 +87,32 @@ export class BookingsService {
     const booking = await this.bookingModel.findByIdAndUpdate(
       id,
       { productDetails: details },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
     if (!booking) throw new NotFoundException('Booking not found');
-    return booking;
+    
+    // Auto-generate invoice data to ensure serviceTotal is populated from subcategory
+    await this.generateInvoiceData(id);
+    
+    return this.bookingModel.findById(id).populate('userId serviceId technicianId').exec();
   }
 
   async updateServiceProperties(id: string, data: { serviceType?: string; paymentStatus?: string }): Promise<Booking> {
     const booking = await this.bookingModel.findByIdAndUpdate(
       id,
       data,
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
     if (!booking) throw new NotFoundException('Booking not found');
     return booking;
+  }
+
+  private parseNumericPrice(price: string | number): number {
+    if (typeof price === 'number') return price;
+    if (!price) return 0;
+    // Better regex to extract the numeric part from strings like "Starting at ₹249"
+    const match = price.toString().match(/(\d+)/);
+    return match ? parseFloat(match[1]) : 0;
   }
 
   async updateInvoiceManual(id: string, data: { serviceTotal?: number; additionalCharges?: any[] }): Promise<Booking> {
@@ -105,38 +120,46 @@ export class BookingsService {
     if (!booking) throw new NotFoundException('Booking not found');
 
     const invoiceData = { ...(booking.invoiceData || {}) };
-    if (data.serviceTotal !== undefined) invoiceData.serviceTotal = data.serviceTotal;
+    
+    // If serviceTotal is provided, use it. Otherwise, if missing, try to fetch from subcategory.
+    if (data.serviceTotal !== undefined) {
+      invoiceData.serviceTotal = data.serviceTotal;
+    } else if (invoiceData.serviceTotal === undefined || invoiceData.serviceTotal === 0) {
+      // Fallback to auto-generation for service charge
+      const service = await this.serviceModel.findById(booking.serviceId).exec();
+      if (service) {
+        const subCat = service.subCategories.id(booking.subCategoryId);
+        if (subCat) {
+          invoiceData.serviceTotal = this.parseNumericPrice(subCat.price);
+        }
+      }
+    }
+
     if (data.additionalCharges !== undefined) invoiceData.additionalCharges = data.additionalCharges;
 
-    // Recalculate total
-    const partsTotal = invoiceData.partsTotal || 0;
-    const additionalTotal = (invoiceData.additionalCharges || []).reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
-    invoiceData.totalAmount = (invoiceData.serviceTotal || 0) + partsTotal + additionalTotal;
-
-    booking.invoiceData = invoiceData;
-    return booking.save();
+    // Persist immediately and return updated doc via generateInvoiceData sync
+    booking.invoiceData = invoiceData as any;
+    await booking.save();
+    return this.generateInvoiceData(id);
   }
 
   async finalizeInvoice(id: string): Promise<Booking> {
-    // First generate the total amounts based on current visits/parts
-    await this.generateInvoiceData(id);
-    
-    // Then lock it
+    // Sync logic: update status and trigger final recalc
     const booking = await this.bookingModel.findByIdAndUpdate(
       id,
       { isBilled: true, status: 'COMPLETED' },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
-    
     if (!booking) throw new NotFoundException('Booking not found');
-    return booking;
+    
+    return this.generateInvoiceData(id);
   }
 
   async addAdminNote(id: string, note: string): Promise<Booking> {
     const booking = await this.bookingModel.findByIdAndUpdate(
       id,
       { $push: { adminNotes: note } },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
     if (!booking) throw new NotFoundException('Booking not found');
     return booking;
@@ -157,20 +180,24 @@ export class BookingsService {
     if (!booking) throw new NotFoundException('Booking not found');
     
     let partsTotal = 0;
-    let serviceTotal = (booking.invoiceData as any)?.serviceTotal;
+    let serviceTotal = booking.invoiceData?.serviceTotal;
 
-    // Default price from subcategory if not already manually set
-    if (serviceTotal === undefined) {
+    // Preserve existing additional charges
+    const additionalCharges = booking.invoiceData?.additionalCharges || [];
+
+    // Default price logic
+    if (serviceTotal === undefined || serviceTotal === 0) {
       const service = await this.serviceModel.findById(booking.serviceId).exec();
       if (service) {
         const subCat = service.subCategories.id(booking.subCategoryId);
         if (subCat) {
-          serviceTotal = parseFloat(subCat.price.replace(/[₹,\s]/g, '')) || 0;
+          serviceTotal = this.parseNumericPrice(subCat.price);
         }
       }
     }
     if (serviceTotal === undefined) serviceTotal = 0;
 
+    // Parts Calculation
     if (booking.visits && booking.visits.length > 0) {
       for (const visit of booking.visits as any[]) {
         if (visit.partsUsed) {
@@ -178,29 +205,29 @@ export class BookingsService {
             if (usage.isThirdParty) {
               partsTotal += (usage.cost || 0) * (usage.quantity || 1);
             } else if (usage.sparePartId) {
-              const rawPrice = usage.sparePartId.price || "0";
-              const numericPrice = parseFloat(rawPrice.replace(/[₹,\s]/g, '')) || 0;
-              partsTotal += numericPrice * (usage.quantity || 1);
+              partsTotal += this.parseNumericPrice(usage.sparePartId.price) * (usage.quantity || 1);
             }
           }
         }
       }
     }
 
-    const totalAmount = serviceTotal + partsTotal;
+    const additionalTotal = additionalCharges.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
+    const totalAmount = (serviceTotal || 0) + partsTotal + additionalTotal;
 
     const updatedBooking = await this.bookingModel.findByIdAndUpdate(
       id,
       {
-        invoiceData: {
-          generatedAt: new Date(),
-          partsTotal,
-          serviceTotal,
-          totalAmount,
-          url: `/api/v1/user/bookings/${id}/invoice` // Dummy URL for now
+        $set: {
+          'invoiceData.generatedAt': new Date(),
+          'invoiceData.partsTotal': partsTotal,
+          'invoiceData.serviceTotal': serviceTotal,
+          'invoiceData.additionalCharges': additionalCharges,
+          'invoiceData.totalAmount': totalAmount,
+          'invoiceData.url': `/api/v1/user/bookings/${id}/invoice`
         }
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
 
     return updatedBooking as Booking;

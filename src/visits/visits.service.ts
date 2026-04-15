@@ -35,7 +35,7 @@ export class VisitsService {
 
   async updateStatus(id: string, updateData: any): Promise<Visit> {
     const existingVisit = await this.visitModel
-      .findByIdAndUpdate(id, updateData, { new: true })
+      .findByIdAndUpdate(id, updateData, { returnDocument: 'after' })
       .populate('partsUsed')
       .exec();
     

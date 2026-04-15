@@ -43,7 +43,7 @@ export class TechniciansService {
 
   async update(id: string, updateData: any): Promise<Technician> {
     const existingTechnician = await this.technicianModel
-      .findByIdAndUpdate(id, updateData, { new: true })
+      .findByIdAndUpdate(id, updateData, { returnDocument: 'after' })
       .exec();
     if (!existingTechnician) {
       throw new NotFoundException('Technician not found');

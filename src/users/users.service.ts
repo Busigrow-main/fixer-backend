@@ -34,7 +34,7 @@ export class UsersService {
   }
 
   async updateRole(id: string, role: string): Promise<UserDocument> {
-    const user = await this.userModel.findByIdAndUpdate(id, { role }, { new: true, select: '-passwordHash' }).exec();
+    const user = await this.userModel.findByIdAndUpdate(id, { role }, { returnDocument: 'after', select: '-passwordHash' }).exec();
     if (!user) throw new Error('User not found');
     return user;
   }
