@@ -8,6 +8,9 @@ export class Booking {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'Technician' })
+  technicianId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
   serviceId: Types.ObjectId;
 
@@ -35,6 +38,32 @@ export class Booking {
 
   @Prop({ type: [String], default: [] })
   adminNotes: string[];
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Visit' }], default: [] })
+  visits: Types.ObjectId[];
+
+  @Prop({ type: Types.ObjectId, ref: 'Feedback' })
+  feedbackId?: Types.ObjectId;
+
+  @Prop({ type: Object })
+  invoiceData?: {
+    url?: string;
+    totalAmount?: number;
+    generatedAt?: Date;
+    partsTotal?: number;
+    serviceTotal?: number;
+  };
+
+  @Prop({ type: Object, default: {} })
+  jobDetails?: {
+    diagnosis?: string;
+    workDone?: string;
+    recommendations?: string;
+    warrantyPeriod?: string;
+  };
+
+  @Prop({ default: false })
+  isBilled: boolean;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);

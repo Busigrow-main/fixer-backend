@@ -68,9 +68,24 @@ export class AdminController {
     return this.bookingsService.updateStatus(id, status);
   }
 
+  @Put('bookings/:id/assign')
+  async assignTechnician(@Param('id') id: string, @Body('technicianId') technicianId: string) {
+    return this.bookingsService.assignTechnician(id, technicianId);
+  }
+
   @Post('bookings/:id/notes')
   async addBookingNote(@Param('id') id: string, @Body('note') note: string) {
     return this.bookingsService.addAdminNote(id, note);
+  }
+
+  @Put('bookings/:id/job-details')
+  async updateJobDetails(@Param('id') id: string, @Body() details: any) {
+    return this.bookingsService.updateJobDetails(id, details);
+  }
+
+  @Put('bookings/:id/finalize-invoice')
+  async finalizeInvoice(@Param('id') id: string) {
+    return this.bookingsService.finalizeInvoice(id);
   }
 
   // ─── Part Orders (paginated) ──────────────────────────────

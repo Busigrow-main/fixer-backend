@@ -9,6 +9,9 @@ import { SparePartsModule } from './spare-parts/spare-parts.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { PartOrdersModule } from './part-orders/part-orders.module';
 import { AdminModule } from './admin/admin.module';
+import { TechniciansModule } from './technicians/technicians.module';
+import { VisitsModule } from './visits/visits.module';
+import { WarrantiesModule } from './warranties/warranties.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { AdminModule } from './admin/admin.module';
     BookingsModule,
     PartOrdersModule,
     AdminModule,
+    TechniciansModule,
+    VisitsModule,
+    WarrantiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
