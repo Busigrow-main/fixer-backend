@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Param } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -16,6 +16,11 @@ export class BookingsController {
   @Post('bookings')
   async createBooking(@Request() req: any, @Body() createBookingDto: any) {
     return this.bookingsService.create(createBookingDto, req.user.userId);
+  }
+
+  @Post('user/bookings/:id/claim-warranty')
+  async claimWarranty(@Param('id') id: string) {
+    return this.bookingsService.claimWarranty(id);
   }
 }
 

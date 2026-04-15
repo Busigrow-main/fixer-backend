@@ -31,6 +31,15 @@ export class InvoiceData {
   @Prop({ default: 0 }) serviceTotal: number;
   @Prop({ default: 0 }) partsTotal: number;
   @Prop({ type: [AdditionalChargeSchema], default: [] }) additionalCharges: AdditionalCharge[];
+  @Prop({ 
+    type: [{ 
+      partName: String, 
+      quantity: Number, 
+      cost: Number, 
+      isThirdParty: Boolean 
+    }], 
+    default: [] 
+  }) spareParts: { partName: string, quantity: number, cost: number, isThirdParty: boolean }[];
   @Prop({ default: 0 }) totalAmount: number;
   @Prop() generatedAt: Date;
 }
@@ -102,6 +111,12 @@ export class Booking {
 
   @Prop({ type: Types.ObjectId, ref: 'Feedback' })
   feedbackId?: Types.ObjectId;
+
+  @Prop()
+  warrantyExpiry?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'Booking' })
+  parentId?: Types.ObjectId;
 
   @Prop({ default: false })
   isBilled: boolean;
