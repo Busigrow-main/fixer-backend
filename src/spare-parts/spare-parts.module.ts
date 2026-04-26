@@ -8,9 +8,11 @@ import { Brand, BrandSchema } from './schemas/brand.schema';
 import { Model, ModelSchema } from './schemas/model.schema';
 import { CategoryTree, CategoryTreeSchema } from './schemas/category-tree.schema';
 import { PartCategory, PartCategorySchema } from './schemas/part-category.schema';
+import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
+    SearchModule,
     MongooseModule.forFeature([
       { name: SparePart.name, schema: SparePartSchema },
       { name: ApplianceType.name, schema: ApplianceTypeSchema },

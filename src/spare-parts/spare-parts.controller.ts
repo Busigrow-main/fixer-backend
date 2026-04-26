@@ -108,7 +108,7 @@ export class SparePartsController {
   @Roles('ADMIN')
   @Delete(':id')
   async delete(@Param('id') id: string) {
-    return this.sparePartsService.delete(id);
+    return this.sparePartsService.deletePart(id);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -117,5 +117,13 @@ export class SparePartsController {
   async refreshTree() {
     await this.sparePartsService.refreshCategoryTree();
     return { success: true };
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  @Post('sync-search')
+  async syncSearch() {
+    const result = await this.sparePartsService.syncToElasticsearch();
+    return { success: true, ...result };
   }
 }

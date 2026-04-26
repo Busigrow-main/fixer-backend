@@ -16,6 +16,7 @@ import {
   PartCategory,
   PartCategoryDocument,
 } from './schemas/part-category.schema';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class SparePartsService {
@@ -32,6 +33,7 @@ export class SparePartsService {
     private categoryTreeModel: Model<CategoryTreeDocument>,
     @InjectModel(PartCategory.name)
     private partCategoryModel: Model<PartCategoryDocument>,
+    private readonly searchService: SearchService,
   ) {}
 
   // ================================================================
@@ -116,64 +118,61 @@ export class SparePartsService {
   }
 
   // ================================================================
-  // SEARCH & AUTOCOMPLETE (Premium Ecommerce Style)
+  // SEARCH & AUTOCOMPLETE (Elasticsearch-Powered with MongoDB Fallback)
   // ================================================================
 
-  /** Get instant suggestions for search-as-you-type */
+  /** Bulk sync all active parts into Elasticsearch */
+  async syncToElasticsearch(): Promise<{ indexed: number; errors: number }> {
+    const parts = await this.sparePartModel.find({ isActive: true }).lean().exec();
+    return this.searchService.bulkIndex(parts);
+  }
+
+  /** Get instant suggestions — Elasticsearch primary, MongoDB regex fallback */
   async getSuggestions(q: string): Promise<any> {
-    if (!q || q.length < 2) return { parts: [], categories: [], brands: [] };
+    if (!q || q.length < 1) return { parts: [], categories: [], brands: [] };
 
+    // Try Elasticsearch first
+    if (this.searchService.isAvailable()) {
+      const result = await this.searchService.suggest(q);
+      if (result.parts.length || result.categories.length || result.brands.length) {
+        return result;
+      }
+    }
+
+    // Fallback: MongoDB regex (fast for small catalogs)
     const regex = new RegExp(q, 'i');
-
     const [parts, categories, brands] = await Promise.all([
-      // Match parts by name or part number
       this.sparePartModel
-        .find({ 
-          isActive: true, 
-          $or: [
-            { name: regex },
-            { partNumber: regex },
-            { sku: regex }
-          ] 
-        })
-        .select('name sku partNumber price applianceTypeSlug')
-        .limit(5)
+        .find({ isActive: true, $or: [{ name: regex }, { partNumber: regex }, { sku: regex }] })
+        .select('name sku partNumber price applianceTypeSlug partCategory')
+        .limit(6)
         .exec(),
-      
-      // Match categories
-      this.partCategoryModel
-        .find({ name: regex, isActive: true })
-        .limit(3)
-        .exec(),
-      
-      // Match brands
-      this.brandModel
-        .find({ name: regex, isActive: true })
-        .limit(3)
-        .exec()
+      this.partCategoryModel.find({ name: regex, isActive: true }).limit(4).exec(),
+      this.brandModel.find({ name: regex, isActive: true }).limit(3).exec(),
     ]);
 
     return {
       parts: parts.map(p => ({
         type: 'part',
         title: p.name,
-        subtitle: `PN: ${p.partNumber || p.sku}`,
-        slug: p.sku,
-        appliance: p.applianceTypeSlug
+        subtitle: p.partNumber ? `PN: ${p.partNumber}` : p.partCategory,
+        sku: p.sku,
+        price: p.price,
+        appliance: p.applianceTypeSlug,
       })),
       categories: categories.map(c => ({
         type: 'category',
         title: c.name,
-        subtitle: `Browse ${c.applianceTypeSlug} parts`,
+        subtitle: `Browse ${c.applianceTypeSlug} spare parts`,
         slug: c.slug,
-        appliance: c.applianceTypeSlug
+        appliance: c.applianceTypeSlug,
       })),
       brands: brands.map(b => ({
         type: 'brand',
         title: b.name,
         subtitle: 'Shop by brand',
-        slug: b.slug
-      }))
+        slug: b.slug,
+      })),
     };
   }
 
@@ -499,18 +498,26 @@ export class SparePartsService {
     this.logger.log('Navigation category tree refreshed successfully.');
   }
 
-  // --- Helpers for CRUD with tree refresh ---
+  // --- Helpers for CRUD with tree refresh + ES reindex ---
   async createPart(data: any) {
     const part = await this.sparePartModel.create(data);
-    this.refreshCategoryTree(); // Fire and forget
+    this.refreshCategoryTree();
+    this.searchService.indexPart(part.toObject ? part.toObject() : part);
     return part;
   }
 
   async updatePart(id: string, data: any) {
-    const part = await this.sparePartModel.findByIdAndUpdate(id, data, {
-      new: true,
-    });
+    const part = await this.sparePartModel.findByIdAndUpdate(id, data, { new: true });
     this.refreshCategoryTree();
+    if (part) this.searchService.indexPart(part.toObject ? part.toObject() : part);
+    return part;
+  }
+
+  async deletePart(id: string) {
+    const part = await this.sparePartModel.findByIdAndDelete(id).exec();
+    if (!part) throw new NotFoundException('Spare Part not found');
+    this.refreshCategoryTree();
+    this.searchService.deleteFromIndex(id);
     return part;
   }
 
