@@ -116,8 +116,66 @@ export class SparePartsService {
   }
 
   // ================================================================
-  // SEARCH (independent, never triggered by navigation)
+  // SEARCH & AUTOCOMPLETE (Premium Ecommerce Style)
   // ================================================================
+
+  /** Get instant suggestions for search-as-you-type */
+  async getSuggestions(q: string): Promise<any> {
+    if (!q || q.length < 2) return { parts: [], categories: [], brands: [] };
+
+    const regex = new RegExp(q, 'i');
+
+    const [parts, categories, brands] = await Promise.all([
+      // Match parts by name or part number
+      this.sparePartModel
+        .find({ 
+          isActive: true, 
+          $or: [
+            { name: regex },
+            { partNumber: regex },
+            { sku: regex }
+          ] 
+        })
+        .select('name sku partNumber price applianceTypeSlug')
+        .limit(5)
+        .exec(),
+      
+      // Match categories
+      this.partCategoryModel
+        .find({ name: regex, isActive: true })
+        .limit(3)
+        .exec(),
+      
+      // Match brands
+      this.brandModel
+        .find({ name: regex, isActive: true })
+        .limit(3)
+        .exec()
+    ]);
+
+    return {
+      parts: parts.map(p => ({
+        type: 'part',
+        title: p.name,
+        subtitle: `PN: ${p.partNumber || p.sku}`,
+        slug: p.sku,
+        appliance: p.applianceTypeSlug
+      })),
+      categories: categories.map(c => ({
+        type: 'category',
+        title: c.name,
+        subtitle: `Browse ${c.applianceTypeSlug} parts`,
+        slug: c.slug,
+        appliance: c.applianceTypeSlug
+      })),
+      brands: brands.map(b => ({
+        type: 'brand',
+        title: b.name,
+        subtitle: 'Shop by brand',
+        slug: b.slug
+      }))
+    };
+  }
 
   async searchParts(queryObj: any): Promise<any> {
     const {
@@ -135,44 +193,45 @@ export class SparePartsService {
 
     const filter: any = { isActive: true };
 
+    // Advanced Text Search with Score
+    let projection = {};
+    let sortOptions: any = {};
+
     if (q) {
-      filter.$text = { $search: q };
+      // If q is short, use regex for prefix matching
+      // If q is long, use $text for better semantic matching
+      if (q.length < 4) {
+        filter.$or = [
+          { name: new RegExp(q, 'i') },
+          { partNumber: new RegExp(q, 'i') },
+          { sku: new RegExp(q, 'i') }
+        ];
+        sortOptions = { name: 1 };
+      } else {
+        filter.$text = { $search: q };
+        projection = { score: { $meta: 'textScore' } };
+        sortOptions = { score: { $meta: 'textScore' } };
+      }
     }
 
-    if (applianceType) {
-      filter.applianceTypeSlug = applianceType;
-    }
+    if (applianceType) filter.applianceTypeSlug = applianceType;
+    if (brand) filter.brandSlug = brand;
+    if (model) filter['compatibleModels.modelNumber'] = model;
+    if (partCategory) filter.partCategory = partCategory;
+    if (isUniversal !== undefined) filter.isUniversal = isUniversal === 'true';
+    if (isFeatured !== undefined) filter.isFeatured = isFeatured === 'true';
 
-    if (brand) {
-      filter.brandSlug = brand;
-    }
-
-    if (model) {
-      filter['compatibleModels.modelNumber'] = model;
-    }
-
-    if (partCategory) {
-      filter.partCategory = partCategory;
-    }
-
-    if (isUniversal !== undefined) {
-      filter.isUniversal = isUniversal === 'true';
-    }
-
-    if (isFeatured !== undefined) {
-      filter.isFeatured = isFeatured === 'true';
-    }
-
-    const skip = (page - 1) * limit;
-
-    let sortOptions: any = { createdAt: -1 };
+    // Override sort if specified
     if (sort === 'price_asc') sortOptions = { price: 1 };
     if (sort === 'price_desc') sortOptions = { price: -1 };
     if (sort === 'popular') sortOptions = { soldCount: -1 };
+    if (!q && !sort) sortOptions = { createdAt: -1 };
+
+    const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
       this.sparePartModel
-        .find(filter)
+        .find(filter, projection)
         .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit))

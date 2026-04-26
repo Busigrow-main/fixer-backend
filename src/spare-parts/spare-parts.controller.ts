@@ -74,6 +74,12 @@ export class SparePartsController {
     return this.sparePartsService.searchParts(query);
   }
 
+  /** GET /suggestions — autocomplete search */
+  @Get('suggestions')
+  async getSuggestions(@Query('q') q: string) {
+    return this.sparePartsService.getSuggestions(q);
+  }
+
   /** GET /:sku — single part by SKU */
   @Get(':sku')
   async findOne(@Param('sku') sku: string) {
