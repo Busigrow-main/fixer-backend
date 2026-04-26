@@ -8,35 +8,81 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class SparePartsController {
   constructor(private readonly sparePartsService: SparePartsService) {}
 
+  // ================================================================
+  // CATEGORY-DRIVEN NAVIGATION (structured, no search coupling)
+  // ================================================================
+
+  /** GET /categories — full navigation tree */
   @Get('categories')
   async getNavigationTree() {
     return this.sparePartsService.getNavigationTree();
   }
 
+  /** GET /categories/:type — single appliance type tree */
+  @Get('categories/:type')
+  async getTypeTree(@Param('type') type: string) {
+    return this.sparePartsService.getTypeTree(type);
+  }
+
+  /** GET /categories/:type/brands */
   @Get('categories/:type/brands')
   async getBrandsForType(@Param('type') type: string) {
     return this.sparePartsService.getBrandsForType(type);
   }
 
+  /** GET /categories/:type/brands/:brand/models */
   @Get('categories/:type/brands/:brand/models')
   async getModelsForBrand(@Param('type') type: string, @Param('brand') brand: string) {
     return this.sparePartsService.getModelsForBrand(brand, type);
   }
 
+  /** GET /categories/:type/:partCategory — parts by type + category */
+  @Get('categories/:type/:partCategory')
+  async getPartsByCategory(
+    @Param('type') type: string,
+    @Param('partCategory') partCategory: string,
+    @Query('brand') brand?: string,
+    @Query('universal') universal?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.sparePartsService.getPartsByCategory(
+      type,
+      partCategory,
+      brand || undefined,
+      universal !== undefined ? universal === 'true' : undefined,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 24,
+      sort,
+    );
+  }
+
+  // ================================================================
+  // SEARCH (independent from navigation)
+  // ================================================================
+
+  /** GET /meta/categories — distinct part category names */
   @Get('meta/categories')
   async getPartCategories() {
-    return this.sparePartsService.getCategories();
+    return this.sparePartsService.getPartCategories();
   }
 
+  /** GET / — search/filter parts (supports ?q=, ?applianceType=, etc.) */
   @Get()
   async findAll(@Query() query: any) {
-    return this.sparePartsService.findAll(query);
+    return this.sparePartsService.searchParts(query);
   }
 
+  /** GET /:sku — single part by SKU */
   @Get(':sku')
   async findOne(@Param('sku') sku: string) {
     return this.sparePartsService.findBySku(sku);
   }
+
+  // ================================================================
+  // ADMIN CRUD
+  // ================================================================
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
@@ -67,4 +113,3 @@ export class SparePartsController {
     return { success: true };
   }
 }
-

@@ -12,6 +12,10 @@ import {
   CategoryTree,
   CategoryTreeDocument,
 } from './schemas/category-tree.schema';
+import {
+  PartCategory,
+  PartCategoryDocument,
+} from './schemas/part-category.schema';
 
 @Injectable()
 export class SparePartsService {
@@ -26,9 +30,96 @@ export class SparePartsService {
     @InjectModel(ModelSpec.name) private modelModel: Model<ModelDocument>,
     @InjectModel(CategoryTree.name)
     private categoryTreeModel: Model<CategoryTreeDocument>,
+    @InjectModel(PartCategory.name)
+    private partCategoryModel: Model<PartCategoryDocument>,
   ) {}
 
-  async findAll(queryObj: any): Promise<any> {
+  // ================================================================
+  // CATEGORY-DRIVEN NAVIGATION (no search coupling)
+  // ================================================================
+
+  /** Get full navigation tree — all appliance types with their part categories */
+  async getNavigationTree(): Promise<CategoryTreeDocument[]> {
+    return this.categoryTreeModel.find().sort({ sortOrder: 1 }).exec();
+  }
+
+  /** Get a single appliance type's tree (part categories + brands) */
+  async getTypeTree(applianceTypeSlug: string): Promise<CategoryTreeDocument> {
+    const tree = await this.categoryTreeModel
+      .findOne({ applianceTypeSlug })
+      .exec();
+    if (!tree) throw new NotFoundException(`Appliance type '${applianceTypeSlug}' not found`);
+    return tree;
+  }
+
+  /** Get parts by category (structured query — no $text search) */
+  async getPartsByCategory(
+    applianceTypeSlug: string,
+    partCategorySlug: string,
+    brandSlug?: string,
+    isUniversal?: boolean,
+    page: number = 1,
+    limit: number = 24,
+    sort?: string,
+  ): Promise<any> {
+    // Resolve partCategory slug to name
+    const partCat = await this.partCategoryModel
+      .findOne({ slug: partCategorySlug, applianceTypeSlug })
+      .exec();
+    if (!partCat) throw new NotFoundException(`Part category '${partCategorySlug}' not found`);
+
+    const filter: any = {
+      applianceTypeSlug,
+      partCategory: partCat.name,
+      isActive: true,
+    };
+
+    if (brandSlug) {
+      filter.brandSlug = brandSlug;
+    }
+
+    if (isUniversal !== undefined) {
+      filter.isUniversal = isUniversal;
+    }
+
+    const skip = (page - 1) * limit;
+
+    let sortOptions: any = { createdAt: -1 };
+    if (sort === 'price_asc') sortOptions = { price: 1 };
+    if (sort === 'price_desc') sortOptions = { price: -1 };
+    if (sort === 'popular') sortOptions = { soldCount: -1 };
+
+    const [data, total] = await Promise.all([
+      this.sparePartModel
+        .find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.sparePartModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      data,
+      metadata: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      context: {
+        applianceType: applianceTypeSlug,
+        partCategory: { slug: partCat.slug, name: partCat.name },
+        brand: brandSlug || null,
+      },
+    };
+  }
+
+  // ================================================================
+  // SEARCH (independent, never triggered by navigation)
+  // ================================================================
+
+  async searchParts(queryObj: any): Promise<any> {
     const {
       q,
       applianceType,
@@ -100,16 +191,15 @@ export class SparePartsService {
     };
   }
 
-  async getNavigationTree(): Promise<CategoryTreeDocument[]> {
-    return this.categoryTreeModel.find().sort({ sortOrder: 1 }).exec();
-  }
+  // ================================================================
+  // LOOKUP HELPERS
+  // ================================================================
 
   async getBrandsForType(applianceTypeSlug: string): Promise<any> {
     const brands = await this.brandModel
       .find({ applianceTypes: applianceTypeSlug, isActive: true })
       .exec();
 
-    // Also check for universal parts to see if we should show the "Generic" card
     const universalCount = await this.sparePartModel.countDocuments({
       applianceTypeSlug,
       isUniversal: true,
@@ -132,7 +222,7 @@ export class SparePartsService {
       .exec();
   }
 
-  async getCategories(): Promise<string[]> {
+  async getPartCategories(): Promise<string[]> {
     return this.sparePartModel.distinct('partCategory').exec();
   }
 
@@ -149,6 +239,10 @@ export class SparePartsService {
     if (!sparePart) throw new NotFoundException('Spare Part not found');
     return sparePart;
   }
+
+  // ================================================================
+  // CRUD
+  // ================================================================
 
   async create(createSparePartDto: any): Promise<SparePart> {
     const createdSparePart = new this.sparePartModel(createSparePartDto);
@@ -199,12 +293,10 @@ export class SparePartsService {
         totalInserted += result.upsertedCount;
         totalUpdated += result.modifiedCount;
       } catch (err: any) {
-        // Handle partial failures from ordered: false
         if (err.result) {
           totalInserted += err.result.nUpserted || 0;
           totalUpdated += err.result.nModified || 0;
         }
-        // Capture individual write errors
         if (err.writeErrors) {
           err.writeErrors.forEach((we: any) => {
             errors.push({
@@ -221,9 +313,13 @@ export class SparePartsService {
       inserted: totalInserted,
       updated: totalUpdated,
       failed: errors.length,
-      errors: errors.slice(0, 100), // Cap error reporting
+      errors: errors.slice(0, 100),
     };
   }
+
+  // ================================================================
+  // CATEGORY TREE REFRESH
+  // ================================================================
 
   async refreshCategoryTree(): Promise<void> {
     this.logger.log('Refreshing navigation category tree...');
@@ -233,6 +329,68 @@ export class SparePartsService {
       .exec();
 
     for (const type of applianceTypes) {
+      // Get all part categories for this appliance type
+      const partCategories = await this.partCategoryModel
+        .find({ applianceTypeSlug: type.slug, isActive: true })
+        .sort({ sortOrder: 1 })
+        .exec();
+
+      const partCategoriesWithCounts = await Promise.all(
+        partCategories.map(async (cat) => {
+          const catPartCount = await this.sparePartModel.countDocuments({
+            applianceTypeSlug: type.slug,
+            partCategory: cat.name,
+            isActive: true,
+          });
+
+          // Get brands that have parts in this category
+          const brandsInCategory = await this.sparePartModel.aggregate([
+            {
+              $match: {
+                applianceTypeSlug: type.slug,
+                partCategory: cat.name,
+                isActive: true,
+                brandSlug: { $ne: null },
+              },
+            },
+            {
+              $group: {
+                _id: '$brandSlug',
+                partCount: { $sum: 1 },
+              },
+            },
+          ]);
+
+          // Resolve brand names
+          const brandsWithNames = await Promise.all(
+            brandsInCategory.map(async (b) => {
+              const brand = await this.brandModel
+                .findOne({ slug: b._id })
+                .exec();
+              return {
+                brandSlug: b._id,
+                brandName: brand?.name || b._id,
+                partCount: b.partCount,
+              };
+            }),
+          );
+
+          // Update denormalized count on the PartCategory doc
+          await this.partCategoryModel.findByIdAndUpdate(cat._id, {
+            partCount: catPartCount,
+          });
+
+          return {
+            slug: cat.slug,
+            name: cat.name,
+            icon: cat.icon || 'category',
+            partCount: catPartCount,
+            brands: brandsWithNames,
+          };
+        }),
+      );
+
+      // Top-level brand summary
       const brands = await this.brandModel
         .find({ applianceTypes: type.slug, isActive: true })
         .exec();
@@ -245,19 +403,11 @@ export class SparePartsService {
             isActive: true,
           });
 
-          const hasUniversal = await this.sparePartModel.exists({
-            applianceTypeSlug: type.slug,
-            brandSlug: brand.slug,
-            isUniversal: true,
-            isActive: true,
-          });
-
           return {
             brandSlug: brand.slug,
             brandName: brand.name,
-            logoUrl: brand.logoUrl,
+            logoUrl: brand.logoUrl || '',
             partCount: count,
-            hasUniversalParts: !!hasUniversal,
           };
         }),
       );
@@ -279,6 +429,7 @@ export class SparePartsService {
           applianceTypeName: type.name,
           applianceTypeIcon: type.icon,
           sortOrder: type.sortOrder,
+          partCategories: partCategoriesWithCounts,
           brands: brandsWithCounts,
           universalPartsCount: universalCount,
           totalPartsCount: totalCount,

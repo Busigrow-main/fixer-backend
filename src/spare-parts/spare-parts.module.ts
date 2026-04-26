@@ -7,6 +7,7 @@ import { ApplianceType, ApplianceTypeSchema } from './schemas/appliance-type.sch
 import { Brand, BrandSchema } from './schemas/brand.schema';
 import { Model, ModelSchema } from './schemas/model.schema';
 import { CategoryTree, CategoryTreeSchema } from './schemas/category-tree.schema';
+import { PartCategory, PartCategorySchema } from './schemas/part-category.schema';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CategoryTree, CategoryTreeSchema } from './schemas/category-tree.schema
       { name: Brand.name, schema: BrandSchema },
       { name: Model.name, schema: ModelSchema },
       { name: CategoryTree.name, schema: CategoryTreeSchema },
+      { name: PartCategory.name, schema: PartCategorySchema },
     ]),
   ],
   controllers: [SparePartsController],
