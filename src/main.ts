@@ -23,7 +23,7 @@ async function bootstrap() {
 
   app.use(json({ limit: '10mb' }));
 
-  const port = process.env.PORT || 5000;
+  const port = process.env.PORT || 8080;
 
   await app.listen(port, '0.0.0.0');
 
