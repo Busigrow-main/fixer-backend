@@ -3,22 +3,33 @@ import { AppModule } from './app.module';
 import { json } from 'express';
 
 async function bootstrap() {
+  console.log('BOOT: Starting application...');
+
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+
   if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-    throw new Error('FATAL: JWT_SECRET environment variable must be set in production');
+    throw new Error('FATAL: JWT_SECRET missing');
   }
 
   const app = await NestFactory.create(AppModule);
+
+  console.log('BOOT: Nest app created');
+
   app.enableCors({
-    // origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    // origin: [
-    //   'http://localhost:3000',
-    //   'https://fixer-frontend-five.vercel.app',
-    //   'https://fixxer.com',
-    // ],
     origin: true,
     credentials: true,
   });
-  app.use(json({ limit: '50mb' }));
-  await app.listen(process.env.PORT ?? 5000);
+
+  app.use(json({ limit: '10mb' }));
+
+  const port = process.env.PORT || 5000;
+
+  await app.listen(port, '0.0.0.0');
+
+  console.log(`BOOT: Server running on ${port}`);
 }
-bootstrap();
+
+bootstrap().catch((err) => {
+  console.error('BOOT ERROR:', err);
+});
