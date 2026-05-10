@@ -10,11 +10,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
     // origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    origin: [
-      'http://localhost:3000',
-      'https://fixer-frontend-five.vercel.app',
-      'https://fixxer.com',
-    ],
+    // origin: [
+    //   'http://localhost:3000',
+    //   'https://fixer-frontend-five.vercel.app',
+    //   'https://fixxer.com',
+    // ],
+    origin: true,
     credentials: true,
   });
   app.use(json({ limit: '50mb' }));
