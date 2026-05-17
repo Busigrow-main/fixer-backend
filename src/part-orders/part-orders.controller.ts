@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { PartOrdersService } from './part-orders.service';
+import { CreatePartOrderDto } from './dtos/create-part-order.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @UseGuards(AuthGuard('jwt'))
@@ -14,7 +15,7 @@ export class PartOrdersController {
   }
 
   @Post('part-orders')
-  async createOrder(@Request() req: any, @Body() createOrderDto: any) {
+  async createOrder(@Request() req: any, @Body() createOrderDto: CreatePartOrderDto) {
     return this.partOrdersService.create(createOrderDto, req.user.userId);
   }
 }
