@@ -37,3 +37,7 @@ lerna-debug.log*
 .env
 .env.test
 .env.production
+
+# AC pipeline scraped images (local only)
+src/scripts/ac-pipeline/images/*
+!src/scripts/ac-pipeline/images/.gitkeep

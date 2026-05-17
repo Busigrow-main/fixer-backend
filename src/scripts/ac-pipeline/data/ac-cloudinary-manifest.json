@@ -1,0 +1,378 @@
+{
+  "generatedAt": "2026-05-17T11:40:34.344Z",
+  "cloudinaryFolder": "fixxer/appliances",
+  "skus": {
+    "40101701SD01777": {
+      "slug": "godrej-1-5t-5s-inverter-split-18f5tg",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018035/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018036/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018037/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018038/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018039/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018040/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018041/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018042/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018043/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018044/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018045/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018046/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018035/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018036/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018037/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018038/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018039/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018040/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018041/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018042/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018043/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018044/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018045/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018046/fixxer/appliances/godrej-1-5t-5s-inverter-split-18f5tg/description-05.png"
+      }
+    },
+    "40101701SD01759": {
+      "slug": "godrej-1t-3s-inverter-split-12q3th",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018047/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018048/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018049/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018050/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018051/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018052/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018052/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018053/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018054/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018056/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018057/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018058/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018047/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018048/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018049/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018050/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018051/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018052/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018052/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018053/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018054/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018056/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018057/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018058/fixxer/appliances/godrej-1t-3s-inverter-split-12q3th/description-05.png"
+      }
+    },
+    "40101701SD01765": {
+      "slug": "godrej-1t-5s-inverter-split-12q5th",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018059/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018060/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018061/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018062/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018063/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018064/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018065/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018066/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018067/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018068/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018069/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018070/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018059/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018060/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018061/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018062/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018063/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018064/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018065/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018066/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018067/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018068/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018069/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018070/fixxer/appliances/godrej-1t-5s-inverter-split-12q5th/description-05.png"
+      }
+    },
+    "40101701SD01906": {
+      "slug": "godrej-1-5t-3s-inverter-split-18q3tg",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018071/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018072/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018073/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018074/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018075/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018076/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018077/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018078/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018078/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018079/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018080/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018081/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018071/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018072/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018073/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018074/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018075/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018076/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018077/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018078/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018078/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018079/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018080/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018081/fixxer/appliances/godrej-1-5t-3s-inverter-split-18q3tg/description-05.png"
+      }
+    },
+    "40101701SD01900": {
+      "slug": "godrej-1-5t-3s-fixed-speed-split-18r2th",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018082/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018083/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018083/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018084/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018085/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018086/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018087/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018087/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018088/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018089/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018090/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018091/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018082/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018083/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018083/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018084/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018085/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018086/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018087/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018087/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018088/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018089/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018090/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018091/fixxer/appliances/godrej-1-5t-3s-fixed-speed-split-18r2th/description-05.png"
+      }
+    },
+    "40101701SD01744": {
+      "slug": "godrej-1-5t-5s-inverter-split-18j5tg",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018092/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018093/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018094/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018095/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018096/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018097/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018098/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018099/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018099/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018100/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018101/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018102/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018092/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018093/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018094/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018095/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018096/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018097/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018098/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018099/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018099/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018100/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018101/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018102/fixxer/appliances/godrej-1-5t-5s-inverter-split-18j5tg/description-05.png"
+      }
+    },
+    "40101701SD01774": {
+      "slug": "godrej-1-5t-5s-inverter-split-19j5tg",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018103/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018104/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018105/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018106/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018107/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018108/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018109/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018109/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018110/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018111/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018112/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018113/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018103/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018104/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018105/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018106/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018107/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018108/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018109/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018109/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018110/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018111/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018112/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018113/fixxer/appliances/godrej-1-5t-5s-inverter-split-19j5tg/description-05.png"
+      }
+    },
+    "40101701SD01909": {
+      "slug": "godrej-1-7t-5s-inverter-split-20j5tg",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018114/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018115/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018116/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018117/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018118/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018118/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018119/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018120/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018121/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018122/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018123/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018123/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018114/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018115/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018116/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018117/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018118/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018118/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018119/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018120/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018121/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018122/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018123/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018123/fixxer/appliances/godrej-1-7t-5s-inverter-split-20j5tg/description-05.png"
+      }
+    },
+    "40101701SD01740": {
+      "slug": "godrej-2t-3s-inverter-split-24j3ts",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018124/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018125/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018127/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018128/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018129/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018130/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018131/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018132/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018132/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018133/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018135/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018136/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018124/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018125/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018127/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018128/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018129/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018130/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018131/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018132/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018132/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018133/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018135/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018136/fixxer/appliances/godrej-2t-3s-inverter-split-24j3ts/description-05.png"
+      }
+    },
+    "40101701SD01892": {
+      "slug": "godrej-2t-3s-fixed-speed-split-24k2tg",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018137/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018138/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018139/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018139/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018141/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018141/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018142/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018143/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018144/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018145/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018146/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018147/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018137/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018138/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018139/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018139/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018141/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018141/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018142/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018143/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018144/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018145/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018146/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018147/fixxer/appliances/godrej-2t-3s-fixed-speed-split-24k2tg/description-05.png"
+      }
+    },
+    "40101701SD01751": {
+      "slug": "godrej-2-5t-3s-inverter-split-30k3tg",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018147/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018148/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018149/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018150/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018151/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018152/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018153/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018153/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018154/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018155/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018156/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018157/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018147/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018148/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018149/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018150/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018151/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018152/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018153/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018153/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018154/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018155/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018156/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018157/fixxer/appliances/godrej-2-5t-3s-inverter-split-30k3tg/description-05.png"
+      }
+    },
+    "40101701SD01801": {
+      "slug": "godrej-3t-3s-inverter-split-36b3th",
+      "images": [
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018158/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/01-hero.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018159/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018160/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-02.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018161/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-03.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018162/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-04.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018163/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-05.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018163/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-06.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018164/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-01.jpg",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018166/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-02.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018166/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-03.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018167/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-04.png",
+        "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018168/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-05.png"
+      ],
+      "files": {
+        "01-hero.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018158/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/01-hero.jpg",
+        "02-gallery-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018159/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-01.jpg",
+        "02-gallery-02.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018160/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-02.jpg",
+        "02-gallery-03.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018161/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-03.jpg",
+        "02-gallery-04.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018162/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-04.jpg",
+        "02-gallery-05.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018163/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-05.jpg",
+        "02-gallery-06.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018163/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/02-gallery-06.jpg",
+        "description-01.jpeg": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018164/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-01.jpg",
+        "description-02.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018166/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-02.png",
+        "description-03.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018166/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-03.png",
+        "description-04.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018167/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-04.png",
+        "description-05.png": "https://res.cloudinary.com/dlpj4v4ez/image/upload/v1779018168/fixxer/appliances/godrej-3t-3s-inverter-split-36b3th/description-05.png"
+      }
+    }
+  }
+}

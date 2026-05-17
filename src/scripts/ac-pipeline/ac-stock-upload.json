@@ -1,0 +1,89 @@
+{
+  "source": "AC stock upload 2026",
+  "items": [
+    {
+      "itemCode": "40101701SD01777",
+      "description": "AC 1.5T DS WIC 18F5TG WA",
+      "nlc": 32089,
+      "star": 5,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01759",
+      "description": "AC 1.0T DS HIC 12Q3TH WA",
+      "nlc": 29514,
+      "star": 3,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01765",
+      "description": "AC 1.0T DS HIC 12Q5TH WA",
+      "nlc": 34051,
+      "star": 5,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01906",
+      "description": "AC 1.5T DS HIC 18Q3TG WA 4",
+      "nlc": 31500,
+      "star": 3,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01900",
+      "description": "AC 1.5T DS HFC 18R2TH WA",
+      "nlc": 35504,
+      "star": 3,
+      "type": "Fixed Speed"
+    },
+    {
+      "itemCode": "40101701SD01744",
+      "description": "AC 1.5T DS HIC 18J5TG WA",
+      "nlc": 38000,
+      "star": 5,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01774",
+      "description": "AC 1.5T DS HIC 19J5TG WA",
+      "nlc": 38000,
+      "star": 5,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01909",
+      "description": "AC 1.7T DS HIC 20J5TG WA",
+      "nlc": 39913,
+      "star": 5,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01740",
+      "description": "AC 2.0T DS HIC 24J3TS WA",
+      "nlc": 40092,
+      "star": 3,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01892",
+      "description": "AC 2.0T DS HFC 24K2TG WA",
+      "nlc": 41009,
+      "star": 3,
+      "type": "Fixed Speed"
+    },
+    {
+      "itemCode": "40101701SD01751",
+      "description": "AC 2.5T DS HIC 30K3TG RA 4",
+      "nlc": 48859,
+      "star": 3,
+      "type": "Inverter"
+    },
+    {
+      "itemCode": "40101701SD01801",
+      "description": "AC 3.0T DS HIC 36B3TH WA 4",
+      "nlc": 55053,
+      "star": 3,
+      "type": "Inverter"
+    }
+  ]
+}
