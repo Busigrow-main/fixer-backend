@@ -12,6 +12,7 @@ import { AdminService } from './admin.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { PartOrdersService } from '../part-orders/part-orders.service';
+import { UpdateOrderBillDto } from '../part-orders/dtos/update-order-bill.dto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const csv = require('csv-parser');
 import * as xlsx from 'xlsx';
@@ -130,8 +131,29 @@ export class AdminController {
     @Query('page') page = '1',
     @Query('limit') limit = '20',
     @Query('status') status?: string,
+    @Query('orderType') orderType?: 'part' | 'appliance',
   ) {
-    return this.partOrdersService.findAllForAdmin(parseInt(page), parseInt(limit), status);
+    return this.partOrdersService.findAllForAdmin(
+      parseInt(page, 10),
+      parseInt(limit, 10),
+      status,
+      orderType,
+    );
+  }
+
+  @Get('part-orders/:id')
+  async getPartOrder(@Param('id') id: string) {
+    return this.partOrdersService.findOne(id);
+  }
+
+  @Put('part-orders/:id/bill')
+  async upsertPartOrderBill(@Param('id') id: string, @Body() body: UpdateOrderBillDto) {
+    return this.partOrdersService.upsertBill(id, body);
+  }
+
+  @Put('part-orders/:id/mark-paid')
+  async markPartOrderPaid(@Param('id') id: string) {
+    return this.partOrdersService.markPaymentComplete(id);
   }
 
   @Put('part-orders/:id/status')

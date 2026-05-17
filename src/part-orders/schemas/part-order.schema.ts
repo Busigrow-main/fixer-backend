@@ -41,6 +41,50 @@ export class ApplianceOrderItem {
 }
 export const ApplianceOrderItemSchema = SchemaFactory.createForClass(ApplianceOrderItem);
 
+@Schema({ _id: false })
+export class BillLineItem {
+  @Prop({ required: true })
+  description: string;
+
+  @Prop({ required: true, min: 1 })
+  quantity: number;
+
+  @Prop({ required: true, min: 0 })
+  unitPrice: number;
+
+  @Prop({ required: true, min: 0 })
+  amount: number;
+}
+export const BillLineItemSchema = SchemaFactory.createForClass(BillLineItem);
+
+@Schema({ _id: false })
+export class OrderInvoiceData {
+  @Prop({ type: [BillLineItemSchema], default: [] })
+  lineItems: BillLineItem[];
+
+  @Prop({ default: 0 })
+  subtotal: number;
+
+  @Prop({ default: 0 })
+  taxPercent: number;
+
+  @Prop({ default: 0 })
+  taxAmount: number;
+
+  @Prop({ default: 0 })
+  totalAmount: number;
+
+  @Prop()
+  notes?: string;
+
+  @Prop()
+  generatedAt?: Date;
+
+  @Prop()
+  finalizedAt?: Date;
+}
+export const OrderInvoiceDataSchema = SchemaFactory.createForClass(OrderInvoiceData);
+
 @Schema({ timestamps: true })
 export class PartOrder {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
@@ -89,6 +133,19 @@ export class PartOrder {
     courierName: string;
     trackingNumber: string;
   };
+
+  @Prop({ type: OrderInvoiceDataSchema, default: {} })
+  invoiceData?: OrderInvoiceData;
+
+  @Prop({
+    type: String,
+    enum: ['UNPAID', 'PAID'],
+    default: 'UNPAID',
+  })
+  paymentStatus: 'UNPAID' | 'PAID';
+
+  @Prop({ default: false })
+  isBilled: boolean;
 }
 
 export const PartOrderSchema = SchemaFactory.createForClass(PartOrder);
