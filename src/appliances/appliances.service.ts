@@ -1,16 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Appliance, ApplianceDocument } from './schemas/appliance.schema';
 import {
-  CreateApplianceDto,
-  UpdateApplianceDto,
-  FilterApplianceDto,
-  ApplianceResponseDto,
+  CreateApplianceDto, UpdateApplianceDto,
+  FilterApplianceDto, ApplianceResponseDto,
 } from './dtos/appliance.dto';
 
 @Injectable()
@@ -20,188 +14,112 @@ export class AppliancesService {
     private applianceModel: Model<ApplianceDocument>,
   ) {}
 
-  /**
-   * Find all appliances with filtering, sorting, and pagination
-   */
   async findAll(filters: FilterApplianceDto): Promise<ApplianceResponseDto> {
     const {
-      capacity,
-      stars,
-      type,
-      minPrice,
-      maxPrice,
-      inStock,
-      sort = 'newest',
-      page = 1,
-      perPage = 12,
+      capacity, stars, brand, series, type,
+      minPrice, maxPrice, inStock,
+      sort = 'newest', page = 1, perPage = 12,
     } = filters;
 
-    // Build filter query
-    const query: any = {
-      applianceCategory: 'ac',
-      isActive: true,
-    };
+    const query: any = { applianceCategory: 'ac', isActive: true };
 
-    if (capacity) {
-      query.capacityTon = capacity;
-    }
-
-    if (stars) {
-      query.starRating = { $gte: stars };
-    }
+    if (capacity)  query.capacityTon = capacity;
+    if (stars)     query.starRating = { $gte: Number(stars) };
+    if (brand)     query.brand = { $regex: brand, $options: 'i' };
+    if (series)    query.series = { $regex: series, $options: 'i' };
 
     if (type) {
-      // Handle "inverter" type filter - it's a property, not just ac_type
-      if (type === 'inverter') {
-        query.isInverter = true;
-      } else {
-        query.acType = type;
-      }
+      if (type === 'inverter')      query.isInverter = true;
+      else if (type === 'fixed-speed') query.isInverter = false;
+      else                           query.acType = type;
     }
 
     if (minPrice || maxPrice) {
       query.price = {};
-      if (minPrice) query.price.$gte = minPrice;
-      if (maxPrice) query.price.$lte = maxPrice;
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
-    if (inStock !== undefined) {
-      query.inStock = inStock;
-    }
+    if (inStock !== undefined) query.inStock = inStock;
 
-    // Build sort
-    let sortOptions: any = { createdAt: -1 }; // default: newest
+    let sortOptions: any = { createdAt: -1 };
     switch (sort) {
-      case 'price_asc':
-        sortOptions = { price: 1 };
-        break;
-      case 'price_desc':
-        sortOptions = { price: -1 };
-        break;
-      case 'rating_desc':
-        sortOptions = { starRating: -1 };
-        break;
-      case 'newest':
-      default:
-        sortOptions = { createdAt: -1 };
+      case 'price_asc':   sortOptions = { price: 1 };       break;
+      case 'price_desc':  sortOptions = { price: -1 };      break;
+      case 'rating_desc': sortOptions = { starRating: -1 }; break;
+      default:            sortOptions = { capacityTon: 1, price: 1 }; // logical default
     }
 
-    // Pagination
-    const skip = (page - 1) * perPage;
+    const skip = (Number(page) - 1) * Number(perPage);
 
-    // Execute queries
     const [products, total] = await Promise.all([
-      this.applianceModel
-        .find(query)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(perPage)
-        .lean()
-        .exec(),
+      this.applianceModel.find(query).sort(sortOptions).skip(skip).limit(Number(perPage)).lean().exec(),
       this.applianceModel.countDocuments(query),
     ]);
 
     return {
       status: 'success',
       total,
-      page,
-      perPage,
+      page: Number(page),
+      perPage: Number(perPage),
       products: products.map((p) => this.formatProduct(p)),
     };
   }
 
-  /**
-   * Find single appliance by slug
-   */
   async findBySlug(slug: string): Promise<any> {
-    const product = await this.applianceModel
-      .findOne({ slug, isActive: true })
-      .lean()
-      .exec();
-
-    if (!product) {
-      throw new NotFoundException(`Product with slug "${slug}" not found`);
-    }
-
-    return {
-      status: 'success',
-      product: this.formatProduct(product),
-    };
+    const product = await this.applianceModel.findOne({ slug, isActive: true }).lean().exec();
+    if (!product) throw new NotFoundException(`Product "${slug}" not found`);
+    return { status: 'success', product: this.formatProduct(product) };
   }
 
-  /**
-   * Create new appliance (admin only)
-   */
   async create(createDto: CreateApplianceDto): Promise<any> {
-    // Validate slug uniqueness
-    const existing = await this.applianceModel.findOne({
-      slug: createDto.slug,
-    });
-    if (existing) {
-      throw new BadRequestException(`Slug "${createDto.slug}" already exists`);
-    }
-
-    // Ensure appliance category is set
-    const applianceData = {
-      ...createDto,
-      applianceCategory: 'ac',
-      isActive: createDto.isActive !== false,
-    };
-
-    const appliance = new this.applianceModel(applianceData);
+    const existing = await this.applianceModel.findOne({ slug: createDto.slug });
+    if (existing) throw new BadRequestException(`Slug "${createDto.slug}" already exists`);
+    const appliance = new this.applianceModel({ ...createDto, applianceCategory: 'ac', isActive: createDto.isActive !== false });
     const saved = await appliance.save();
-
-    return {
-      status: 'success',
-      product: this.formatProduct(saved.toObject()),
-    };
+    return { status: 'success', product: this.formatProduct(saved.toObject()) };
   }
 
-  /**
-   * Update appliance (admin only)
-   */
   async update(slug: string, updateDto: UpdateApplianceDto): Promise<any> {
-    const product = await this.applianceModel.findOneAndUpdate(
-      { slug },
-      updateDto,
-      { new: true, runValidators: true },
-    );
-
-    if (!product) {
-      throw new NotFoundException(`Product with slug "${slug}" not found`);
-    }
-
-    return {
-      status: 'success',
-      product: this.formatProduct(product.toObject()),
-    };
+    const product = await this.applianceModel.findOneAndUpdate({ slug }, updateDto, { new: true, runValidators: true });
+    if (!product) throw new NotFoundException(`Product "${slug}" not found`);
+    return { status: 'success', product: this.formatProduct(product.toObject()) };
   }
 
-  /**
-   * Helper: Format product response (snake_case to camelCase conversion for API)
-   */
-  private formatProduct(product: any): any {
+  private formatProduct(p: any): any {
     return {
-      id: product._id.toString(),
-      slug: product.slug,
-      name: product.name,
-      brand: product.brand,
-      modelNumber: product.modelNumber,
-      price: product.price,
-      originalPrice: product.originalPrice,
-      capacityTon: product.capacityTon,
-      starRating: product.starRating,
-      acType: product.acType,
-      isInverter: product.isInverter,
-      description: product.description,
-      shortDescription: product.shortDescription,
-      images: product.images,
-      specs: product.specs,
-      inStock: product.inStock,
-      warrantyYears: product.warrantyYears,
-      installationIncluded: product.installationIncluded,
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
+      id:               p._id?.toString(),
+      slug:             p.slug,
+      name:             p.name,
+      brand:            p.brand,
+      modelNumber:      p.modelNumber,
+      sku:              p.sku,
+      series:           p.series,
+      descriptionCode:  p.descriptionCode,
+      price:            p.price,
+      originalPrice:    p.originalPrice,
+      nlcPrice:         p.nlcPrice,
+      capacityTon:      p.capacityTon,
+      starRating:       p.starRating,
+      acType:           p.acType,
+      isInverter:       p.isInverter,
+      roomSizeRecommendation: p.roomSizeRecommendation,
+      description:      p.description,
+      descriptionSections: p.descriptionSections ?? [],
+      technicalDescription: p.technicalDescription ?? null,
+      shortDescription: p.shortDescription,
+      images:           p.images,
+      specsPerformance: p.specsPerformance,
+      specsSmart:       p.specsSmart,
+      specsPhysical:    p.specsPhysical,
+      highlights:       p.highlights ?? [],
+      whatsInBox:       p.whatsInBox ?? [],
+      inStock:          p.inStock,
+      installationIncluded: p.installationIncluded,
+      compressorWarrantyYears: p.compressorWarrantyYears,
+      productWarrantyYears:    p.productWarrantyYears,
+      createdAt:        p.createdAt,
+      updatedAt:        p.updatedAt,
     };
   }
 }

@@ -1,94 +1,211 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Document } from 'mongoose';
 
 export type ApplianceDocument = Appliance & Document;
 
+// ── Nested type for structured specs ──────────────────────────
+class DimensionSpec {
+  width: number;
+  height: number;
+  depth: number;
+}
+
+class PerformanceSpecs {
+  coolingCapacityBtu: string;
+  iseerRating: number;
+  annualEnergyUnits: number; // kWh/year
+  energyConsumptionW: number; // Watts
+  refrigerant: string;
+  compressorType: string; // 'Inverter' | 'Fixed Speed'
+  ambientTempRangeC: string; // e.g. "10°C to 54°C"
+}
+
+class SmartSpecs {
+  wifiEnabled: boolean;
+  autoCleanEnabled: boolean;
+  pm25Filter: boolean;
+  sleepMode: boolean;
+  selfDiagnosis: boolean;
+  operatingModes: string[]; // ["cool","dry","fan","auto","sleep"]
+  noiseLevelIndoorDb: number;
+  noiseLevelOutdoorDb: number;
+}
+
+class PhysicalSpecs {
+  indoorDimensions: DimensionSpec; // mm
+  outdoorDimensions: DimensionSpec; // mm
+  indoorWeightKg: number;
+  outdoorWeightKg: number;
+  colour: string;
+  voltageRequirement: string; // e.g. "230V ~ 50Hz"
+  pipeLengthM: number; // standard pipe length included
+}
+
+class Highlight {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export const DESCRIPTION_SECTION_TYPES = [
+  'hero',
+  'image_text',
+  'feature_grid',
+  'banner',
+  'html',
+  'image_full',
+] as const;
+
+export type DescriptionSectionType = (typeof DESCRIPTION_SECTION_TYPES)[number];
+
+class DescriptionFeature {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+class DescriptionSection {
+  type: DescriptionSectionType;
+  title?: string;
+  subtitle?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  html?: string;
+  features?: DescriptionFeature[];
+  order?: number;
+}
+
+class TechnicalSpec {
+  label: string;
+  value: string;
+}
+
+class TechnicalSection {
+  title: string;
+  specs: TechnicalSpec[];
+}
+
+class TechnicalDescription {
+  sections: TechnicalSection[];
+}
+
+// ── Main Appliance Schema ──────────────────────────────────────
 @Schema({ timestamps: true })
 export class Appliance {
+  // ── Identity ──────────────────────────────────────────────────
   @Prop({ required: true, unique: true, index: true })
-  slug: string; // URL-safe identifier, e.g., "godrej-1-5t-5s-inverter-split"
+  slug: string;
 
   @Prop({ required: true })
-  name: string; // e.g., "Godrej 1.5 Ton 5 Star Inverter Split AC"
+  name: string;
 
   @Prop({ required: true, index: true })
-  brand: string; // Phase 1: always "Godrej"
+  brand: string;
 
   @Prop({ required: true })
-  modelNumber: string; // e.g., "GIC 18TTC5-WTA"
+  modelNumber: string; // official model number e.g. "FTKM50UV16VA"
 
-  @Prop({ required: true })
-  price: number; // in INR
+  @Prop({ required: true, unique: true, index: true })
+  sku: string; // stock item code e.g. "40101701SD01777"
 
   @Prop()
-  originalPrice: number; // MRP for strikethrough display
+  series: string; // WIC | HIC | HFC
+
+  @Prop()
+  descriptionCode: string; // raw code from stock list e.g. "18F5TG"
+
+  // ── Pricing ───────────────────────────────────────────────────
+  @Prop({ required: true })
+  price: number; // selling price (NLC × 1.18 + 1000)
+
+  @Prop()
+  originalPrice: number; // MRP for strikethrough
+
+  @Prop({ required: true })
+  nlcPrice: number; // net landed cost (raw, for reference)
+
+  // ── Core Attributes ───────────────────────────────────────────
+  @Prop({ required: true, index: true })
+  capacityTon: number;
 
   @Prop({ required: true, index: true })
-  capacityTon: number; // 0.75 | 1.0 | 1.5 | 2.0
-
-  @Prop({ required: true, index: true })
-  starRating: number; // 1–5 BEE star rating
+  starRating: number; // 1–5 BEE
 
   @Prop({
     required: true,
     enum: ['split', 'window', 'cassette', 'portable'],
     index: true,
   })
-  acType: string; // Type of AC
+  acType: string;
 
   @Prop({ required: true })
-  isInverter: boolean; // Whether compressor is inverter-type
-
-  @Prop({ required: true })
-  description: string; // Full product description (HTML or Markdown supported)
+  isInverter: boolean;
 
   @Prop()
-  shortDescription: string; // 2–3 line summary for listing cards
+  roomSizeRecommendation: string; // e.g. "120–180 sq. ft."
+
+  // ── Content ───────────────────────────────────────────────────
+  @Prop()
+  description: string; // legacy HTML; optional when descriptionSections is set
+
+  @Prop({ type: [Object] })
+  descriptionSections: DescriptionSection[];
+
+  @Prop({ type: Object })
+  technicalDescription: TechnicalDescription;
+
+  @Prop()
+  shortDescription: string;
 
   @Prop({ type: [String], required: true })
-  images: string[]; // Array of image URLs (CDN). First is primary thumbnail
+  images: string[]; // First = primary. Will be Cloudinary URLs later.
 
-  @Prop({
-    type: {
-      coolingCapacityBtu: String,
-      energyConsumption: String,
-      annualEnergyUnits: String,
-      refrigerant: String,
-      compressorType: String,
-      noiseLevelIndoor: String,
-      indoorUnitDimensions: String,
-      outdoorUnitDimensions: String,
-      colour: String,
-      wifiEnabled: String,
-      autoClean: String,
-    },
-  })
-  specs: Record<string, any>; // Key-value specs table
+  // ── Structured Specs ──────────────────────────────────────────
+  @Prop({ type: Object })
+  specsPerformance: PerformanceSpecs;
 
+  @Prop({ type: Object })
+  specsSmart: SmartSpecs;
+
+  @Prop({ type: Object })
+  specsPhysical: PhysicalSpecs;
+
+  // ── Feature Highlights (for detail page cards) ────────────────
+  @Prop({ type: [Object] })
+  highlights: Highlight[];
+
+  // ── What's in the Box ─────────────────────────────────────────
+  @Prop({ type: [String] })
+  whatsInBox: string[];
+
+  // ── Availability / Meta ───────────────────────────────────────
   @Prop({ default: true, index: true })
-  inStock: boolean; // Availability flag
-
-  @Prop()
-  warrantyYears: number; // Product warranty duration
+  inStock: boolean;
 
   @Prop({ default: false })
-  installationIncluded: boolean; // Whether Fixxer installation bundled
+  installationIncluded: boolean;
+
+  @Prop()
+  compressorWarrantyYears: number;
+
+  @Prop()
+  productWarrantyYears: number;
 
   @Prop({ required: true, index: true })
-  applianceCategory: string; // "ac" | "fridge" | "washing-machine" (for future scaling)
+  applianceCategory: string; // "ac"
 
   @Prop({ default: true, index: true })
-  isActive: boolean; // Whether product is visible/listed
-
-  // timestamps are added automatically by @Schema({ timestamps: true })
+  isActive: boolean;
 }
 
 export const ApplianceSchema = SchemaFactory.createForClass(Appliance);
 
-// Create compound indexes for common queries
+// ── Indexes ───────────────────────────────────────────────────
 ApplianceSchema.index({ applianceCategory: 1, brand: 1 });
 ApplianceSchema.index({ applianceCategory: 1, capacityTon: 1 });
 ApplianceSchema.index({ applianceCategory: 1, starRating: 1 });
 ApplianceSchema.index({ applianceCategory: 1, price: 1 });
 ApplianceSchema.index({ applianceCategory: 1, acType: 1 });
 ApplianceSchema.index({ applianceCategory: 1, inStock: 1 });
+ApplianceSchema.index({ applianceCategory: 1, isInverter: 1 });
+ApplianceSchema.index({ name: 'text', brand: 'text', sku: 'text' });
