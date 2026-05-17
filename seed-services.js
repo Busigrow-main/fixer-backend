@@ -72,7 +72,7 @@ const SERVICES_DATA = [
     title: "Modern AC Recovery",
     startingPrice: "₹249",
     icon: "thermostat",
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=2000&auto=format&fit=crop",
+    image: "https://aonecoolingsolution.in/wp-content/uploads/2025/02/split-ac-service-Sfastservices.jpg",
     description: "Climate master for your home. From installation to complex repairs, we restore your comfort quickly.",
     features: ["60 Days Service Warranty", "Up to 30 Days Part Warranty", "Transparent Pricing", "Installation & Uninstallation"],
     subCategories: [
