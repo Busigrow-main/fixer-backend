@@ -6,84 +6,96 @@
       "description": "AC 1.5T DS WIC 18F5TG WA",
       "nlc": 32089,
       "star": 5,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-5-star-split-inverter-ac/p/itm71ff06cea3b01"
     },
     {
       "itemCode": "40101701SD01759",
       "description": "AC 1.0T DS HIC 12Q3TH WA",
       "nlc": 29514,
       "star": 3,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-ton-3-star-split-inverter-ac/p/itmf121c22b852d9"
     },
     {
       "itemCode": "40101701SD01765",
       "description": "AC 1.0T DS HIC 12Q5TH WA",
       "nlc": 34051,
       "star": 5,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-ton-5-star-split-inverter-ac/p/itmf150b0cba4ced"
     },
     {
       "itemCode": "40101701SD01906",
       "description": "AC 1.5T DS HIC 18Q3TG WA 4",
       "nlc": 31500,
       "star": 3,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-3-star-split-inverter-ac/p/itm85bc24d8a76bc"
     },
     {
       "itemCode": "40101701SD01900",
       "description": "AC 1.5T DS HFC 18R2TH WA",
       "nlc": 35504,
       "star": 3,
-      "type": "Fixed Speed"
+      "type": "Fixed Speed",
+      "productUrl": "https://www.flipkart.com/godrej-2023-model-1-5-ton-3-star-split-fixed-speed-anti-dust-filter-ac/p/itm1665110bb6bd7"
     },
     {
       "itemCode": "40101701SD01744",
       "description": "AC 1.5T DS HIC 18J5TG WA",
       "nlc": 38000,
       "star": 5,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-5-star-split-inverter-ac/p/itm71ff06cea3b01"
     },
     {
       "itemCode": "40101701SD01774",
       "description": "AC 1.5T DS HIC 19J5TG WA",
       "nlc": 38000,
       "star": 5,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-5-star-split-inverter-ac/p/itm71ff06cea3b01"
     },
     {
       "itemCode": "40101701SD01909",
       "description": "AC 1.7T DS HIC 20J5TG WA",
       "nlc": 39913,
       "star": 5,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2025-model-1-7-ton-5-star-split-inverter-ac/p/itmc26e69a0d0b13"
     },
     {
       "itemCode": "40101701SD01740",
       "description": "AC 2.0T DS HIC 24J3TS WA",
       "nlc": 40092,
       "star": 3,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-2-ton-3-star-split-inverter-ac/p/itm10e0fb1bd4e2a"
     },
     {
       "itemCode": "40101701SD01892",
       "description": "AC 2.0T DS HFC 24K2TG WA",
       "nlc": 41009,
       "star": 3,
-      "type": "Fixed Speed"
+      "type": "Fixed Speed",
+      "productUrl": "https://www.flipkart.com/godrej-2023-model-2-ton-3-star-split-fixed-speed-anti-dust-filter-ac/p/itm11d725b036038"
     },
     {
       "itemCode": "40101701SD01751",
       "description": "AC 2.5T DS HIC 30K3TG RA 4",
       "nlc": 48859,
       "star": 3,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-2-5-ton-3-star-split-inverter-ac/p/itmcf798d68dba04"
     },
     {
       "itemCode": "40101701SD01801",
       "description": "AC 3.0T DS HIC 36B3TH WA 4",
       "nlc": 55053,
       "star": 3,
-      "type": "Inverter"
+      "type": "Inverter",
+      "productUrl": "https://www.flipkart.com/godrej-2025-model-3-ton-star-split-inverter-ai-powered-5-in-1-convertible-heavy-duty-cooling-extreme-temperature-ac/p/itm9def6f5c1a967"
     }
   ]
 }

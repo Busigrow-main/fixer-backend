@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:appliances": "ts-node -r tsconfig-paths/register src/scripts/seed-appliances.ts",
     "ac:scrape": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/scrape-product-images.ts",
+    "ac:verify": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/verify-product-images.ts",
     "ac:upload": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/upload-to-cloudinary.ts",
     "ac:merge": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/merge-and-seed.ts",
     "ac:seed": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/merge-and-seed.ts -- --seed",

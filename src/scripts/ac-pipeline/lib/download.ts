@@ -16,7 +16,7 @@ export function listImageFiles(dir: string): string[] {
     .sort((a, b) => a.localeCompare(b));
 }
 
-export async function downloadImage(url: string, destPath: string): Promise<void> {
+export async function downloadImage(url: string, destPath: string): Promise<number> {
   const res = await axios.get<ArrayBuffer>(url, {
     responseType: 'arraybuffer',
     timeout: 45_000,
@@ -28,7 +28,9 @@ export async function downloadImage(url: string, destPath: string): Promise<void
     },
   });
   fs.mkdirSync(path.dirname(destPath), { recursive: true });
-  fs.writeFileSync(destPath, Buffer.from(res.data));
+  const buf = Buffer.from(res.data);
+  fs.writeFileSync(destPath, buf);
+  return buf.length;
 }
 
 export function normalizeImageUrl(src: string | null | undefined): string | null {

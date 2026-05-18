@@ -1,0 +1,1340 @@
+{
+  "generatedAt": "2026-05-18T10:46:59.651Z",
+  "passCount": 7,
+  "failCount": 5,
+  "warnCount": 12,
+  "duplicateHashes": [
+    {
+      "hash": "3d6fbb1f6ccc5b866eed3545602e636d3ffcfb304af0d8a2ed7dcd0b10fc3add",
+      "skus": [
+        "40101701SD01744",
+        "40101701SD01774",
+        "40101701SD01777"
+      ],
+      "files": [
+        "40101701SD01777/01-hero.jpeg",
+        "40101701SD01744/01-hero.jpeg",
+        "40101701SD01774/01-hero.jpeg"
+      ]
+    },
+    {
+      "hash": "ab2f90893c09e6c7713b226d30b3a6181337a263fa747210abaf76b4232917c5",
+      "skus": [
+        "40101701SD01744",
+        "40101701SD01774",
+        "40101701SD01777"
+      ],
+      "files": [
+        "40101701SD01777/02-gallery-01.jpeg",
+        "40101701SD01744/02-gallery-01.jpeg",
+        "40101701SD01774/02-gallery-01.jpeg"
+      ]
+    },
+    {
+      "hash": "215a53ae055671d75fd3d14c8651d9dbbe20a9c5eb58a6cc8a4e2f09589d4c5f",
+      "skus": [
+        "40101701SD01744",
+        "40101701SD01765",
+        "40101701SD01774",
+        "40101701SD01777"
+      ],
+      "files": [
+        "40101701SD01777/02-gallery-02.jpeg",
+        "40101701SD01765/02-gallery-02.jpeg",
+        "40101701SD01744/02-gallery-02.jpeg",
+        "40101701SD01774/02-gallery-02.jpeg"
+      ]
+    },
+    {
+      "hash": "6a1a14063701d54abc0382cfce75559eff34ccf2d4fe44cd3f1f9e9f78ac6d60",
+      "skus": [
+        "40101701SD01744",
+        "40101701SD01774",
+        "40101701SD01777"
+      ],
+      "files": [
+        "40101701SD01777/02-gallery-03.jpeg",
+        "40101701SD01744/02-gallery-03.jpeg",
+        "40101701SD01774/02-gallery-03.jpeg"
+      ]
+    },
+    {
+      "hash": "1792dc729fa7c536cdc97a13f8181a2e737adb4803ca7a42adc340f16c6ca823",
+      "skus": [
+        "40101701SD01744",
+        "40101701SD01774",
+        "40101701SD01777"
+      ],
+      "files": [
+        "40101701SD01777/02-gallery-04.jpeg",
+        "40101701SD01744/02-gallery-04.jpeg",
+        "40101701SD01774/02-gallery-04.jpeg"
+      ]
+    },
+    {
+      "hash": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016",
+      "skus": [
+        "40101701SD01744",
+        "40101701SD01751",
+        "40101701SD01759",
+        "40101701SD01765",
+        "40101701SD01774",
+        "40101701SD01777",
+        "40101701SD01801",
+        "40101701SD01892",
+        "40101701SD01900",
+        "40101701SD01906",
+        "40101701SD01909"
+      ],
+      "files": [
+        "40101701SD01777/02-gallery-05.png",
+        "40101701SD01759/02-gallery-05.png",
+        "40101701SD01765/02-gallery-05.png",
+        "40101701SD01906/02-gallery-05.png",
+        "40101701SD01900/02-gallery-05.png",
+        "40101701SD01744/02-gallery-05.png",
+        "40101701SD01774/02-gallery-05.png",
+        "40101701SD01909/02-gallery-05.png",
+        "40101701SD01892/02-gallery-06.png",
+        "40101701SD01751/02-gallery-05.png",
+        "40101701SD01801/02-gallery-05.png"
+      ]
+    },
+    {
+      "hash": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c",
+      "skus": [
+        "40101701SD01740",
+        "40101701SD01744",
+        "40101701SD01759",
+        "40101701SD01765",
+        "40101701SD01774",
+        "40101701SD01777",
+        "40101701SD01900",
+        "40101701SD01906"
+      ],
+      "files": [
+        "40101701SD01777/02-gallery-06.png",
+        "40101701SD01759/02-gallery-06.png",
+        "40101701SD01765/02-gallery-06.png",
+        "40101701SD01906/02-gallery-06.png",
+        "40101701SD01900/02-gallery-06.png",
+        "40101701SD01744/02-gallery-06.png",
+        "40101701SD01774/02-gallery-06.png",
+        "40101701SD01740/02-gallery-05.png"
+      ]
+    },
+    {
+      "hash": "b442f2b0a0cd1c0d0186b275b4189f9e33b78ba475cc1b0e5d0d0fe5eb9a2477",
+      "skus": [
+        "40101701SD01892",
+        "40101701SD01900"
+      ],
+      "files": [
+        "40101701SD01900/01-hero.jpeg",
+        "40101701SD01892/01-hero.jpeg"
+      ]
+    },
+    {
+      "hash": "b510405c20e526dfee21b16e2b740afbe81ac38fa9bf481e1cecec93f80b3ecd",
+      "skus": [
+        "40101701SD01751",
+        "40101701SD01801"
+      ],
+      "files": [
+        "40101701SD01751/02-gallery-06.jpeg",
+        "40101701SD01801/02-gallery-06.jpeg"
+      ]
+    }
+  ],
+  "skus": {
+    "40101701SD01777": {
+      "sku": "40101701SD01777",
+      "modelCode": "18F5TG",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-5-star-split-inverter-ac/p/itm71ff06cea3b01",
+      "pass": false,
+      "errors": [
+        "hero/gallery hash duplicated across SKUs (likely wrong listing URL)"
+      ],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01774",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01774",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01765, 40101701SD01774",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01774",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01774",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01740, 40101701SD01744, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01900, 40101701SD01906"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 89940,
+          "sha256": "3d6fbb1f6ccc5b866eed3545602e636d3ffcfb304af0d8a2ed7dcd0b10fc3add"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 583562,
+          "sha256": "ab2f90893c09e6c7713b226d30b3a6181337a263fa747210abaf76b4232917c5"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 422413,
+          "sha256": "215a53ae055671d75fd3d14c8651d9dbbe20a9c5eb58a6cc8a4e2f09589d4c5f"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 268432,
+          "sha256": "6a1a14063701d54abc0382cfce75559eff34ccf2d4fe44cd3f1f9e9f78ac6d60"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 432742,
+          "sha256": "1792dc729fa7c536cdc97a13f8181a2e737adb4803ca7a42adc340f16c6ca823"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 31796,
+          "sha256": "f6462ac610f47aece2e05b1189a361d85ac3b2ba49d9a69ed4dfb5c94f2e38fb"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 32494,
+          "sha256": "9d86c2995b290d7a6651cec870908ed3262dc42760a8321ec3f11d1bd98575fc"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 50883,
+          "sha256": "cdfe61f73c709de318ae3c0ec9befa1bfbf65377c6ccb7542bbd2e4840faa7c4"
+        },
+        {
+          "file": "description-04.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 12053,
+          "sha256": "44cabbea3939d17df8db94b6e090ee4f5166ab5751ae247b9e77c01862eb0bd0"
+        },
+        {
+          "file": "description-05.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        }
+      ]
+    },
+    "40101701SD01759": {
+      "sku": "40101701SD01759",
+      "modelCode": "12Q3TH",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-ton-3-star-split-inverter-ac/p/itmf121c22b852d9",
+      "pass": true,
+      "errors": [],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01740, 40101701SD01744, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01900, 40101701SD01906"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 91505,
+          "sha256": "776a60dbd0e496596e461abd74b8edef2a2f4c59c896b1d3df9872cc8a59ba58"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 466003,
+          "sha256": "1471618f5137324ed691165869e9efb2305c4b386803de5f1bedaf8a3ca0abaa"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 355527,
+          "sha256": "3f2ed573280158f56cc55d163af62ea675c7ff1f830aaed8c69a86aae8c63403"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 288342,
+          "sha256": "869788fdb9e920d3f470d03ded30d692d19eff24663511ff3982fc75af8cce1d"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 412405,
+          "sha256": "e005909c22f9ccaca50864d74eb98b08428255afd221467be6fdbed261d67300"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 31702,
+          "sha256": "75204075a65e9d33759b7de4788dab8866ba4491f2b5a8bb33aab6b91e46016e"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 21268,
+          "sha256": "9f19def5df3f9afc27e10ba608dcf7ed524704b58e5e254a9b75ebeeb85baf6d"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 32715,
+          "sha256": "ae49ec77e38ec8dcaec4b7c29e9022bfb9a95ed2dd8b94736c4166eb1503185e"
+        },
+        {
+          "file": "description-04.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        },
+        {
+          "file": "description-05.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 137310,
+          "sha256": "0917808926c77469b18ae9ba8486c152e9260803a397fdeaa4dd118dc6a0330f"
+        }
+      ]
+    },
+    "40101701SD01765": {
+      "sku": "40101701SD01765",
+      "modelCode": "12Q5TH",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-ton-5-star-split-inverter-ac/p/itmf150b0cba4ced",
+      "pass": true,
+      "errors": [],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01774, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01740, 40101701SD01744, 40101701SD01759, 40101701SD01774, 40101701SD01777, 40101701SD01900, 40101701SD01906"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 90092,
+          "sha256": "24447a28a69da2c939199b3b1e5224b387c37853fd53a7d299de65211c3fddac"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 583031,
+          "sha256": "fd664e24995187a96b3410631db76df9ceb07eae74f8f411d2401c12a0f1ba3c"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 422413,
+          "sha256": "215a53ae055671d75fd3d14c8651d9dbbe20a9c5eb58a6cc8a4e2f09589d4c5f"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 267316,
+          "sha256": "502f3f39f28785263b83d4499c8149e65e75bc45dfc99042009fa7fe09b06d3e"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 432841,
+          "sha256": "924da2ee492610abd205487a0b67e4b77ebe706da1a9b7e149777d2e5aadeaaf"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 35479,
+          "sha256": "c78582c00621f8250dbf008b981485f0c89d95eec30c078eaf553118c49cfb9d"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 35108,
+          "sha256": "88412c1b68ccf144da4b9ce0a0f633f0dcf40432e7e244997e8c15834f268a9f"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 32494,
+          "sha256": "9d86c2995b290d7a6651cec870908ed3262dc42760a8321ec3f11d1bd98575fc"
+        },
+        {
+          "file": "description-04.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        },
+        {
+          "file": "description-05.jpg",
+          "role": "description",
+          "ok": true,
+          "bytes": 103964,
+          "sha256": "fa87cafa7c1dfc08f9886190efa186185f140eb8e8df895a452fbdb7edf6c534"
+        }
+      ]
+    },
+    "40101701SD01906": {
+      "sku": "40101701SD01906",
+      "modelCode": "18Q3TG",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-3-star-split-inverter-ac/p/itm85bc24d8a76bc",
+      "pass": true,
+      "errors": [],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01740, 40101701SD01744, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01900"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 91181,
+          "sha256": "e0bc76100e70238daa0a499d0def4c27643f4d740e86dbbe0bab470b5cea7d9f"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 588315,
+          "sha256": "0d64a0ef1b51ef2939e56fb10901315123a8bdc727a044ec87b64459bd47f737"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 420685,
+          "sha256": "fed3d425542566236eb976e8348e2af8455810808dc625ede3bad2d9333d1176"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 261291,
+          "sha256": "5bb68c3b7addde6500f816f6bb72da467215cfcac916ca212f8485da862047a4"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 423668,
+          "sha256": "685eef554a12017bcb220cfaef4bfaf0b2dd02492e5bd3501e9a2d9c7c20a0f4"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 35424,
+          "sha256": "45ef578c2f10e78a0804724ff3a9d4f8cb80d24cad128d8ae6d7d2405da594c8"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 21010,
+          "sha256": "daec12204347a7eff94df1c7d8ebdd076067605182cf0d6efbbb38fb190d679a"
+        },
+        {
+          "file": "description-03.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        },
+        {
+          "file": "description-04.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 140716,
+          "sha256": "f8de5b38b6f8c5f4cc9c90bae77ea8b7f69a7df6adef6ca7c9a68f5d0a088d8f"
+        },
+        {
+          "file": "description-05.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 16935,
+          "sha256": "b7d09ad6d388b91f1a59b37ef238423afdca3cc1e2f243e389910c614dc4cb07"
+        }
+      ]
+    },
+    "40101701SD01900": {
+      "sku": "40101701SD01900",
+      "modelCode": "18R2TH",
+      "productUrl": "https://www.flipkart.com/godrej-2023-model-1-5-ton-3-star-split-fixed-speed-anti-dust-filter-ac/p/itm1665110bb6bd7",
+      "pass": false,
+      "errors": [
+        "hero/gallery hash duplicated across SKUs (likely wrong listing URL)"
+      ],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01740, 40101701SD01744, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01906",
+        "duplicate image hash shared with: 40101701SD01892"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 992158,
+          "sha256": "b442f2b0a0cd1c0d0186b275b4189f9e33b78ba475cc1b0e5d0d0fe5eb9a2477"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 86870,
+          "sha256": "0f47832956c5c286349cb2e3598542de40cfd375aa4de6a6203032877cd5f2da"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 309809,
+          "sha256": "82fad8d84272bee03db54bb26affd8ae436b6d058435aab89da5c3fc6e3e0840"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 296509,
+          "sha256": "0adf5616dc799bc5f92bed539635908fd9bdef18fb78a726f145bcd1c7f99885"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 461435,
+          "sha256": "84135f09e5eb34457b6bb7318aa9a2abd5b843524d49dea254a5720fce69c80b"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 31702,
+          "sha256": "75204075a65e9d33759b7de4788dab8866ba4491f2b5a8bb33aab6b91e46016e"
+        },
+        {
+          "file": "description-02.jpg",
+          "role": "description",
+          "ok": true,
+          "bytes": 11397,
+          "sha256": "4a11f9eaaa25ef7cc7a0e095a496ae72320b4514430ac65d98085db68dc7f10a"
+        },
+        {
+          "file": "description-03.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 14027,
+          "sha256": "fd7659d51ae43accffbbf1d1aaca176a43f6e1505d2ff0fa32d22d84e1526cb6"
+        },
+        {
+          "file": "description-04.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        },
+        {
+          "file": "description-05.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 13458,
+          "sha256": "82ab664d6e83f75002c514356140645551e8824dde56887abbb5af03c39edf26"
+        }
+      ]
+    },
+    "40101701SD01744": {
+      "sku": "40101701SD01744",
+      "modelCode": "18J5TG",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-5-star-split-inverter-ac/p/itm71ff06cea3b01",
+      "pass": false,
+      "errors": [
+        "hero/gallery hash duplicated across SKUs (likely wrong listing URL)"
+      ],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01774, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01774, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01765, 40101701SD01774, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01774, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01774, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01740, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01900, 40101701SD01906"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 89940,
+          "sha256": "3d6fbb1f6ccc5b866eed3545602e636d3ffcfb304af0d8a2ed7dcd0b10fc3add"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 583562,
+          "sha256": "ab2f90893c09e6c7713b226d30b3a6181337a263fa747210abaf76b4232917c5"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 422413,
+          "sha256": "215a53ae055671d75fd3d14c8651d9dbbe20a9c5eb58a6cc8a4e2f09589d4c5f"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 268432,
+          "sha256": "6a1a14063701d54abc0382cfce75559eff34ccf2d4fe44cd3f1f9e9f78ac6d60"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 432742,
+          "sha256": "1792dc729fa7c536cdc97a13f8181a2e737adb4803ca7a42adc340f16c6ca823"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 35045,
+          "sha256": "cb6f46ca05fee0120eba794c08d5b7bd5add8e118184421f29dcef4b9b6036d5"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 32494,
+          "sha256": "9d86c2995b290d7a6651cec870908ed3262dc42760a8321ec3f11d1bd98575fc"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 25857,
+          "sha256": "de6a3c253df4a7403c984538af3443a314b6691084ab1c742714bd249f4454f4"
+        },
+        {
+          "file": "description-04.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        },
+        {
+          "file": "description-05.jpg",
+          "role": "description",
+          "ok": true,
+          "bytes": 83309,
+          "sha256": "18827bcdc5bca86ec5efb4d0b95760419376092bb31807e382177c1024a3840b"
+        }
+      ]
+    },
+    "40101701SD01774": {
+      "sku": "40101701SD01774",
+      "modelCode": "19J5TG",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-1-5-ton-5-star-split-inverter-ac/p/itm71ff06cea3b01",
+      "pass": false,
+      "errors": [
+        "hero/gallery hash duplicated across SKUs (likely wrong listing URL)"
+      ],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01765, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01777",
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01740, 40101701SD01744, 40101701SD01759, 40101701SD01765, 40101701SD01777, 40101701SD01900, 40101701SD01906"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 89940,
+          "sha256": "3d6fbb1f6ccc5b866eed3545602e636d3ffcfb304af0d8a2ed7dcd0b10fc3add"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 583562,
+          "sha256": "ab2f90893c09e6c7713b226d30b3a6181337a263fa747210abaf76b4232917c5"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 422413,
+          "sha256": "215a53ae055671d75fd3d14c8651d9dbbe20a9c5eb58a6cc8a4e2f09589d4c5f"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 268432,
+          "sha256": "6a1a14063701d54abc0382cfce75559eff34ccf2d4fe44cd3f1f9e9f78ac6d60"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 432742,
+          "sha256": "1792dc729fa7c536cdc97a13f8181a2e737adb4803ca7a42adc340f16c6ca823"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 36853,
+          "sha256": "e1b0b3704d99c2d2e36536e314f5ca42f623e14ed437c41dfd7d3491ec5eb415"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 32494,
+          "sha256": "9d86c2995b290d7a6651cec870908ed3262dc42760a8321ec3f11d1bd98575fc"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 50883,
+          "sha256": "cdfe61f73c709de318ae3c0ec9befa1bfbf65377c6ccb7542bbd2e4840faa7c4"
+        },
+        {
+          "file": "description-04.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 21010,
+          "sha256": "daec12204347a7eff94df1c7d8ebdd076067605182cf0d6efbbb38fb190d679a"
+        },
+        {
+          "file": "description-05.png",
+          "role": "description",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        }
+      ]
+    },
+    "40101701SD01909": {
+      "sku": "40101701SD01909",
+      "modelCode": "20J5TG",
+      "productUrl": "https://www.flipkart.com/godrej-2025-model-1-7-ton-5-star-split-inverter-ac/p/itmc26e69a0d0b13",
+      "pass": true,
+      "errors": [],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01906"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 55701,
+          "sha256": "86de58b83a86ccc9eb87fee54a19a53aa877aa4d429fe3c05c1ecdf9110a17ec"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 48965,
+          "sha256": "eb60ee18d51d3b2d5f463ad920d108457ff6d0a38b8046ccc61fcfbdba4f2f6f"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 71714,
+          "sha256": "78eed7c723dbe159be372346678791a1aab55ec4498b894cf29a161821d41c57"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 63046,
+          "sha256": "f097f5f3ac6844206a3ae5e1b3099aa5e1748f0f2305d35c599a3b275eceec07"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 62945,
+          "sha256": "8cee1655d47b9fcf8a4fa6cafb33bdf45bf08b44e803752fbd681a87a8ca2e3a"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 53011,
+          "sha256": "16704c6da678b71674a8c37c4359946998b4a1c33cd73df28f31436b555257ed"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 37957,
+          "sha256": "c88de6ad2f8ba6e565d104a5040d36a6b476a8b3a0bc17b16b88f0646ed53b88"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 21010,
+          "sha256": "daec12204347a7eff94df1c7d8ebdd076067605182cf0d6efbbb38fb190d679a"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 20474,
+          "sha256": "2fec78460a66904206598ceeb1cde9af20fcff30019e99d9c4a6c8641b28e96a"
+        },
+        {
+          "file": "description-04.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 24840,
+          "sha256": "9ee1e251d8081d162995792dfed1f2f97cf6d6595fff419392bd986974a91b60"
+        },
+        {
+          "file": "description-05.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 20676,
+          "sha256": "b510405c20e526dfee21b16e2b740afbe81ac38fa9bf481e1cecec93f80b3ecd"
+        }
+      ]
+    },
+    "40101701SD01740": {
+      "sku": "40101701SD01740",
+      "modelCode": "24J3TS",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-2-ton-3-star-split-inverter-ac/p/itm10e0fb1bd4e2a",
+      "pass": true,
+      "errors": [],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01900, 40101701SD01906"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 43812,
+          "sha256": "d353dcece3a07ec3c622d2de368da2023ca142649b729b6c6fda565d228b6e48"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 55121,
+          "sha256": "7a6ee8c451e41e712e8d0e0856d41af9010dc52fd72568916425861f656a98a7"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 288194,
+          "sha256": "c2bc1ab8bd2f1de04aee8ba46d3d17451c1c566f971432d52b70c5e8751eb81e"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 422441,
+          "sha256": "fe4abe906fbb597d4bf79233eca205cd180e563d620b4f9638c98f10a8dce4dc"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 56135,
+          "sha256": "45fd4d907ec377dcd33cc2c85b0b5db6cf232dd3b6e3094e63181c6ed1c7783c"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 9651,
+          "sha256": "cdd46f47aa6bb80dcbd8e2ec2f5704fafe346fd63c160351293beae29dbe663c"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 8591,
+          "sha256": "fc0bb01de5d09c0e6a2a8dca08406cb17e796c0022516fbe3ba7734bf7c79543"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 35745,
+          "sha256": "78de79d17572fa6b3ecf83cc3b6859edf06e56846927f6c9004dbe61f5b1a2f6"
+        },
+        {
+          "file": "description-02.jpg",
+          "role": "description",
+          "ok": true,
+          "bytes": 82211,
+          "sha256": "fd52982134b4c35cdee4c935cfc53452f37776e0a52a20ba1bc0070b153c5d47"
+        },
+        {
+          "file": "description-03.jpg",
+          "role": "description",
+          "ok": true,
+          "bytes": 36090,
+          "sha256": "5167fdc75fc05d6f9553c51e38d38257495b3383de2a4275b3bc45000900ad79"
+        },
+        {
+          "file": "description-04.jpg",
+          "role": "description",
+          "ok": true,
+          "bytes": 62866,
+          "sha256": "d8fbe5fe88ddd809292c9b281aa315786302f5c2f93ffac372fea27f016c4280"
+        },
+        {
+          "file": "description-05.jpg",
+          "role": "description",
+          "ok": true,
+          "bytes": 27965,
+          "sha256": "b66de991177c0009d88060b402fa7a8936cc3506fc8e876b90d5c82996ffc01f"
+        }
+      ]
+    },
+    "40101701SD01892": {
+      "sku": "40101701SD01892",
+      "modelCode": "24K2TG",
+      "productUrl": "https://www.flipkart.com/godrej-2023-model-2-ton-3-star-split-fixed-speed-anti-dust-filter-ac/p/itm11d725b036038",
+      "pass": false,
+      "errors": [
+        "hero/gallery hash duplicated across SKUs (likely wrong listing URL)"
+      ],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01900"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 992158,
+          "sha256": "b442f2b0a0cd1c0d0186b275b4189f9e33b78ba475cc1b0e5d0d0fe5eb9a2477"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 103593,
+          "sha256": "703ee79637bca0ebbce12d03499aca72594070bfbb35607a4f00f5b41dc2ef73"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 323194,
+          "sha256": "57dd20bcd7f31c113e6ead466257ebf241a9f07aea6400b7cd55c3440046a178"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 299871,
+          "sha256": "4b31711da15e97b7f02694e55f56ba4689857de20edef134021d18a734fcd529"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 486878,
+          "sha256": "68b51d21d541466a01d08390814c236331c9578dccf48a02ad911c39458dd39c"
+        },
+        {
+          "file": "02-gallery-05.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 484787,
+          "sha256": "a72f29cdf3b24bbb3129282a1d397e6b98f1ced1b128e30db023c5cde963006e"
+        },
+        {
+          "file": "02-gallery-06.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 36311,
+          "sha256": "8bd9dda98b96e4f5295f5510e9381d75edbe3c6c63000a9fc8fc5b6fcbe615cc"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 35045,
+          "sha256": "cb6f46ca05fee0120eba794c08d5b7bd5add8e118184421f29dcef4b9b6036d5"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 21010,
+          "sha256": "daec12204347a7eff94df1c7d8ebdd076067605182cf0d6efbbb38fb190d679a"
+        },
+        {
+          "file": "description-04.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 31930,
+          "sha256": "01c63402e35162df6d9e5ff03e25b043ad08b4eaeab19ae92a8e6ba7bf77bd77"
+        },
+        {
+          "file": "description-05.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 20474,
+          "sha256": "2fec78460a66904206598ceeb1cde9af20fcff30019e99d9c4a6c8641b28e96a"
+        }
+      ]
+    },
+    "40101701SD01751": {
+      "sku": "40101701SD01751",
+      "modelCode": "30K3TG",
+      "productUrl": "https://www.flipkart.com/godrej-2026-model-2-5-ton-3-star-split-inverter-ac/p/itmcf798d68dba04",
+      "pass": true,
+      "errors": [],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01801, 40101701SD01892, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01801"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 93339,
+          "sha256": "0691e9d2eaa9ec30133b4ab173c01babc5767c82630b034a7f7169c65278a8d5"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 591817,
+          "sha256": "88e2f4be7cb879d1abfaaf29cb7d904bd381548532fa53e612e1b7abccc8c37e"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 423566,
+          "sha256": "4f6a78cadde46c0ae14085ab9af19c7a321e7cad36b17d6a610baa2180011345"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 278093,
+          "sha256": "788c3a4c8dc5797c7f14b70a0dbb28466e21564df81a16d32c3ea6d9024aa918"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 441258,
+          "sha256": "834018851fcef4a97529d900d6213da13354cd7bdd528f9ee670799ff80f2c38"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 20676,
+          "sha256": "b510405c20e526dfee21b16e2b740afbe81ac38fa9bf481e1cecec93f80b3ecd"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 34730,
+          "sha256": "79c166ca5686ce689950558f78faec1a835cb945a092bae5d404f7eca86ed91f"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 21010,
+          "sha256": "daec12204347a7eff94df1c7d8ebdd076067605182cf0d6efbbb38fb190d679a"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 37632,
+          "sha256": "efa92b7c03016e052c0ecce33ed6a26065c2ff3e8453051598916378f2bfa70b"
+        },
+        {
+          "file": "description-04.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 20474,
+          "sha256": "2fec78460a66904206598ceeb1cde9af20fcff30019e99d9c4a6c8641b28e96a"
+        },
+        {
+          "file": "description-05.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 70734,
+          "sha256": "092847755db6729d70b932b8a56772dc767dd443af491bb3400ef5f96c1fb4b1"
+        }
+      ]
+    },
+    "40101701SD01801": {
+      "sku": "40101701SD01801",
+      "modelCode": "36B3TH",
+      "productUrl": "https://www.flipkart.com/godrej-2025-model-3-ton-star-split-inverter-ai-powered-5-in-1-convertible-heavy-duty-cooling-extreme-temperature-ac/p/itm9def6f5c1a967",
+      "pass": true,
+      "errors": [],
+      "warnings": [
+        "duplicate image hash shared with: 40101701SD01744, 40101701SD01751, 40101701SD01759, 40101701SD01765, 40101701SD01774, 40101701SD01777, 40101701SD01892, 40101701SD01900, 40101701SD01906, 40101701SD01909",
+        "duplicate image hash shared with: 40101701SD01751"
+      ],
+      "files": [
+        {
+          "file": "01-hero.jpeg",
+          "role": "hero",
+          "ok": true,
+          "bytes": 92701,
+          "sha256": "b3c18a738f7e1c33fe8da5f04449ffdfc43d9ab03c8d95984a02732f3c45a69c"
+        },
+        {
+          "file": "02-gallery-01.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 450011,
+          "sha256": "0179c4918a93f10f4ed2438dc6200be05ef60a3d3a292ecdd61216b93aed38a2"
+        },
+        {
+          "file": "02-gallery-02.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 338318,
+          "sha256": "566e87ec91edc5a2913f3a7c0ac201bbb0b3e3a75d5ac194cad9dff4b2d754c2"
+        },
+        {
+          "file": "02-gallery-03.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 393424,
+          "sha256": "02c57b4d7c9722fb7948af1939e2bf26370a90cc215e1334224110ead48d4a64"
+        },
+        {
+          "file": "02-gallery-04.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 390665,
+          "sha256": "7927748cb09b51343247d7c71172176f9f32ee44649017020eb611cc95852259"
+        },
+        {
+          "file": "02-gallery-05.png",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 97683,
+          "sha256": "ad28a503f8b32ae4c47b1050b2bcbad124b4255c7ca251c7821c89ebf430d016"
+        },
+        {
+          "file": "02-gallery-06.jpeg",
+          "role": "gallery",
+          "ok": true,
+          "bytes": 20676,
+          "sha256": "b510405c20e526dfee21b16e2b740afbe81ac38fa9bf481e1cecec93f80b3ecd"
+        },
+        {
+          "file": "description-01.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 54965,
+          "sha256": "7ea34a342eab6c23eac3bd327922ed3fd6b044c9eba0b39a31d2fc15cc66122c"
+        },
+        {
+          "file": "description-02.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 21010,
+          "sha256": "daec12204347a7eff94df1c7d8ebdd076067605182cf0d6efbbb38fb190d679a"
+        },
+        {
+          "file": "description-03.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 22158,
+          "sha256": "86f1ea958994e83e0fede23c7d944271102c4b332f974bfa86862ce8d4e3f7f6"
+        },
+        {
+          "file": "description-04.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 70734,
+          "sha256": "092847755db6729d70b932b8a56772dc767dd443af491bb3400ef5f96c1fb4b1"
+        },
+        {
+          "file": "description-05.jpeg",
+          "role": "description",
+          "ok": true,
+          "bytes": 26193,
+          "sha256": "a0b688f228a2163cb8a44e0acc3e7fc50520f0348cbf696d62016db02ea4beb0"
+        }
+      ]
+    }
+  }
+}

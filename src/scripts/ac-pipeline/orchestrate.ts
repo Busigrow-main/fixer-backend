@@ -2,6 +2,7 @@
  * AC ingestion pipeline orchestrator.
  * Run: npm run ac:pipeline
  *      npm run ac:pipeline -- --step=scrape --parallel=3
+ *      npm run ac:pipeline -- --skip-verify
  */
 import { spawn } from 'child_process';
 import * as fs from 'fs';
@@ -24,7 +25,7 @@ function runNpm(script: string, extraArgs: string[] = []): Promise<number> {
   });
 }
 
-async function runParallelScrapes(skus: string[], parallel: number, extraArgs: string[]): Promise<void> {
+async function runParallelScrapes(skus: string[], parallel: number, extraArgs: string[]): Promise<number> {
   const queue = [...skus];
   let failed = 0;
 
@@ -39,7 +40,7 @@ async function runParallelScrapes(skus: string[], parallel: number, extraArgs: s
   }
 
   await Promise.all(Array.from({ length: Math.min(parallel, skus.length) }, () => worker()));
-  if (failed) console.warn(`\n⚠  ${failed} scrape job(s) failed`);
+  return failed;
 }
 
 async function main() {
@@ -47,9 +48,10 @@ async function main() {
   const step = getArg(args, 'step') ?? 'all';
   const sku = getArg(args, 'sku');
   const parallel = getArgNumber(args, 'parallel', 2);
+  const skipVerify = args['skip-verify'] === true;
   const passArgs = sku ? ['--sku', sku] : [];
   const productUrl = getArg(args, 'product-url');
-  const scrapeExtra = productUrl ? ['--product-url', productUrl] : [];
+  const scrapeExtra = productUrl && sku ? ['--product-url', productUrl] : [];
 
   const items = filterBySku(loadStockUpload(), sku);
   fs.mkdirSync(IMAGES_ROOT, { recursive: true });
@@ -58,20 +60,32 @@ async function main() {
   }
   console.log(`📁 Prepared ${items.length} image folder(s) under ${IMAGES_ROOT}`);
 
-  const steps = step === 'all' ? ['scrape', 'upload', 'seed'] : [step];
+  const steps =
+    step === 'all' ? ['scrape', 'verify', 'upload', 'seed'] : [step];
 
   for (const s of steps) {
     console.log(`\n════════ Step: ${s} ════════\n`);
     if (s === 'scrape') {
       if (!sku && parallel > 1) {
-        await runParallelScrapes(
+        const failed = await runParallelScrapes(
           items.map((i) => i.itemCode),
           parallel,
           scrapeExtra,
         );
+        if (failed) console.warn(`\n⚠  ${failed} scrape job(s) failed`);
       } else {
         const code = await runNpm('ac:scrape', [...passArgs, ...scrapeExtra]);
         if (code !== 0) console.warn('Scrape step had failures');
+      }
+    } else if (s === 'verify') {
+      if (skipVerify) {
+        console.log('⏭  Skipping verify (--skip-verify)');
+        continue;
+      }
+      const code = await runNpm('ac:verify', passArgs);
+      if (code !== 0) {
+        console.error('Verify step failed — fix images/URLs before upload. Use --skip-verify to override.');
+        process.exit(code);
       }
     } else if (s === 'upload') {
       const code = await runNpm('ac:upload', passArgs);
@@ -80,7 +94,7 @@ async function main() {
       const code = await runNpm(s === 'seed' ? 'ac:seed' : 'ac:merge', passArgs);
       if (code !== 0) process.exit(code);
     } else {
-      throw new Error(`Unknown step: ${s}. Use scrape|upload|merge|seed|all`);
+      throw new Error(`Unknown step: ${s}. Use scrape|verify|upload|merge|seed|all`);
     }
   }
 

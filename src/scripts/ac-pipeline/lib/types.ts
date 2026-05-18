@@ -6,6 +6,8 @@ export interface AcStockUploadItem {
   nlc: number;
   star: number;
   type: AcStockType;
+  /** Flipkart or Amazon product page URL for this SKU (recommended). */
+  productUrl?: string;
 }
 
 export interface AcStockUploadFile {
