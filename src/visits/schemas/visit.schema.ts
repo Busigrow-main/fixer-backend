@@ -11,7 +11,7 @@ export class Visit {
   @Prop({ type: Types.ObjectId, ref: 'Technician', required: true })
   technicianId: Types.ObjectId;
 
-  @Prop({ required: true, enum: [1, 2] })
+  @Prop({ required: true, min: 1, max: 5 })
   visitOrder: number;
 
   @Prop()

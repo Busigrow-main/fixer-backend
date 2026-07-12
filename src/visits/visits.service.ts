@@ -33,6 +33,12 @@ export class VisitsService {
     return this.visitModel.find({ bookingId: new Types.ObjectId(bookingId) }).populate('partsUsed').exec();
   }
 
+  async findOne(id: string): Promise<VisitDocument> {
+    const visit = await this.visitModel.findById(id).populate('partsUsed').exec();
+    if (!visit) throw new NotFoundException('Visit not found');
+    return visit;
+  }
+
   async updateStatus(id: string, updateData: any): Promise<Visit> {
     const existingVisit = await this.visitModel
       .findByIdAndUpdate(id, updateData, { returnDocument: 'after' })

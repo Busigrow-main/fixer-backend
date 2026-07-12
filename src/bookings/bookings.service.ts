@@ -108,8 +108,16 @@ export class BookingsService {
   async assignTechnician(id: string, technicianId: string): Promise<Booking> {
     const updatedBooking = await this.bookingModel.findByIdAndUpdate(
       id,
-      { technicianId, status: 'ASSIGNED' },
-      { returnDocument: 'after' }
+      {
+        technicianId,
+        status: 'ASSIGNED',
+        assignmentStatus: 'PENDING_ACCEPTANCE',
+        assignedAt: new Date(),
+        acceptedAt: null,
+        declinedAt: null,
+        declineReason: null,
+      },
+      { returnDocument: 'after' },
     ).exec();
     if (!updatedBooking) throw new NotFoundException('Booking not found');
     return this.bookingModel.findById(id).populate('userId serviceId technicianId').exec() as any;

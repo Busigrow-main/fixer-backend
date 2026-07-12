@@ -8,11 +8,11 @@ export class User {
   @Prop({ required: true, unique: true })
   phone: string;
 
-  @Prop()
-  email?: string;
-
   @Prop({ required: true })
   passwordHash: string;
+
+  @Prop()
+  email?: string;
 
   @Prop()
   fullName?: string;
@@ -20,7 +20,7 @@ export class User {
   @Prop({ type: [{ label: String, zip: String, text: String }], default: [] })
   savedAddresses: Record<string, any>[];
 
-  @Prop({ default: 'CUSTOMER', enum: ['CUSTOMER', 'ADMIN'] })
+  @Prop({ default: 'CUSTOMER', enum: ['CUSTOMER', 'ADMIN', 'TECHNICIAN'] })
   role: string;
 }
 

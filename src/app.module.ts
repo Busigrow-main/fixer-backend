@@ -13,6 +13,7 @@ import { AdminModule } from './admin/admin.module';
 import { TechniciansModule } from './technicians/technicians.module';
 import { VisitsModule } from './visits/visits.module';
 import { WarrantiesModule } from './warranties/warranties.module';
+import { TechnicianPlatformModule } from './technician-platform/technician-platform.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { WarrantiesModule } from './warranties/warranties.module';
     TechniciansModule,
     VisitsModule,
     WarrantiesModule,
+    TechnicianPlatformModule,
   ],
   controllers: [AppController],
   providers: [AppService],

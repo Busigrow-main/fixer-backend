@@ -58,6 +58,23 @@ export class InvoiceData {
 }
 export const InvoiceDataSchema = SchemaFactory.createForClass(InvoiceData);
 
+@Schema({ _id: false })
+export class GpsLocation {
+  @Prop({ required: true }) lat: number;
+  @Prop({ required: true }) lng: number;
+  @Prop({ required: true }) capturedAt: Date;
+}
+export const GpsLocationSchema = SchemaFactory.createForClass(GpsLocation);
+
+@Schema({ _id: false })
+export class JobCompletionData {
+  @Prop({ default: 0 }) labourCharge: number;
+  @Prop({ default: 0 }) partsCharge: number;
+  @Prop({ default: '' }) remarks: string;
+  @Prop({ type: [String], default: [] }) images: string[];
+}
+export const JobCompletionDataSchema = SchemaFactory.createForClass(JobCompletionData);
+
 export type BookingDocument = Booking & Document;
 
 @Schema({ timestamps: true })
@@ -67,6 +84,24 @@ export class Booking {
 
   @Prop({ type: Types.ObjectId, ref: 'Technician' })
   technicianId?: Types.ObjectId;
+
+  @Prop({
+    type: String,
+    enum: ['PENDING_ACCEPTANCE', 'ACCEPTED', 'DECLINED'],
+  })
+  assignmentStatus?: string;
+
+  @Prop()
+  assignedAt?: Date;
+
+  @Prop()
+  acceptedAt?: Date;
+
+  @Prop()
+  declinedAt?: Date;
+
+  @Prop()
+  declineReason?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
   serviceId: Types.ObjectId;
@@ -88,8 +123,18 @@ export class Booking {
 
   @Prop({
     type: String,
-    enum: ['PENDING', 'CONFIRMED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'RESCHEDULED', 'CANCELLED'],
-    default: 'PENDING'
+    enum: [
+      'PENDING',
+      'CONFIRMED',
+      'ASSIGNED',
+      'EN_ROUTE',
+      'IN_PROGRESS',
+      'COMPLETED',
+      'PAYMENT_COLLECTED',
+      'RESCHEDULED',
+      'CANCELLED',
+    ],
+    default: 'PENDING',
   })
   status: string;
 
@@ -136,6 +181,48 @@ export class Booking {
 
   @Prop({ default: false })
   isBilled: boolean;
+
+  @Prop({ default: 0 })
+  estimatedAmount: number;
+
+  @Prop({ default: true })
+  otpRequired: boolean;
+
+  @Prop({ type: GpsLocationSchema })
+  arrivalGps?: GpsLocation;
+
+  @Prop()
+  arrivalAt?: Date;
+
+  @Prop()
+  completionOtpHash?: string;
+
+  @Prop()
+  completionOtpExpiresAt?: Date;
+
+  @Prop({ default: false })
+  completionOtpVerified: boolean;
+
+  @Prop()
+  completionOtpVerifiedAt?: Date;
+
+  @Prop()
+  customerSignatureUrl?: string;
+
+  @Prop({ type: JobCompletionDataSchema, default: {} })
+  completionData: JobCompletionData;
+
+  @Prop({ default: false })
+  jobClosed: boolean;
+
+  @Prop()
+  jobClosedAt?: Date;
+
+  @Prop({
+    type: String,
+    enum: ['CASH', 'UPI', 'CARD'],
+  })
+  jobPaymentMethod?: string;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);
