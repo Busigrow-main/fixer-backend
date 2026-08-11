@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Notification, NotificationDocument } from '../schemas/notification.schema';
+import { TechniciansService } from '../../technicians/technicians.service';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
+    private techniciansService: TechniciansService,
   ) {}
 
   list(technicianId: string) {
@@ -32,5 +34,11 @@ export class NotificationsService {
     });
 
     return { success: true };
+  }
+
+  registerPushToken(technicianId: string, token: string) {
+    return this.techniciansService.update(technicianId, {
+      expoPushToken: token,
+    });
   }
 }

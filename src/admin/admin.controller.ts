@@ -12,6 +12,7 @@ import { AdminService } from './admin.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { PartOrdersService } from '../part-orders/part-orders.service';
+import { WarrantiesService } from '../warranties/warranties.service';
 import { UpdateOrderBillDto } from '../part-orders/dtos/update-order-bill.dto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const csv = require('csv-parser');
@@ -27,6 +28,7 @@ export class AdminController {
     private readonly sparePartsService: SparePartsService,
     private readonly bookingsService: BookingsService,
     private readonly partOrdersService: PartOrdersService,
+    private readonly warrantiesService: WarrantiesService,
   ) {}
 
   // ─── Dashboard ────────────────────────────────────────────
@@ -55,8 +57,27 @@ export class AdminController {
     @Query('page') page = '1',
     @Query('limit') limit = '20',
     @Query('status') status?: string,
+    @Query('dispatchStatus') dispatchStatus?: string,
   ) {
-    return this.bookingsService.findAllForAdmin(parseInt(page), parseInt(limit), status);
+    return this.bookingsService.findAllForAdmin(
+      parseInt(page),
+      parseInt(limit),
+      status,
+      dispatchStatus,
+    );
+  }
+
+  /** Unclaimed jobs escalated after 10 minutes — admin must assign. */
+  @Get('bookings/needs-assignment')
+  async getNeedsAssignment(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.bookingsService.findAllForAdmin(
+      parseInt(page),
+      parseInt(limit),
+      'NEEDS_ASSIGNMENT',
+    );
   }
 
   // ─── Bookings Export ──────────────────────────────────────
@@ -123,6 +144,32 @@ export class AdminController {
   @Put('bookings/:id/finalize-invoice')
   async finalizeInvoice(@Param('id') id: string) {
     return this.bookingsService.finalizeInvoice(id);
+  }
+
+  @Get('bookings/:id/warranties')
+  async getBookingWarranties(@Param('id') id: string) {
+    return this.warrantiesService.findByBooking(id);
+  }
+
+  @Get('warranties/by-serial/:serial')
+  async getWarrantyBySerial(@Param('serial') serial: string) {
+    const warranty = await this.warrantiesService.findBySerial(serial);
+    if (!warranty) {
+      throw new BadRequestException(`No warranty found for serial ${serial}`);
+    }
+    return warranty;
+  }
+
+  @Get('warranties')
+  async lookupWarranty(@Query('serial') serial?: string) {
+    if (!serial?.trim()) {
+      throw new BadRequestException('serial query parameter is required');
+    }
+    const warranty = await this.warrantiesService.findBySerial(serial);
+    if (!warranty) {
+      return { found: false, warranty: null };
+    }
+    return { found: true, warranty };
   }
 
   // ─── Part Orders (paginated) ──────────────────────────────

@@ -4,6 +4,10 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { TechniciansModule } from '../technicians/technicians.module';
 import { BookingsModule } from '../bookings/bookings.module';
+import { VisitsModule } from '../visits/visits.module';
+import { SparePartsModule } from '../spare-parts/spare-parts.module';
+import { DispatchModule } from './dispatch/dispatch.module';
+import { WarrantiesModule } from '../warranties/warranties.module';
 
 import { OtpSession, OtpSessionSchema } from './schemas/otp-session.schema';
 import { RefreshToken, RefreshTokenSchema } from './schemas/refresh-token.schema';
@@ -19,10 +23,14 @@ import { OnboardingEvent, OnboardingEventSchema } from './schemas/onboarding-eve
 import { OnboardingCall, OnboardingCallSchema } from './schemas/onboarding-call.schema';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 import { Technician, TechnicianSchema } from '../technicians/schemas/technician.schema';
+import { SparePart, SparePartSchema } from '../spare-parts/schemas/spare-part.schema';
+import {
+  SparePartUsage,
+  SparePartUsageSchema,
+} from '../visits/schemas/spare-part-usage.schema';
 
 import { OtpService } from './common/otp.service';
 import { TokenService } from './common/token.service';
-import { NotificationDispatchService } from './common/notification-dispatch.service';
 import { OnboardingProgressHelper } from './common/onboarding-progress.helper';
 import { TechnicianGuard } from './common/technician.guard';
 
@@ -37,6 +45,8 @@ import { TechnicianDashboardService } from './dashboard/technician-dashboard.ser
 import { TechnicianJobsController } from './jobs/technician-jobs.controller';
 import { TechnicianJobsService } from './jobs/technician-jobs.service';
 import { JobCompletionService } from './job-completion/job-completion.service';
+import { JobSheetService } from './job-sheet/job-sheet.service';
+import { TechnicianSparePartsController } from './job-sheet/technician-spare-parts.controller';
 import { NotificationsController } from './notifications/notifications.controller';
 import { NotificationsService } from './notifications/notifications.service';
 import { EarningsController } from './earnings/earnings.controller';
@@ -53,6 +63,10 @@ import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.ser
     UsersModule,
     TechniciansModule,
     BookingsModule,
+    VisitsModule,
+    SparePartsModule,
+    DispatchModule,
+    WarrantiesModule,
     MongooseModule.forFeature([
       { name: OtpSession.name, schema: OtpSessionSchema },
       { name: RefreshToken.name, schema: RefreshTokenSchema },
@@ -65,6 +79,8 @@ import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.ser
       { name: OnboardingCall.name, schema: OnboardingCallSchema },
       { name: Booking.name, schema: BookingSchema },
       { name: Technician.name, schema: TechnicianSchema },
+      { name: SparePart.name, schema: SparePartSchema },
+      { name: SparePartUsage.name, schema: SparePartUsageSchema },
     ]),
   ],
   controllers: [
@@ -73,6 +89,7 @@ import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.ser
     TechnicianVerificationController,
     TechnicianDashboardController,
     TechnicianJobsController,
+    TechnicianSparePartsController,
     NotificationsController,
     EarningsController,
     TechnicianProfileController,
@@ -81,7 +98,6 @@ import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.ser
   providers: [
     OtpService,
     TokenService,
-    NotificationDispatchService,
     OnboardingProgressHelper,
     TechnicianGuard,
     TechnicianAuthService,
@@ -90,6 +106,7 @@ import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.ser
     TechnicianDashboardService,
     TechnicianJobsService,
     JobCompletionService,
+    JobSheetService,
     NotificationsService,
     EarningsService,
     TechnicianProfileService,

@@ -223,6 +223,39 @@ export class Booking {
     enum: ['CASH', 'UPI', 'CARD'],
   })
   jobPaymentMethod?: string;
+
+  /** Marketplace dispatch: OPEN until a tech claims, expires to NEEDS_ADMIN after 10m. */
+  @Prop({
+    type: String,
+    enum: ['OPEN', 'CLAIMED', 'EXPIRED', 'NEEDS_ADMIN', 'ADMIN_ASSIGNED'],
+    default: 'OPEN',
+    index: true,
+  })
+  dispatchStatus: string;
+
+  @Prop()
+  dispatchedAt?: Date;
+
+  @Prop()
+  dispatchExpiresAt?: Date;
+
+  /** Set when unclaimed job is escalated to admin after TTL. */
+  @Prop()
+  adminEscalatedAt?: Date;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Technician' }], default: [] })
+  notifiedTechnicianIds: Types.ObjectId[];
+
+  /** Monotonic counter bumped on every technician/admin job-sheet save. */
+  @Prop({ default: 0 })
+  jobSheetRevision: number;
+
+  @Prop()
+  jobSheetUpdatedAt?: Date;
+
+  @Prop({ type: String, enum: ['TECHNICIAN', 'ADMIN'] })
+  jobSheetUpdatedBy?: string;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);
+BookingSchema.index({ dispatchStatus: 1, 'addressData.zip': 1, serviceId: 1 });

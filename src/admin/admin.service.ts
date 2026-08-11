@@ -21,6 +21,7 @@ export class AdminService {
       totalSpareParts,
       totalOrders,
       ordersByStatus,
+      needsAdminAssignment,
     ] = await Promise.all([
       this.usersService.countAll(),
       this.bookingsService.countAll(),
@@ -28,11 +29,16 @@ export class AdminService {
       this.sparePartsService.countAll(),
       this.partOrdersService.countAll(),
       this.partOrdersService.countByStatus(),
+      this.bookingsService.countNeedsAdminAssignment(),
     ]);
 
     return {
       users: { total: totalUsers },
-      bookings: { total: totalBookings, byStatus: bookingsByStatus },
+      bookings: {
+        total: totalBookings,
+        byStatus: bookingsByStatus,
+        needsAdminAssignment,
+      },
       spareParts: { total: totalSpareParts },
       orders: { total: totalOrders, byStatus: ordersByStatus },
     };

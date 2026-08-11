@@ -7,6 +7,7 @@ import { SparePartUsage, SparePartUsageSchema } from './schemas/spare-part-usage
 import { SparePartsModule } from '../spare-parts/spare-parts.module';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 import { SparePartSchema } from '../spare-parts/schemas/spare-part.schema';
+import { WarrantiesModule } from '../warranties/warranties.module';
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { SparePartSchema } from '../spare-parts/schemas/spare-part.schema';
       { name: Booking.name, schema: BookingSchema },
       { name: 'SparePart', schema: SparePartSchema }
     ]),
-    SparePartsModule
+    SparePartsModule,
+    WarrantiesModule,
   ],
   controllers: [VisitsController],
   providers: [VisitsService],

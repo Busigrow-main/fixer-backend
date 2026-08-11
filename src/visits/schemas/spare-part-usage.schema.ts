@@ -30,6 +30,36 @@ export class SparePartUsage {
 
   @Prop()
   warrantyInfo?: string; // Pre-filled or calculated (like "24-hour replacement")
+
+  /** INVENTORY = Fixxer stock; SELF = technician-sourced / third-party. */
+  @Prop({ type: String, enum: ['INVENTORY', 'SELF'] })
+  sourcedBy?: string;
+
+  /** Platform fee charged to technician for self-sourced parts (₹100). */
+  @Prop({ default: 0 })
+  platformFeeAmount?: number;
+
+  /** True once SELF_PART_FEE earning debit has been recorded. */
+  @Prop({ default: false })
+  platformFeeApplied?: boolean;
+
+  /** Physical unit serial for warranty registration (normalized uppercase). */
+  @Prop({ trim: true, uppercase: true, index: true })
+  serialNumber?: string;
+
+  /** Date the part was installed — warranty clock start. */
+  @Prop({ type: Date })
+  installedAt?: Date;
+
+  /** Snapshot of warranty duration in months at install time. */
+  @Prop()
+  warrantyMonths?: number;
 }
 
 export const SparePartUsageSchema = SchemaFactory.createForClass(SparePartUsage);
+
+// Unique among usages that have a serial (sparse skips null/undefined)
+SparePartUsageSchema.index(
+  { serialNumber: 1 },
+  { unique: true, sparse: true, name: 'spare_part_usage_serial_unique' },
+);

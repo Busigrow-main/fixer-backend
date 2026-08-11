@@ -21,4 +21,12 @@ export class NotificationsController {
   ) {
     return this.notificationsService.markRead(technician._id.toString(), notificationIds);
   }
+
+  @Post('register-token')
+  registerToken(
+    @CurrentTechnician() technician: any,
+    @Body('token') token: string,
+  ) {
+    return this.notificationsService.registerPushToken(technician._id.toString(), token);
+  }
 }

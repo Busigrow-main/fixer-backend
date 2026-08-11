@@ -14,6 +14,9 @@ export class Warranty {
   @Prop({ type: Types.ObjectId, ref: 'SparePartUsage' })
   sparePartUsageId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'SparePart' })
+  sparePartId?: Types.ObjectId;
+
   @Prop({
     type: String,
     enum: ['SERVICE', 'PART'],
@@ -26,6 +29,13 @@ export class Warranty {
 
   @Prop()
   description: string;
+
+  @Prop()
+  partName?: string;
+
+  /** Part unit serial — unique among ACTIVE PART warranties. */
+  @Prop({ trim: true, uppercase: true, index: true })
+  serialNumber?: string;
 
   @Prop({ required: true })
   startDate: Date;
@@ -42,3 +52,13 @@ export class Warranty {
 }
 
 export const WarrantySchema = SchemaFactory.createForClass(Warranty);
+
+WarrantySchema.index(
+  { serialNumber: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { type: 'PART', status: 'ACTIVE' },
+    name: 'warranty_active_part_serial_unique',
+  },
+);

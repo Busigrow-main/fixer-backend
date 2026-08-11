@@ -9,14 +9,24 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { BookingsService } from '../../bookings/bookings.service';
 import { EarningsService } from '../earnings/earnings.service';
+import { VisitsService } from '../../visits/visits.service';
+import { resolveTechnicianId } from '../common/technician-id.util';
+import { SELF_PART_PLATFORM_FEE } from '../constants';
 import { Booking, BookingDocument } from '../../bookings/schemas/booking.schema';
+import {
+  SparePartUsage,
+  SparePartUsageDocument,
+} from '../../visits/schemas/spare-part-usage.schema';
 
 @Injectable()
 export class JobCompletionService {
   constructor(
     private bookingsService: BookingsService,
     private earningsService: EarningsService,
+    private visitsService: VisitsService,
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(SparePartUsage.name)
+    private sparePartUsageModel: Model<SparePartUsageDocument>,
   ) {}
 
   async generateOtp(jobId: string, technicianId: string) {
@@ -55,6 +65,14 @@ export class JobCompletionService {
     const valid = await bcrypt.compare(otp, booking.completionOtpHash);
     if (!valid) throw new BadRequestException('Invalid OTP');
 
+    await this.completeVisitsAndDeductStock(jobId);
+
+    try {
+      await this.bookingsService.registerWarrantiesOnComplete(jobId);
+    } catch (err) {
+      console.error('Part warranty registration failed:', err);
+    }
+
     return this.bookingModel.findByIdAndUpdate(
       jobId,
       {
@@ -80,14 +98,47 @@ export class JobCompletionService {
     technicianId: string,
     payload: { labourCharge: number; partsCharge: number; remarks: string; images: string[] },
   ) {
-    await this.getOwnedBooking(jobId, technicianId);
+    const booking = await this.getOwnedBooking(jobId, technicianId);
+
+    // Prefer job-sheet invoice totals when already filled
+    const labourCharge =
+      booking.invoiceData?.serviceTotal > 0
+        ? booking.invoiceData.serviceTotal
+        : payload.labourCharge;
+    const partsCharge =
+      booking.invoiceData?.partsTotal > 0
+        ? booking.invoiceData.partsTotal
+        : payload.partsCharge;
+
+    const remarks =
+      payload.remarks ||
+      booking.jobDetails?.diagnosis ||
+      booking.completionData?.remarks ||
+      '';
+
     return this.bookingModel.findByIdAndUpdate(
       jobId,
       {
-        completionData: payload,
-        'invoiceData.serviceTotal': payload.labourCharge,
-        'invoiceData.partsTotal': payload.partsCharge,
-        'invoiceData.totalAmount': payload.labourCharge + payload.partsCharge,
+        $set: {
+          completionData: {
+            labourCharge,
+            partsCharge,
+            remarks,
+            images: payload.images || booking.completionData?.images || [],
+          },
+          'invoiceData.serviceTotal': labourCharge,
+          'invoiceData.partsTotal': partsCharge,
+          'invoiceData.totalAmount':
+            labourCharge +
+            partsCharge +
+            (booking.invoiceData?.additionalCharges || []).reduce(
+              (s, c) => s + (c.amount || 0),
+              0,
+            ),
+          jobSheetUpdatedAt: new Date(),
+          jobSheetUpdatedBy: 'TECHNICIAN',
+        },
+        $inc: { jobSheetRevision: 1 },
       },
       { returnDocument: 'after' },
     );
@@ -116,9 +167,15 @@ export class JobCompletionService {
       { returnDocument: 'after' },
     );
 
-    const total =
-      (booking.completionData?.labourCharge || 0) +
-      (booking.completionData?.partsCharge || 0);
+    const labour =
+      booking.completionData?.labourCharge ||
+      booking.invoiceData?.serviceTotal ||
+      0;
+    const parts =
+      booking.completionData?.partsCharge ||
+      booking.invoiceData?.partsTotal ||
+      0;
+    const total = labour + parts;
 
     if (total > 0) {
       await this.earningsService.recordEarning({
@@ -130,6 +187,9 @@ export class JobCompletionService {
         description: `Job payment for ${jobId}`,
       });
     }
+
+    await this.applySelfPartFees(jobId, technicianId, method);
+    await this.completeVisitsAndDeductStock(jobId);
 
     return updated;
   }
@@ -146,6 +206,19 @@ export class JobCompletionService {
       );
     }
 
+    // Safety net if fees somehow missed at payment
+    await this.applySelfPartFees(
+      jobId,
+      technicianId,
+      (booking.jobPaymentMethod as 'CASH' | 'UPI' | 'CARD') || 'CASH',
+    );
+
+    try {
+      await this.bookingsService.registerWarrantiesOnComplete(jobId);
+    } catch (err) {
+      console.error('Part warranty registration on close failed:', err);
+    }
+
     return this.bookingModel.findByIdAndUpdate(
       jobId,
       { jobClosed: true, jobClosedAt: new Date() },
@@ -153,10 +226,51 @@ export class JobCompletionService {
     );
   }
 
+  /** Debit ₹100 per pending self-sourced spare-part line. */
+  private async applySelfPartFees(
+    jobId: string,
+    technicianId: string,
+    paymentMethod: string,
+  ) {
+    const visits = await this.visitsService.findByBooking(jobId);
+    for (const visit of visits) {
+      for (const usage of (visit.partsUsed || []) as any[]) {
+        const isSelf = usage.isThirdParty || usage.sourcedBy === 'SELF';
+        if (!isSelf || usage.platformFeeApplied) continue;
+
+        const fee = usage.platformFeeAmount || SELF_PART_PLATFORM_FEE;
+        await this.earningsService.recordEarning({
+          technicianId,
+          bookingId: jobId,
+          amount: -Math.abs(fee),
+          type: 'SELF_PART_FEE',
+          paymentMethod,
+          description: `Self-sourced part fee: ${usage.partName || 'part'}`,
+        });
+        await this.sparePartUsageModel.findByIdAndUpdate(usage._id, {
+          platformFeeApplied: true,
+          platformFeeAmount: fee,
+          sourcedBy: 'SELF',
+        });
+      }
+    }
+  }
+
+  /** Mark visits COMPLETED so inventory stock is deducted. */
+  private async completeVisitsAndDeductStock(jobId: string) {
+    const visits = await this.visitsService.findByBooking(jobId);
+    for (const visit of visits as any[]) {
+      if (visit.status === 'COMPLETED') continue;
+      await this.visitsService.updateStatus(String(visit._id), {
+        status: 'COMPLETED',
+      });
+    }
+  }
+
   private async getOwnedBooking(jobId: string, technicianId: string) {
     const booking = await this.bookingModel.findById(jobId).exec();
     if (!booking) throw new NotFoundException('Job not found');
-    if (booking.technicianId?.toString() !== technicianId) {
+    if (resolveTechnicianId(booking.technicianId) !== technicianId) {
       throw new BadRequestException('Job not assigned to you');
     }
     return booking;

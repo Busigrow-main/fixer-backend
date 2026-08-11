@@ -6,6 +6,7 @@ import { UsersModule } from '../users/users.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { SparePartsModule } from '../spare-parts/spare-parts.module';
 import { PartOrdersModule } from '../part-orders/part-orders.module';
+import { WarrantiesModule } from '../warranties/warranties.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PartOrdersModule } from '../part-orders/part-orders.module';
     BookingsModule,
     SparePartsModule,
     PartOrdersModule,
+    WarrantiesModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

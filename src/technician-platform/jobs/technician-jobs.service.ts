@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,19 +10,23 @@ import { Model, Types } from 'mongoose';
 import { BookingsService } from '../../bookings/bookings.service';
 import { TechniciansService } from '../../technicians/technicians.service';
 import { JOB_STATUS_FLOW } from '../constants';
+import { technicianIdQuery, resolveTechnicianId } from '../common/technician-id.util';
 import { Booking, BookingDocument } from '../../bookings/schemas/booking.schema';
+import { JobDispatchService } from '../dispatch/job-dispatch.service';
+import { categoriesForServiceSlug } from '../dispatch/service-category.util';
 
 @Injectable()
 export class TechnicianJobsService {
   constructor(
     private bookingsService: BookingsService,
     private techniciansService: TechniciansService,
+    private jobDispatch: JobDispatchService,
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
   ) {}
 
   async listJobs(technicianId: string, filter?: string) {
     const query: Record<string, unknown> = {
-      technicianId: new Types.ObjectId(technicianId),
+      technicianId: technicianIdQuery(technicianId),
     };
 
     const today = new Date();
@@ -55,10 +60,106 @@ export class TechnicianJobsService {
       .exec();
   }
 
+  /** Open marketplace jobs matching this technician's pincode + categories. */
+  async listAvailableJobs(technicianId: string) {
+    const tech = await this.techniciansService.findOne(technicianId);
+    const categories = [
+      ...new Set([...(tech.serviceCategories ?? []), ...(tech.skills ?? [])]),
+    ];
+    const pin = tech.pincode;
+    const areas = tech.serviceAreas?.length ? tech.serviceAreas : pin ? [pin] : [];
+
+    if (!areas.length || !categories.length) {
+      return [];
+    }
+
+    await this.expireStaleOpenJobs();
+
+    const open = await this.bookingModel
+      .find({
+        dispatchStatus: 'OPEN',
+        technicianId: null,
+        'addressData.zip': { $in: areas },
+        status: { $in: ['PENDING', 'CONFIRMED'] },
+      })
+      .populate('userId', 'fullName phone')
+      .populate('serviceId', 'name icon slug')
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return open.filter((booking: any) => {
+      const slug = booking.serviceId?.slug as string | undefined;
+      const required = categoriesForServiceSlug(slug);
+      return required.some((c) => categories.map((x) => x.toLowerCase()).includes(c.toLowerCase()));
+    });
+  }
+
   async getJob(technicianId: string, jobId: string) {
+    await this.jobDispatch.expireIfNeeded(jobId);
     const booking = await this.bookingsService.findOne(jobId);
-    this.assertOwnership(booking, technicianId);
-    return this.formatJobDetail(booking);
+
+    const ownerId = resolveTechnicianId(booking.technicianId);
+    if (ownerId === technicianId) {
+      return this.formatJobDetail(booking);
+    }
+
+    // Allow viewing open jobs the tech is eligible for (pre-claim).
+    if (
+      !ownerId &&
+      (booking as any).dispatchStatus === 'OPEN' &&
+      (await this.isEligibleForOpenJob(technicianId, booking))
+    ) {
+      return this.formatJobDetail(booking);
+    }
+
+    throw new ForbiddenException('You do not have access to this job');
+  }
+
+  async claimJob(technicianId: string, jobId: string) {
+    await this.jobDispatch.expireIfNeeded(jobId);
+
+    const tech = await this.techniciansService.findOne(technicianId);
+    if (!tech.isActive || tech.availabilityStatus !== 'AVAILABLE') {
+      throw new BadRequestException('You must be active and available to claim a job');
+    }
+
+    const existing = await this.bookingModel.findById(jobId).populate('serviceId', 'slug name').exec();
+    if (!existing) throw new NotFoundException('Job not found');
+
+    if (!(await this.isEligibleForOpenJob(technicianId, existing))) {
+      throw new ForbiddenException('You are not eligible for this job');
+    }
+
+    const now = new Date();
+    const claimed = await this.bookingModel
+      .findOneAndUpdate(
+        {
+          _id: jobId,
+          dispatchStatus: 'OPEN',
+          $or: [{ technicianId: null }, { technicianId: { $exists: false } }],
+        },
+        {
+          technicianId: new Types.ObjectId(technicianId),
+          status: 'ASSIGNED',
+          assignmentStatus: 'ACCEPTED',
+          assignedAt: now,
+          acceptedAt: now,
+          dispatchStatus: 'CLAIMED',
+        },
+        { returnDocument: 'after' },
+      )
+      .populate('userId', 'fullName phone')
+      .populate('serviceId', 'name icon slug')
+      .exec();
+
+    if (!claimed) {
+      throw new ConflictException('Job was already claimed by another technician');
+    }
+
+    const notified = (existing.notifiedTechnicianIds ?? []) as Types.ObjectId[];
+    void this.jobDispatch.notifyJobTaken(jobId, technicianId, notified);
+
+    return this.formatJobDetail(claimed);
   }
 
   async acceptJob(technicianId: string, jobId: string) {
@@ -94,7 +195,7 @@ export class TechnicianJobsService {
       throw new BadRequestException('Job is not pending acceptance');
     }
 
-    return this.bookingModel
+    const updated = await this.bookingModel
       .findByIdAndUpdate(
         jobId,
         {
@@ -103,10 +204,16 @@ export class TechnicianJobsService {
           declineReason: reason,
           technicianId: null,
           status: 'CONFIRMED',
+          dispatchStatus: 'OPEN',
         },
         { returnDocument: 'after' },
       )
       .exec();
+
+    // Re-broadcast to eligible technicians
+    void this.jobDispatch.broadcastJob(jobId);
+
+    return updated;
   }
 
   async updateStatus(technicianId: string, jobId: string, nextStatus: string) {
@@ -169,6 +276,38 @@ export class TechnicianJobsService {
       .exec();
   }
 
+  private async expireStaleOpenJobs() {
+    await this.jobDispatch.escalateUnclaimedJobs();
+  }
+
+  private async isEligibleForOpenJob(technicianId: string, booking: any): Promise<boolean> {
+    if (booking.dispatchStatus !== 'OPEN') return false;
+    if (booking.technicianId) return false;
+
+    const tech = await this.techniciansService.findOne(technicianId);
+    if (!tech.isActive || tech.availabilityStatus !== 'AVAILABLE' || !tech.idVerified) {
+      return false;
+    }
+
+    const zip = booking.addressData?.zip?.trim();
+    if (!zip) return false;
+    const inArea =
+      tech.pincode === zip || (tech.serviceAreas ?? []).includes(zip);
+    if (!inArea) return false;
+
+    const slug =
+      typeof booking.serviceId === 'object' && booking.serviceId?.slug
+        ? booking.serviceId.slug
+        : undefined;
+    const required = slug
+      ? categoriesForServiceSlug(slug)
+      : await this.jobDispatch.resolveCategorySlugs(booking.serviceId);
+    const offered = [...(tech.serviceCategories ?? []), ...(tech.skills ?? [])].map((s) =>
+      s.toLowerCase(),
+    );
+    return required.some((c) => offered.includes(c.toLowerCase()));
+  }
+
   private async technicianModelIncrement(technicianId: string) {
     await this.techniciansService.update(technicianId, {
       totalCompletedJobs: (await this.techniciansService.findOne(technicianId)).totalCompletedJobs + 1,
@@ -176,14 +315,14 @@ export class TechnicianJobsService {
   }
 
   private assertOwnership(booking: Booking, technicianId: string) {
-    if (booking.technicianId?.toString() !== technicianId) {
+    if (resolveTechnicianId(booking.technicianId) !== technicianId) {
       throw new ForbiddenException('You do not have access to this job');
     }
   }
 
   private formatJobDetail(booking: any) {
     return {
-      ...booking.toObject?.() || booking,
+      ...(booking.toObject?.() || booking),
       customer: booking.userId,
       address: booking.addressData,
       problem: booking.description,

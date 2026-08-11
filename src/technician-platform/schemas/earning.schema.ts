@@ -14,7 +14,10 @@ export class Earning {
   @Prop({ required: true })
   amount: number;
 
-  @Prop({ required: true, enum: ['LABOUR', 'PARTS', 'BONUS', 'JOINING_FEE_REFUND'] })
+  @Prop({
+    required: true,
+    enum: ['LABOUR', 'PARTS', 'BONUS', 'JOINING_FEE_REFUND', 'SELF_PART_FEE'],
+  })
   type: string;
 
   @Prop({ required: true, enum: ['CASH', 'UPI', 'CARD', 'ONLINE'] })

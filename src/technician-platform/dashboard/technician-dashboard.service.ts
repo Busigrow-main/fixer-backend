@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Booking, BookingDocument } from '../../bookings/schemas/booking.schema';
 import { Earning, EarningDocument } from '../schemas/earning.schema';
+import { technicianIdQuery } from '../common/technician-id.util';
 
 @Injectable()
 export class TechnicianDashboardService {
@@ -12,7 +13,7 @@ export class TechnicianDashboardService {
   ) {}
 
   async getDashboard(technicianId: string) {
-    const techObjectId = new Types.ObjectId(technicianId);
+    const techFilter = technicianIdQuery(technicianId);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -27,24 +28,24 @@ export class TechnicianDashboardService {
       completedCount,
     ] = await Promise.all([
       this.bookingModel.countDocuments({
-        technicianId: techObjectId,
+        technicianId: techFilter,
         assignedAt: { $gte: today, $lt: tomorrow },
       }),
       this.bookingModel.countDocuments({
-        technicianId: techObjectId,
+        technicianId: techFilter,
         status: { $in: ['ASSIGNED', 'EN_ROUTE', 'IN_PROGRESS'] },
       }),
       this.bookingModel.countDocuments({
-        technicianId: techObjectId,
+        technicianId: techFilter,
         status: { $in: ['COMPLETED', 'PAYMENT_COLLECTED'] },
       }),
       this.earningModel.aggregate([
-        { $match: { technicianId: techObjectId } },
+        { $match: { technicianId: techFilter } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
-      this.bookingModel.countDocuments({ technicianId: techObjectId }),
+      this.bookingModel.countDocuments({ technicianId: techFilter }),
       this.bookingModel.countDocuments({
-        technicianId: techObjectId,
+        technicianId: techFilter,
         status: { $in: ['COMPLETED', 'PAYMENT_COLLECTED', 'CANCELLED'] },
       }),
     ]);
@@ -64,16 +65,16 @@ export class TechnicianDashboardService {
   }
 
   async getStats(technicianId: string) {
-    const techObjectId = new Types.ObjectId(technicianId);
+    const techFilter = technicianIdQuery(technicianId);
     const statusBreakdown = await this.bookingModel.aggregate([
-      { $match: { technicianId: techObjectId } },
+      { $match: { technicianId: techFilter } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
     const weeklyEarnings = await this.earningModel.aggregate([
       {
         $match: {
-          technicianId: techObjectId,
+          technicianId: techFilter,
           earnedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         },
       },

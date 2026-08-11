@@ -26,4 +26,12 @@ export class TechnicianProfileController {
   ) {
     return this.profileService.updateProfilePicture(technician._id.toString(), photoUrl);
   }
+
+  @Post('availability')
+  availability(
+    @CurrentTechnician() technician: any,
+    @Body('status') status: 'AVAILABLE' | 'UNAVAILABLE' | 'ON_JOB',
+  ) {
+    return this.profileService.updateAvailability(technician._id.toString(), status);
+  }
 }

@@ -1,6 +1,11 @@
 export const JOINING_FEE_AMOUNT = 2400;
 export const ONBOARDING_CALL_COST = 800;
 
+/** Platform fee (₹) charged to technician per self-sourced spare-part line. */
+export const SELF_PART_PLATFORM_FEE = 100;
+
+export const JOB_SHEET_EDITABLE_STATUSES = ['EN_ROUTE', 'IN_PROGRESS'] as const;
+
 export const JOB_STATUS_FLOW = [
   'ASSIGNED',
   'EN_ROUTE',

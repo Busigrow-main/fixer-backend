@@ -115,6 +115,10 @@ export class Technician {
 
   @Prop()
   onboardingCompletedAt?: Date;
+
+  /** Expo push token for job alerts (Phase B). */
+  @Prop()
+  expoPushToken?: string;
 }
 
 export const TechnicianSchema = SchemaFactory.createForClass(Technician);

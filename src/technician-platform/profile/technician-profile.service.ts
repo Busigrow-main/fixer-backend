@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { TechniciansService } from '../../technicians/technicians.service';
+
+const AVAILABILITY = new Set(['AVAILABLE', 'UNAVAILABLE', 'ON_JOB']);
 
 @Injectable()
 export class TechnicianProfileService {
@@ -25,6 +27,15 @@ export class TechnicianProfileService {
   updateProfilePicture(technicianId: string, photoUrl: string) {
     return this.techniciansService.update(technicianId, {
       profilePhotoUrl: photoUrl,
+    });
+  }
+
+  updateAvailability(technicianId: string, status: string) {
+    if (!AVAILABILITY.has(status)) {
+      throw new BadRequestException('status must be AVAILABLE, UNAVAILABLE, or ON_JOB');
+    }
+    return this.techniciansService.update(technicianId, {
+      availabilityStatus: status,
     });
   }
 }
