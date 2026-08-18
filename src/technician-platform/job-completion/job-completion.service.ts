@@ -139,6 +139,7 @@ export class JobCompletionService {
         jobPaymentMethod: method,
         paymentStatus: paymentStatusMap[method],
         status: 'PAYMENT_COLLECTED',
+        isBilled: true,
       },
       { returnDocument: 'after' },
     );
@@ -194,7 +195,7 @@ export class JobCompletionService {
 
     return this.bookingModel.findByIdAndUpdate(
       jobId,
-      { jobClosed: true, jobClosedAt: new Date() },
+      { jobClosed: true, jobClosedAt: new Date(), isBilled: true },
       { returnDocument: 'after' },
     );
   }

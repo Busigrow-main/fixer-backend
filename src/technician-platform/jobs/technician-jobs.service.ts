@@ -321,9 +321,6 @@ export class TechnicianJobsService {
   }
 
   private formatJobDetail(booking: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7355/ingest/99926b9b-4ef7-4fac-b539-22a58883fa42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7c1315'},body:JSON.stringify({sessionId:'7c1315',runId:'pre-fix',hypothesisId:'H2',location:'technician-jobs.service.ts:formatJobDetail',message:'job detail invoice payload for payment screen',data:{bookingId:String(booking._id),invoiceKeys:booking.invoiceData?Object.keys(booking.invoiceData):[],serviceTotal:booking.invoiceData?.serviceTotal??null,partsTotal:booking.invoiceData?.partsTotal??null,totalAmount:booking.invoiceData?.totalAmount??null,labourCharge:booking.invoiceData?.labourCharge??null,partsCharge:booking.invoiceData?.partsCharge??null,completionLabour:booking.completionData?.labourCharge??null,completionParts:booking.completionData?.partsCharge??null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return {
       ...(booking.toObject?.() || booking),
       customer: booking.userId,

@@ -145,12 +145,15 @@ export class BookingsService {
 
   private async lockServiceWarranty(id: string) {
     const booking = await this.bookingModel.findById(id).exec();
-    if (!booking?.jobDetails?.warrantyPeriod) return;
+    if (!booking) return;
+    if (booking.warrantyExpiry) {
+      const existingService = await this.warrantiesService.findByBooking(id);
+      if (existingService.some((w) => w.type === 'SERVICE')) return;
+    }
 
-    const daysMatch = booking.jobDetails.warrantyPeriod.match(/(\d+)/);
-    if (!daysMatch) return;
-
-    const days = parseInt(daysMatch[1], 10);
+    const period = booking.jobDetails?.warrantyPeriod || '60 Days';
+    const daysMatch = String(period).match(/(\d+)/);
+    const days = daysMatch ? parseInt(daysMatch[1], 10) : 60;
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + days);
     await this.bookingModel.findByIdAndUpdate(id, { warrantyExpiry: expiryDate }).exec();
@@ -162,7 +165,7 @@ export class BookingsService {
       bookingId: booking._id,
       warrantyType: 'IN_HOUSE',
       type: 'SERVICE',
-      description: `Base Service Warranty (${booking.jobDetails.warrantyPeriod})`,
+      description: `Base Service Warranty (${period})`,
       startDate: new Date(),
       endDate: expiryDate,
       status: 'ACTIVE',
@@ -405,20 +408,13 @@ export class BookingsService {
       const service = await this.serviceModel.findById(booking.serviceId).exec();
       if (service) {
         const subCat = this.findSubCategoryById(service, booking.subCategoryId);
-        let serviceSource = 'missing-subcategory';
         if (subCat) {
           // Prefer numeric field; fall back to string parse for legacy data
-          serviceSource =
-            subCat.priceNumeric != null ? 'subcategory-priceNumeric' : 'subcategory-price-string';
           serviceTotal = subCat.priceNumeric != null
             ? subCat.priceNumeric / 100
             : this.parseNumericPrice(subCat.price);
         }
         if (!serviceTotal) {
-          serviceSource =
-            (service as any).startingPriceNumeric != null
-              ? 'service-startingPriceNumeric'
-              : 'service-startingPrice-string';
           serviceTotal = (service as any).startingPriceNumeric != null
             ? (service as any).startingPriceNumeric / 100
             : this.parseNumericPrice(service.startingPrice);
@@ -474,15 +470,27 @@ export class BookingsService {
     return this.populateBookingDetail(id);
   }
 
+  private isJobFinished(booking: { status?: string; jobClosed?: boolean }) {
+    return (
+      booking.jobClosed === true ||
+      booking.status === 'COMPLETED' ||
+      booking.status === 'PAYMENT_COLLECTED'
+    );
+  }
+
   async claimWarranty(id: string): Promise<any> {
     const originalBooking = await this.bookingModel.findById(id).exec();
     if (!originalBooking) throw new NotFoundException('Booking not found');
 
-    if (originalBooking.status !== 'COMPLETED') {
+    if (!this.isJobFinished(originalBooking)) {
       throw new BadRequestException('Warranty can only be claimed for completed services');
     }
 
-    if (!originalBooking.warrantyExpiry || new Date() > originalBooking.warrantyExpiry) {
+    if (!originalBooking.warrantyExpiry) {
+      await this.lockServiceWarranty(id);
+    }
+    const refreshed = await this.bookingModel.findById(id).exec();
+    if (!refreshed?.warrantyExpiry || new Date() > refreshed.warrantyExpiry) {
       throw new BadRequestException('Warranty has expired or is not applicable');
     }
 
@@ -501,7 +509,8 @@ export class BookingsService {
       serviceType: 'WARRANTY_CHECK',
       paymentStatus: 'WARRANTY_SERVICE',
       parentId: originalBooking._id,
-      productDetails: originalBooking.productDetails
+      productDetails: originalBooking.productDetails,
+      dispatchStatus: 'OPEN',
     });
 
     const saved = await claimBooking.save();
@@ -510,7 +519,9 @@ export class BookingsService {
       $push: { claimBookingIds: saved._id }
     }).exec();
 
-    return this.findOne(saved._id.toString());
+    void this.jobDispatch.broadcastJob(saved._id.toString());
+
+    return this.populateBookingDetail(saved._id.toString());
   }
 
   async countByStatus(): Promise<Record<string, number>> {
