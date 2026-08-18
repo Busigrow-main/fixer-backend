@@ -66,7 +66,7 @@ export class JobSheetService {
     const booking = await this.bookingModel.findById(jobId).lean().exec();
     if (!booking) throw new NotFoundException('Job not found');
     const visits = await this.visitsService.findByBooking(jobId);
-    return this.toSheetDto(booking as any, visits);
+    return await this.toSheetDto(booking as any, visits);
   }
 
   async saveJobSheet(jobId: string, technicianId: string, body: JobSheetSaveBody) {
@@ -80,7 +80,7 @@ export class JobSheetService {
       const lean = await this.bookingModel.findById(jobId).lean().exec();
       throw new ConflictException({
         message: 'Job sheet was updated elsewhere',
-        sheet: this.toSheetDto((lean || booking) as any, visits),
+        sheet: await this.toSheetDto((lean || booking) as any, visits),
       });
     }
 
@@ -300,6 +300,7 @@ export class JobSheetService {
       serialNumber?: string;
       installedAt?: string;
       warrantyMonths?: number;
+      replacedUsageId?: string;
     },
   ) {
     await this.getEditableBooking(jobId, technicianId);
@@ -372,6 +373,7 @@ export class JobSheetService {
         serialNumber,
         installedAt,
         warrantyMonths: warrantyMonths > 0 ? warrantyMonths : undefined,
+        replacedUsageId: partData.replacedUsageId,
       });
       await this.afterPartChange(jobId);
       return usage;
@@ -380,7 +382,10 @@ export class JobSheetService {
     if (!partData.partName?.trim()) {
       throw new BadRequestException('partName is required for self-sourced parts');
     }
-    if (partData.cost === undefined || Number.isNaN(Number(partData.cost))) {
+    if (
+      !partData.replacedUsageId &&
+      (partData.cost === undefined || Number.isNaN(Number(partData.cost)))
+    ) {
       throw new BadRequestException('cost is required for self-sourced parts');
     }
 
@@ -409,7 +414,7 @@ export class JobSheetService {
     const usage = await this.visitsService.addSparePartToVisit(visitId, {
       isThirdParty: true,
       partName: partData.partName.trim(),
-      cost: Number(partData.cost),
+      cost: Number(partData.cost) || 0,
       vendor: partData.vendor,
       warrantyInfo: partData.warrantyInfo,
       quantity,
@@ -419,6 +424,7 @@ export class JobSheetService {
       serialNumber,
       installedAt: serialNumber ? installedAt : undefined,
       warrantyMonths: selfMonths,
+      replacedUsageId: partData.replacedUsageId,
     });
     await this.afterPartChange(jobId);
     return usage;
@@ -528,12 +534,19 @@ export class JobSheetService {
     });
   }
 
-  private toSheetDto(booking: BookingDocument, visits: any[]) {
-    const selfParts = visits.flatMap((v) =>
+  private async toSheetDto(booking: BookingDocument, visits: any[]) {
+    const chargeableSelf = visits.flatMap((v) =>
       (v.partsUsed || []).filter(
-        (p: any) => p.isThirdParty || p.sourcedBy === 'SELF',
+        (p: any) =>
+          (p.isThirdParty || p.sourcedBy === 'SELF') && !p.warrantyCovered,
       ),
     );
+    const parentId = booking.parentId ? String(booking.parentId) : null;
+    const originalParts = parentId
+      ? await this.warrantiesService.listInstalledParts(parentId)
+      : [];
+    const isWarrantyClaim =
+      booking.serviceType === 'WARRANTY_CHECK' || !!parentId;
     return {
       jobId: booking._id,
       status: booking.status,
@@ -548,10 +561,14 @@ export class JobSheetService {
       invoiceData: this.plainSubdoc(booking.invoiceData),
       completionData: this.plainSubdoc(booking.completionData),
       visits,
+      serviceType: booking.serviceType,
+      parentId,
+      isWarrantyClaim,
+      originalParts,
       selfPartFeePreview: {
         feePerLine: SELF_PART_PLATFORM_FEE,
-        selfPartCount: selfParts.length,
-        totalFee: selfParts.length * SELF_PART_PLATFORM_FEE,
+        selfPartCount: chargeableSelf.length,
+        totalFee: chargeableSelf.length * SELF_PART_PLATFORM_FEE,
       },
       technicianSettlement: computeTechnicianSettlement({
         serviceTotal: booking.invoiceData?.serviceTotal || 0,

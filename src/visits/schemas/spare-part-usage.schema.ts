@@ -54,6 +54,17 @@ export class SparePartUsage {
   /** Snapshot of warranty duration in months at install time. */
   @Prop()
   warrantyMonths?: number;
+
+  /** True when this line replaces a still-covered original part (customer not charged). */
+  @Prop({ default: false })
+  warrantyCovered?: boolean;
+
+  /** Original spare-part usage this line is replacing on a warranty claim. */
+  @Prop({ type: Types.ObjectId, ref: 'SparePartUsage' })
+  replacedUsageId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Warranty' })
+  replacedWarrantyId?: Types.ObjectId;
 }
 
 export const SparePartUsageSchema = SchemaFactory.createForClass(SparePartUsage);

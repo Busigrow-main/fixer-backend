@@ -32,8 +32,32 @@ export class VisitsService {
   }
 
   async findByBooking(bookingId: string): Promise<Visit[]> {
+    const oid = Types.ObjectId.isValid(bookingId)
+      ? new Types.ObjectId(bookingId)
+      : null;
     return this.visitModel
-      .find({ bookingId: new Types.ObjectId(bookingId) })
+      .find(
+        oid
+          ? { $or: [{ bookingId: oid }, { bookingId }] }
+          : { bookingId },
+      )
+      .populate({
+        path: 'partsUsed',
+        populate: { path: 'sparePartId' },
+      })
+      .sort({ visitOrder: 1 })
+      .exec();
+  }
+
+  async findByBookingIds(bookingIds: string[]): Promise<Visit[]> {
+    if (!bookingIds.length) return [];
+    const oids = bookingIds
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+    const ids = [...oids, ...bookingIds.map(String)];
+    if (!ids.length) return [];
+    return this.visitModel
+      .find({ bookingId: { $in: ids } })
       .populate({
         path: 'partsUsed',
         populate: { path: 'sparePartId' },
@@ -123,6 +147,19 @@ export class VisitsService {
 
     if (!payload.sourcedBy) {
       payload.sourcedBy = payload.isThirdParty ? 'SELF' : 'INVENTORY';
+    }
+
+    if (payload.replacedUsageId) {
+      const coverage = await this.warrantiesService.applyReplacementCoverage(
+        String(payload.replacedUsageId),
+      );
+      payload.replacedUsageId = coverage.originalUsage._id;
+      if (coverage.covered) {
+        payload.cost = 0;
+        payload.warrantyCovered = true;
+        payload.platformFeeAmount = 0;
+        payload.replacedWarrantyId = coverage.warranty?._id;
+      }
     }
 
     const usage = new this.sparePartUsageModel({ visitId, ...payload });

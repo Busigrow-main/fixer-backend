@@ -167,4 +167,149 @@ export class WarrantiesService {
     }
     return DEFAULT_PART_WARRANTY_MONTHS;
   }
+
+  async listInstalledParts(bookingId: string): Promise<Array<{
+    usageId: string;
+    visitId?: string;
+    partName: string;
+    serialNumber?: string;
+    sparePartId?: string;
+    quantity: number;
+    cost?: number;
+    installedAt?: Date;
+    warrantyMonths?: number;
+    warrantyEnd?: Date;
+    warrantyStatus: 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'NONE';
+    covered: boolean;
+    warrantyCovered?: boolean;
+    sourcedBy?: string;
+    isThirdParty?: boolean;
+  }>> {
+    const oid = Types.ObjectId.isValid(bookingId)
+      ? new Types.ObjectId(bookingId)
+      : null;
+    const visits = await this.visitModel
+      .find(
+        oid
+          ? { $or: [{ bookingId: oid }, { bookingId }] }
+          : { bookingId },
+      )
+      .populate({ path: 'partsUsed', populate: { path: 'sparePartId' } })
+      .sort({ visitOrder: 1 })
+      .exec();
+
+    const usageIds = visits.flatMap((v) =>
+      (v.partsUsed || []).map((u: any) => u._id).filter(Boolean),
+    );
+    const warranties = usageIds.length
+      ? await this.warrantyModel
+          .find({ sparePartUsageId: { $in: usageIds }, type: 'PART' })
+          .exec()
+      : [];
+    const warrantyByUsage = new Map(
+      warranties.map((w) => [String(w.sparePartUsageId), w]),
+    );
+    const now = new Date();
+    const out: any[] = [];
+
+    for (const visit of visits) {
+      for (const usage of (visit.partsUsed || []) as any[]) {
+        const warranty = warrantyByUsage.get(String(usage._id));
+        let warrantyStatus: 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'NONE' = 'NONE';
+        let covered = false;
+        if (warranty) {
+          warrantyStatus = warranty.status as any;
+          if (
+            warranty.status === 'ACTIVE' &&
+            warranty.endDate &&
+            new Date(warranty.endDate) >= now
+          ) {
+            covered = true;
+          } else if (warranty.status === 'ACTIVE' && warranty.endDate && new Date(warranty.endDate) < now) {
+            warrantyStatus = 'EXPIRED';
+          }
+        } else if (usage.warrantyMonths && usage.installedAt) {
+          const end = new Date(usage.installedAt);
+          end.setMonth(end.getMonth() + Number(usage.warrantyMonths));
+          if (end >= now) {
+            warrantyStatus = 'ACTIVE';
+            covered = true;
+          } else {
+            warrantyStatus = 'EXPIRED';
+          }
+        }
+
+        const spareId =
+          usage.sparePartId?._id ||
+          (usage.sparePartId && Types.ObjectId.isValid(usage.sparePartId)
+            ? usage.sparePartId
+            : undefined);
+
+        out.push({
+          usageId: String(usage._id),
+          visitId: String(visit._id),
+          partName:
+            usage.partName ||
+            usage.sparePartId?.name ||
+            'Spare part',
+          serialNumber: usage.serialNumber || undefined,
+          sparePartId: spareId ? String(spareId) : undefined,
+          quantity: usage.quantity || 1,
+          cost: usage.cost,
+          installedAt: usage.installedAt,
+          warrantyMonths: usage.warrantyMonths,
+          warrantyEnd: warranty?.endDate,
+          warrantyStatus,
+          covered,
+          warrantyCovered: !!usage.warrantyCovered,
+          sourcedBy: usage.sourcedBy,
+          isThirdParty: !!usage.isThirdParty,
+        });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * If this original part still has an active warranty, mark it claimed
+   * so the replacement is issued at no charge.
+   */
+  async applyReplacementCoverage(replacedUsageId: string) {
+    if (!Types.ObjectId.isValid(replacedUsageId)) {
+      throw new BadRequestException('replacedUsageId is invalid');
+    }
+    const originalUsage = await this.sparePartUsageModel
+      .findById(replacedUsageId)
+      .exec();
+    if (!originalUsage) {
+      throw new BadRequestException('Original spare part usage not found');
+    }
+
+    const now = new Date();
+    const warranty = await this.warrantyModel
+      .findOne({
+        sparePartUsageId: originalUsage._id,
+        type: 'PART',
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    let covered = false;
+    if (
+      warranty &&
+      warranty.status === 'ACTIVE' &&
+      warranty.endDate &&
+      new Date(warranty.endDate) >= now
+    ) {
+      covered = true;
+      warranty.status = 'CLAIMED';
+      await warranty.save();
+    } else if (!warranty && originalUsage.warrantyMonths && originalUsage.installedAt) {
+      const end = new Date(originalUsage.installedAt);
+      end.setMonth(end.getMonth() + Number(originalUsage.warrantyMonths));
+      covered = end >= now;
+    }
+
+    return { covered, originalUsage, warranty: warranty || undefined };
+  }
 }

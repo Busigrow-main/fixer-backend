@@ -67,6 +67,22 @@ describe('computeTechnicianSettlement', () => {
     expect(s.fixxerNet).toBe(2800);
     expect(s.customerTotal).toBe(4550);
   });
+
+  it('does not charge covered warranty replacements', () => {
+    const s = computeTechnicianSettlement({
+      serviceTotal: 0,
+      parts: [
+        { sourcedBy: 'INVENTORY', cost: 0, quantity: 1, warrantyCovered: true },
+        { isThirdParty: true, cost: 0, quantity: 1, warrantyCovered: true },
+        { sourcedBy: 'INVENTORY', cost: 500, quantity: 1 },
+      ],
+    });
+    expect(s.inventoryPartsTotal).toBe(500);
+    expect(s.inventoryCommission).toBe(50);
+    expect(s.selfPartsTotal).toBe(0);
+    expect(s.selfPartFee).toBe(0);
+    expect(s.customerTotal).toBe(500);
+  });
 });
 
 describe('buildTechnicianPayoutLines', () => {

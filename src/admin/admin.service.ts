@@ -41,6 +41,7 @@ export class AdminService {
       },
       spareParts: { total: totalSpareParts },
       orders: { total: totalOrders, byStatus: ordersByStatus },
+      revenue: await this.bookingsService.getFixxerRevenueStats(),
     };
   }
 

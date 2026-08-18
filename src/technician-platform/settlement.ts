@@ -9,6 +9,7 @@ export type SettlementPart = {
   cost?: number;
   quantity?: number;
   platformFeeAmount?: number;
+  warrantyCovered?: boolean;
 };
 
 export type TechnicianSettlement = {
@@ -74,6 +75,7 @@ export function computeTechnicianSettlement(opts: {
   let selfPartFee = 0;
 
   for (const part of opts.parts || []) {
+    if (part.warrantyCovered) continue;
     const amount = partLineAmount(part);
     if (isSelfSourcedPart(part)) {
       selfPartsTotal += amount;

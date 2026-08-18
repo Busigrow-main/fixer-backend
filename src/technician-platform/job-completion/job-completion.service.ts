@@ -156,6 +156,7 @@ export class JobCompletionService {
         paymentStatus: paymentStatusMap[method],
         status: 'PAYMENT_COLLECTED',
         isBilled: true,
+        paidAt: new Date(),
       },
       { returnDocument: 'after' },
     );
@@ -225,7 +226,7 @@ export class JobCompletionService {
     for (const visit of visits) {
       for (const usage of (visit.partsUsed || []) as any[]) {
         const isSelf = usage.isThirdParty || usage.sourcedBy === 'SELF';
-        if (!isSelf || usage.platformFeeApplied) continue;
+        if (!isSelf || usage.platformFeeApplied || usage.warrantyCovered) continue;
 
         const fee = usage.platformFeeAmount || SELF_PART_PLATFORM_FEE;
         await this.earningsService.recordEarning({

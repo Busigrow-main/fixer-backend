@@ -56,18 +56,50 @@ export class BookingsService {
       parts: collectPartsFromVisits(visitsPlain),
     });
 
+    const installedParts = await this.warrantiesService.listInstalledParts(id);
+    const parentId = (booking as any).parentId
+      ? String((booking as any).parentId)
+      : null;
+    const originalParts = parentId
+      ? await this.warrantiesService.listInstalledParts(parentId)
+      : [];
+
     return {
       ...booking,
       visits: visitsPlain,
       technicianSettlement,
+      installedParts,
+      originalParts,
+      isWarrantyClaim:
+        (booking as any).serviceType === 'WARRANTY_CHECK' || !!parentId,
     };
   }
 
-  async findAllByUser(userId: string): Promise<Booking[]> {
-    return this.bookingModel.find({ userId })
+  async findAllByUser(userId: string): Promise<any[]> {
+    const bookings = await this.bookingModel
+      .find({ userId })
       .populate('userId serviceId')
       .sort({ createdAt: -1 })
+      .lean()
       .exec();
+
+    const results: any[] = [];
+    for (const booking of bookings as any[]) {
+      const installedParts = await this.warrantiesService.listInstalledParts(
+        String(booking._id),
+      );
+      const parentId = booking.parentId ? String(booking.parentId) : null;
+      const originalParts = parentId
+        ? await this.warrantiesService.listInstalledParts(parentId)
+        : [];
+      results.push({
+        ...booking,
+        installedParts,
+        originalParts,
+        isWarrantyClaim: booking.serviceType === 'WARRANTY_CHECK' || !!parentId,
+      });
+    }
+    return results;
   }
 
   async findAllForAdmin(
@@ -435,7 +467,14 @@ export class BookingsService {
 
     // --- Parts Total ---
     let partsTotal = 0;
-    const sparePartsSummary: { partName: string; quantity: number; cost: number; isThirdParty: boolean }[] = [];
+    const sparePartsSummary: {
+      partName: string;
+      quantity: number;
+      cost: number;
+      isThirdParty: boolean;
+      warrantyCovered?: boolean;
+      serialNumber?: string;
+    }[] = [];
 
     for (const visit of visits as any[]) {
       if (!visit.partsUsed) continue;
@@ -444,7 +483,10 @@ export class BookingsService {
         let partName = '';
         let cost = 0;
 
-        if (usage.isThirdParty) {
+        if (usage.warrantyCovered) {
+          partName = usage.partName || usage.sparePartId?.name || 'Warranty replacement';
+          cost = 0;
+        } else if (usage.isThirdParty) {
           partName = usage.partName || 'Generic Part';
           cost = usage.cost || 0;
         } else if (usage.sparePartId) {
@@ -453,7 +495,14 @@ export class BookingsService {
         }
 
         partsTotal += cost * quantity;
-        sparePartsSummary.push({ partName, quantity, cost, isThirdParty: !!usage.isThirdParty });
+        sparePartsSummary.push({
+          partName,
+          quantity,
+          cost,
+          isThirdParty: !!usage.isThirdParty,
+          warrantyCovered: !!usage.warrantyCovered,
+          serialNumber: usage.serialNumber || undefined,
+        });
       }
     }
 
@@ -461,6 +510,11 @@ export class BookingsService {
     const additionalCharges = booking.invoiceData?.additionalCharges || [];
     const additionalTotal = additionalCharges.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
     const totalAmount = serviceTotal + partsTotal + additionalTotal;
+    const settlement = computeTechnicianSettlement({
+      serviceTotal,
+      additionalCharges,
+      parts: collectPartsFromVisits(visits as any[]),
+    });
 
     await this.bookingModel.findByIdAndUpdate(id, {
       $set: {
@@ -470,6 +524,8 @@ export class BookingsService {
         'invoiceData.additionalCharges': additionalCharges,
         'invoiceData.spareParts': sparePartsSummary,
         'invoiceData.totalAmount': totalAmount,
+        'invoiceData.technicianNet': settlement.technicianNet,
+        'invoiceData.fixxerNet': settlement.fixxerNet,
         'invoiceData.url': `/api/v1/user/bookings/${id}/invoice`,
       },
     }).exec();
@@ -533,6 +589,110 @@ export class BookingsService {
     void this.jobDispatch.broadcastJob(saved._id.toString());
 
     return this.populateBookingDetail(saved._id.toString());
+  }
+
+  async getFixxerRevenueStats() {
+    const paid = await this.bookingModel
+      .find({
+        $or: [
+          { paymentStatus: { $in: ['PAID_CASH', 'PAID_ONLINE'] } },
+          { status: 'PAYMENT_COLLECTED' },
+          { paidAt: { $exists: true, $ne: null } },
+        ],
+      })
+      .select(
+        '_id paidAt jobClosedAt updatedAt invoiceData paymentStatus jobPaymentMethod',
+      )
+      .lean()
+      .exec();
+
+    const ids = paid.map((b: any) => String(b._id));
+    const visits = await this.visitsService.findByBookingIds(ids);
+    const visitsByBooking = new Map<string, any[]>();
+    for (const visit of visits as any[]) {
+      const bid = String(visit.bookingId);
+      if (!visitsByBooking.has(bid)) visitsByBooking.set(bid, []);
+      visitsByBooking.get(bid)!.push(visit);
+    }
+
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const startOfWeek = new Date(startOfDay);
+    const weekday = startOfWeek.getDay();
+    startOfWeek.setDate(startOfWeek.getDate() - (weekday === 0 ? 6 : weekday - 1));
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const empty = { collections: 0, customerTotal: 0, fixxerNet: 0, technicianNet: 0 };
+    const daily = { ...empty };
+    const weekly = { ...empty };
+    const monthly = { ...empty };
+    const recent: Array<{
+      bookingId: string;
+      collectedAt: Date;
+      customerTotal: number;
+      fixxerNet: number;
+      technicianNet: number;
+      paymentMethod?: string;
+    }> = [];
+
+    const add = (
+      bucket: typeof empty,
+      row: { customerTotal: number; fixxerNet: number; technicianNet: number },
+    ) => {
+      bucket.collections += 1;
+      bucket.customerTotal += row.customerTotal;
+      bucket.fixxerNet += row.fixxerNet;
+      bucket.technicianNet += row.technicianNet;
+    };
+
+    for (const booking of paid as any[]) {
+      const invoice = booking.invoiceData || {};
+      let customerTotal = Number(invoice.totalAmount) || 0;
+      let fixxerNet = invoice.fixxerNet;
+      let technicianNet = invoice.technicianNet;
+      if (fixxerNet == null || technicianNet == null) {
+        const settlement = computeTechnicianSettlement({
+          serviceTotal: invoice.serviceTotal || 0,
+          additionalCharges: invoice.additionalCharges || [],
+          parts: collectPartsFromVisits(visitsByBooking.get(String(booking._id)) || []),
+        });
+        customerTotal = settlement.customerTotal || customerTotal;
+        fixxerNet = settlement.fixxerNet;
+        technicianNet = settlement.technicianNet;
+      }
+
+      const collectedAt = new Date(
+        booking.paidAt || booking.jobClosedAt || invoice.generatedAt || booking.updatedAt || now,
+      );
+      const row = {
+        bookingId: String(booking._id),
+        collectedAt,
+        customerTotal,
+        fixxerNet,
+        technicianNet,
+        paymentMethod: booking.jobPaymentMethod || booking.paymentStatus,
+      };
+      recent.push(row);
+      if (collectedAt >= startOfDay) add(daily, row);
+      if (collectedAt >= startOfWeek) add(weekly, row);
+      if (collectedAt >= startOfMonth) add(monthly, row);
+    }
+
+    recent.sort((a, b) => b.collectedAt.getTime() - a.collectedAt.getTime());
+    const roundBucket = (b: typeof empty) => ({
+      collections: b.collections,
+      customerTotal: Math.round(b.customerTotal * 100) / 100,
+      fixxerNet: Math.round(b.fixxerNet * 100) / 100,
+      technicianNet: Math.round(b.technicianNet * 100) / 100,
+    });
+
+    return {
+      daily: roundBucket(daily),
+      weekly: roundBucket(weekly),
+      monthly: roundBucket(monthly),
+      recent: recent.slice(0, 25),
+    };
   }
 
   async countByStatus(): Promise<Record<string, number>> {

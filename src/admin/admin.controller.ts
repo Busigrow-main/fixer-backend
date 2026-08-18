@@ -37,6 +37,11 @@ export class AdminController {
     return this.adminService.getDashboardStats();
   }
 
+  @Get('revenue')
+  async getRevenue() {
+    return this.bookingsService.getFixxerRevenueStats();
+  }
+
   // ─── Users ────────────────────────────────────────────────
   @Get('users')
   async getUsers(@Query('page') page = '1', @Query('limit') limit = '20') {

@@ -49,13 +49,17 @@ export class InvoiceData {
       partName: String, 
       quantity: Number, 
       cost: Number, 
-      isThirdParty: Boolean 
+      isThirdParty: Boolean,
+      warrantyCovered: Boolean,
+      serialNumber: String,
     }], 
     default: [] 
   }) spareParts: { partName: string, quantity: number, cost: number, isThirdParty: boolean }[];
   @Prop({ default: 0 }) totalAmount: number;
   @Prop() generatedAt: Date;
   @Prop({ default: false }) manualOverride: boolean;
+  @Prop({ default: 0 }) technicianNet: number;
+  @Prop({ default: 0 }) fixxerNet: number;
 }
 export const InvoiceDataSchema = SchemaFactory.createForClass(InvoiceData);
 
@@ -218,6 +222,9 @@ export class Booking {
 
   @Prop()
   jobClosedAt?: Date;
+
+  @Prop()
+  paidAt?: Date;
 
   @Prop({
     type: String,
