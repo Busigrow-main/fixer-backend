@@ -45,6 +45,7 @@ describe('JobSheetService', () => {
     resolveInventoryWarrantyMonths: jest.fn().mockReturnValue(12),
     normalizeSerial: (s: string) => s?.trim().toUpperCase() || '',
     listInstalledParts: jest.fn().mockResolvedValue([]),
+    listOriginalPartsForClaim: jest.fn().mockResolvedValue([]),
     applyReplacementCoverage: jest.fn().mockResolvedValue({ covered: false }),
   };
   // Make static normalizeSerial available

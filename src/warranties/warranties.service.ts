@@ -11,6 +11,7 @@ import {
   SparePartUsageDocument,
 } from '../visits/schemas/spare-part-usage.schema';
 import { Visit, VisitDocument } from '../visits/schemas/visit.schema';
+import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 
 const DEFAULT_PART_WARRANTY_MONTHS = 6;
 
@@ -21,6 +22,7 @@ export class WarrantiesService {
     @InjectModel(SparePartUsage.name)
     private sparePartUsageModel: Model<SparePartUsageDocument>,
     @InjectModel(Visit.name) private visitModel: Model<VisitDocument>,
+    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
   ) {}
 
   static normalizeSerial(raw?: string | null): string | undefined {
@@ -199,7 +201,9 @@ export class WarrantiesService {
       .exec();
 
     const usageIds = visits.flatMap((v) =>
-      (v.partsUsed || []).map((u: any) => u._id).filter(Boolean),
+      (v.partsUsed || [])
+        .map((u: any) => u?._id || u)
+        .filter(Boolean),
     );
     const warranties = usageIds.length
       ? await this.warrantyModel
@@ -268,6 +272,58 @@ export class WarrantiesService {
       }
     }
     return out;
+  }
+
+  /**
+   * Walk parentId chain (nested warranty claims) and return every previously
+   * installed part, root job first. Falls back to the ancestor invoice lines
+   * when visit records are missing.
+   */
+  async listOriginalPartsForClaim(parentId?: string | null) {
+    if (!parentId || !Types.ObjectId.isValid(parentId)) return [];
+    const layers: Array<Awaited<ReturnType<WarrantiesService['listInstalledParts']>>> = [];
+    const seen = new Set<string>();
+    let currentId: string | null = parentId;
+
+    while (currentId && !seen.has(currentId) && Types.ObjectId.isValid(currentId)) {
+      seen.add(currentId);
+      const installed = await this.listInstalledParts(currentId);
+      const ancestor = await this.bookingModel
+        .findById(currentId)
+        .select('invoiceData parentId')
+        .lean()
+        .exec();
+      if (installed.length) {
+        layers.push(installed);
+      } else {
+        const invoiceParts = ((ancestor as any)?.invoiceData?.spareParts || []) as Array<{
+          partName?: string;
+          quantity?: number;
+          cost?: number;
+          isThirdParty?: boolean;
+          serialNumber?: string;
+          warrantyCovered?: boolean;
+        }>;
+        if (invoiceParts.length) {
+          layers.push(
+            invoiceParts.map((p, idx) => ({
+              usageId: `invoice:${currentId}:${idx}`,
+              partName: p.partName || 'Spare part',
+              serialNumber: p.serialNumber || undefined,
+              quantity: p.quantity || 1,
+              cost: p.cost,
+              warrantyStatus: 'NONE' as const,
+              covered: false,
+              warrantyCovered: !!p.warrantyCovered,
+              isThirdParty: !!p.isThirdParty,
+            })),
+          );
+        }
+      }
+      currentId = (ancestor as any)?.parentId ? String((ancestor as any).parentId) : null;
+    }
+
+    return layers.reverse().flat();
   }
 
   /**

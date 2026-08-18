@@ -542,9 +542,7 @@ export class JobSheetService {
       ),
     );
     const parentId = booking.parentId ? String(booking.parentId) : null;
-    const originalParts = parentId
-      ? await this.warrantiesService.listInstalledParts(parentId)
-      : [];
+    const originalParts = await this.warrantiesService.listOriginalPartsForClaim(parentId);
     const isWarrantyClaim =
       booking.serviceType === 'WARRANTY_CHECK' || !!parentId;
     return {

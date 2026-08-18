@@ -60,9 +60,7 @@ export class BookingsService {
     const parentId = (booking as any).parentId
       ? String((booking as any).parentId)
       : null;
-    const originalParts = parentId
-      ? await this.warrantiesService.listInstalledParts(parentId)
-      : [];
+    const originalParts = await this.warrantiesService.listOriginalPartsForClaim(parentId);
 
     return {
       ...booking,
@@ -89,9 +87,7 @@ export class BookingsService {
         String(booking._id),
       );
       const parentId = booking.parentId ? String(booking.parentId) : null;
-      const originalParts = parentId
-        ? await this.warrantiesService.listInstalledParts(parentId)
-        : [];
+      const originalParts = await this.warrantiesService.listOriginalPartsForClaim(parentId);
       results.push({
         ...booking,
         installedParts,

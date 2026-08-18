@@ -20,7 +20,7 @@ describe('BookingsService – Invoice Generation', () => {
   let mongod: MongoMemoryServer;
   let module: TestingModule;
 
-  const mockWarranties = { findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn(), listInstalledParts: jest.fn().mockResolvedValue([]) };
+  const mockWarranties = { findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn(), listInstalledParts: jest.fn().mockResolvedValue([]), listOriginalPartsForClaim: jest.fn().mockResolvedValue([]) };
   const mockDispatch = { broadcastJob: jest.fn() };
   const mockNotification = { notify: jest.fn() };
 
