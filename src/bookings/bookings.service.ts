@@ -11,6 +11,10 @@ import { WarrantiesService } from '../warranties/warranties.service';
 import { JobDispatchService } from '../technician-platform/dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../technician-platform/common/notification-dispatch.service';
 import { VisitsService } from '../visits/visits.service';
+import {
+  collectPartsFromVisits,
+  computeTechnicianSettlement,
+} from '../technician-platform/settlement';
 
 @Injectable()
 export class BookingsService {
@@ -46,9 +50,16 @@ export class BookingsService {
       typeof (v as any).toObject === 'function' ? (v as any).toObject() : v,
     );
 
+    const technicianSettlement = computeTechnicianSettlement({
+      serviceTotal: (booking as any).invoiceData?.serviceTotal || 0,
+      additionalCharges: (booking as any).invoiceData?.additionalCharges || [],
+      parts: collectPartsFromVisits(visitsPlain),
+    });
+
     return {
       ...booking,
       visits: visitsPlain,
+      technicianSettlement,
     };
   }
 

@@ -4,6 +4,9 @@ export const ONBOARDING_CALL_COST = 800;
 /** Platform fee (₹) charged to technician per self-sourced spare-part line. */
 export const SELF_PART_PLATFORM_FEE = 100;
 
+/** Technician commission on Fixxer-inventory spare parts sold on a job. */
+export const INVENTORY_PART_COMMISSION_RATE = 0.1;
+
 export const JOB_SHEET_EDITABLE_STATUSES = ['EN_ROUTE', 'IN_PROGRESS'] as const;
 
 export const JOB_STATUS_FLOW = [

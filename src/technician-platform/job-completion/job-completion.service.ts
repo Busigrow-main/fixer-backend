@@ -12,6 +12,11 @@ import { EarningsService } from '../earnings/earnings.service';
 import { VisitsService } from '../../visits/visits.service';
 import { resolveTechnicianId } from '../common/technician-id.util';
 import { SELF_PART_PLATFORM_FEE } from '../constants';
+import {
+  collectPartsFromVisits,
+  computeTechnicianSettlement,
+  buildTechnicianPayoutLines,
+} from '../settlement';
 import { Booking, BookingDocument } from '../../bookings/schemas/booking.schema';
 import {
   SparePartUsage,
@@ -133,6 +138,17 @@ export class JobCompletionService {
       CARD: 'PAID_ONLINE',
     };
 
+    const billed = await this.bookingsService.generateInvoiceData(jobId, {
+      returnDetail: false,
+    });
+    const invoice = billed?.invoiceData || booking.invoiceData;
+    const visits = await this.visitsService.findByBooking(jobId);
+    const settlement = computeTechnicianSettlement({
+      serviceTotal: invoice?.serviceTotal || 0,
+      additionalCharges: invoice?.additionalCharges || [],
+      parts: collectPartsFromVisits(visits as any[]),
+    });
+
     const updated = await this.bookingModel.findByIdAndUpdate(
       jobId,
       {
@@ -144,22 +160,21 @@ export class JobCompletionService {
       { returnDocument: 'after' },
     );
 
-    const labour = booking.invoiceData?.serviceTotal || 0;
-    const parts = booking.invoiceData?.partsTotal || 0;
-    const additional = (booking.invoiceData?.additionalCharges || []).reduce(
-      (s: number, c: any) => s + (c.amount || 0), 0,
+    const alreadyPaidOut = await this.earningsService.hasJobPayout(
+      technicianId,
+      jobId,
     );
-    const total = labour + parts + additional;
-
-    if (total > 0) {
-      await this.earningsService.recordEarning({
-        technicianId,
-        bookingId: jobId,
-        amount: total,
-        type: 'LABOUR',
-        paymentMethod: method,
-        description: `Job payment for ${jobId}`,
-      });
+    if (!alreadyPaidOut) {
+      for (const line of buildTechnicianPayoutLines(settlement, jobId)) {
+        await this.earningsService.recordEarning({
+          technicianId,
+          bookingId: jobId,
+          amount: line.amount,
+          type: line.type,
+          paymentMethod: method,
+          description: line.description,
+        });
+      }
     }
 
     await this.applySelfPartFees(jobId, technicianId, method);

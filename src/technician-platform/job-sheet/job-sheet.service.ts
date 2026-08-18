@@ -21,6 +21,10 @@ import {
   JOB_SHEET_EDITABLE_STATUSES,
   SELF_PART_PLATFORM_FEE,
 } from '../constants';
+import {
+  collectPartsFromVisits,
+  computeTechnicianSettlement,
+} from '../settlement';
 import { WarrantiesService } from '../../warranties/warranties.service';
 
 export type JobSheetSaveBody = {
@@ -549,6 +553,11 @@ export class JobSheetService {
         selfPartCount: selfParts.length,
         totalFee: selfParts.length * SELF_PART_PLATFORM_FEE,
       },
+      technicianSettlement: computeTechnicianSettlement({
+        serviceTotal: booking.invoiceData?.serviceTotal || 0,
+        additionalCharges: booking.invoiceData?.additionalCharges || [],
+        parts: collectPartsFromVisits(visits),
+      }),
       editable:
         JOB_SHEET_EDITABLE_STATUSES.includes(booking.status as any) &&
         !booking.isBilled &&

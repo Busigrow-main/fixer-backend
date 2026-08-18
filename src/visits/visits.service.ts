@@ -121,6 +121,10 @@ export class VisitsService {
       payload.installedAt = new Date();
     }
 
+    if (!payload.sourcedBy) {
+      payload.sourcedBy = payload.isThirdParty ? 'SELF' : 'INVENTORY';
+    }
+
     const usage = new this.sparePartUsageModel({ visitId, ...payload });
     await usage.save();
     

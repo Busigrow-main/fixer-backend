@@ -40,7 +40,12 @@ export class TechnicianDashboardService {
         status: { $in: ['COMPLETED', 'PAYMENT_COLLECTED'] },
       }),
       this.earningModel.aggregate([
-        { $match: { technicianId: techFilter } },
+        {
+          $match: {
+            technicianId: techFilter,
+            earnedAt: { $gte: today, $lt: tomorrow },
+          },
+        },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       this.bookingModel.countDocuments({ technicianId: techFilter }),

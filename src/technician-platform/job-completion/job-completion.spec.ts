@@ -25,8 +25,14 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
   let module: TestingModule;
 
   const techId = new Types.ObjectId().toString();
-  const mockEarnings = { recordEarning: jest.fn() };
-  const mockVisits = { findByBooking: jest.fn().mockResolvedValue([]) };
+  const mockEarnings = {
+    recordEarning: jest.fn(),
+    hasJobPayout: jest.fn().mockResolvedValue(false),
+  };
+  const mockVisits = {
+    findByBooking: jest.fn().mockResolvedValue([]),
+    updateStatus: jest.fn(),
+  };
   const mockWarranties = { findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn() };
   const mockDispatch = { broadcastJob: jest.fn() };
   const mockNotification = { notify: jest.fn() };
@@ -69,6 +75,12 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
   beforeEach(async () => {
     await bookingModel.deleteMany({});
     const serviceModel = module.get<Model<any>>(getModelToken(Service.name));
+    mockEarnings.recordEarning.mockReset();
+    mockEarnings.hasJobPayout.mockReset();
+    mockEarnings.hasJobPayout.mockResolvedValue(false);
+    mockVisits.findByBooking.mockReset();
+    mockVisits.findByBooking.mockResolvedValue([]);
+    mockVisits.updateStatus.mockReset();
     await serviceModel.deleteMany({});
     serviceDoc = await serviceModel.create({
       slug: 'test',
@@ -131,5 +143,87 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
     // Invoice should be computed from catalog (₹500)
     expect(result.invoiceData.serviceTotal).toBe(500);
     expect(result.invoiceData.totalAmount).toBe(500);
+  });
+
+  it('recordPayment credits 100% labour, 10% inventory commission, and ₹100 self-part fees', async () => {
+    const booking = await bookingModel.create({
+      userId: new Types.ObjectId(),
+      serviceId: serviceDoc._id,
+      subCategoryId: serviceDoc.subCategories[0]._id,
+      technicianId: new Types.ObjectId(techId),
+      assignmentStatus: 'ACCEPTED',
+      contactPhone: '9999999999',
+      addressData: { zip: '110001', text: 'Test' },
+      status: 'COMPLETED',
+      invoiceData: {
+        serviceTotal: 500,
+        partsTotal: 1200,
+        additionalCharges: [],
+        totalAmount: 1700,
+      },
+    });
+
+    mockVisits.findByBooking.mockResolvedValue([
+      {
+        _id: new Types.ObjectId(),
+        status: 'COMPLETED',
+        partsUsed: [
+          { _id: new Types.ObjectId(), sourcedBy: 'INVENTORY', isThirdParty: false, cost: 1000, quantity: 1 },
+          {
+            _id: new Types.ObjectId(),
+            sourcedBy: 'SELF',
+            isThirdParty: true,
+            cost: 200,
+            quantity: 1,
+            partName: 'Fan motor',
+            platformFeeApplied: false,
+            platformFeeAmount: 100,
+          },
+        ],
+      },
+    ]);
+
+    await completionService.recordPayment(booking._id.toString(), techId, 'CASH');
+
+    const labourCall = mockEarnings.recordEarning.mock.calls.find(
+      (c) => c[0].type === 'LABOUR',
+    );
+    const commissionCall = mockEarnings.recordEarning.mock.calls.find(
+      (c) => c[0].type === 'PARTS' && c[0].description?.includes('commission'),
+    );
+    const selfPartsCall = mockEarnings.recordEarning.mock.calls.find(
+      (c) => c[0].type === 'PARTS' && c[0].description?.includes('Self-sourced'),
+    );
+    const feeCall = mockEarnings.recordEarning.mock.calls.find(
+      (c) => c[0].type === 'SELF_PART_FEE',
+    );
+
+    expect(labourCall[0].amount).toBe(500);
+    expect(commissionCall[0].amount).toBe(100); // 10% of ₹1000
+    expect(selfPartsCall[0].amount).toBe(200);
+    expect(feeCall[0].amount).toBe(-100);
+  });
+
+  it('recordPayment does not re-credit labour/parts if payout already exists', async () => {
+    mockEarnings.hasJobPayout.mockResolvedValue(true);
+    const booking = await bookingModel.create({
+      userId: new Types.ObjectId(),
+      serviceId: serviceDoc._id,
+      subCategoryId: serviceDoc.subCategories[0]._id,
+      technicianId: new Types.ObjectId(techId),
+      assignmentStatus: 'ACCEPTED',
+      contactPhone: '9999999999',
+      addressData: { zip: '110001', text: 'Test' },
+      status: 'COMPLETED',
+      invoiceData: { serviceTotal: 500, partsTotal: 0, totalAmount: 500 },
+    });
+
+    await completionService.recordPayment(booking._id.toString(), techId, 'UPI');
+
+    expect(
+      mockEarnings.recordEarning.mock.calls.filter((c) =>
+        ['LABOUR', 'PARTS'].includes(c[0].type),
+      ),
+    ).toHaveLength(0);
   });
 });
