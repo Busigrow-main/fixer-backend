@@ -96,19 +96,9 @@ export class JobCompletionService {
   async submitCompletion(
     jobId: string,
     technicianId: string,
-    payload: { labourCharge: number; partsCharge: number; remarks: string; images: string[] },
+    payload: { labourCharge?: number; partsCharge?: number; remarks: string; images: string[] },
   ) {
     const booking = await this.getOwnedBooking(jobId, technicianId);
-
-    // Prefer job-sheet invoice totals when already filled
-    const labourCharge =
-      booking.invoiceData?.serviceTotal > 0
-        ? booking.invoiceData.serviceTotal
-        : payload.labourCharge;
-    const partsCharge =
-      booking.invoiceData?.partsTotal > 0
-        ? booking.invoiceData.partsTotal
-        : payload.partsCharge;
 
     const remarks =
       payload.remarks ||
@@ -116,32 +106,18 @@ export class JobCompletionService {
       booking.completionData?.remarks ||
       '';
 
-    return this.bookingModel.findByIdAndUpdate(
-      jobId,
-      {
-        $set: {
-          completionData: {
-            labourCharge,
-            partsCharge,
-            remarks,
-            images: payload.images || booking.completionData?.images || [],
-          },
-          'invoiceData.serviceTotal': labourCharge,
-          'invoiceData.partsTotal': partsCharge,
-          'invoiceData.totalAmount':
-            labourCharge +
-            partsCharge +
-            (booking.invoiceData?.additionalCharges || []).reduce(
-              (s, c) => s + (c.amount || 0),
-              0,
-            ),
-          jobSheetUpdatedAt: new Date(),
-          jobSheetUpdatedBy: 'TECHNICIAN',
-        },
-        $inc: { jobSheetRevision: 1 },
+    await this.bookingModel.findByIdAndUpdate(jobId, {
+      $set: {
+        'completionData.remarks': remarks,
+        'completionData.images': payload.images || booking.completionData?.images || [],
+        jobSheetUpdatedAt: new Date(),
+        jobSheetUpdatedBy: 'TECHNICIAN',
       },
-      { returnDocument: 'after' },
-    );
+      $inc: { jobSheetRevision: 1 },
+    });
+
+    // Single source of truth: recompute invoice from visits/catalog
+    return this.bookingsService.generateInvoiceData(jobId, { returnDetail: false });
   }
 
   async recordPayment(
@@ -167,15 +143,12 @@ export class JobCompletionService {
       { returnDocument: 'after' },
     );
 
-    const labour =
-      booking.completionData?.labourCharge ||
-      booking.invoiceData?.serviceTotal ||
-      0;
-    const parts =
-      booking.completionData?.partsCharge ||
-      booking.invoiceData?.partsTotal ||
-      0;
-    const total = labour + parts;
+    const labour = booking.invoiceData?.serviceTotal || 0;
+    const parts = booking.invoiceData?.partsTotal || 0;
+    const additional = (booking.invoiceData?.additionalCharges || []).reduce(
+      (s: number, c: any) => s + (c.amount || 0), 0,
+    );
+    const total = labour + parts + additional;
 
     if (total > 0) {
       await this.earningsService.recordEarning({

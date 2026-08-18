@@ -55,6 +55,7 @@ export class InvoiceData {
   }) spareParts: { partName: string, quantity: number, cost: number, isThirdParty: boolean }[];
   @Prop({ default: 0 }) totalAmount: number;
   @Prop() generatedAt: Date;
+  @Prop({ default: false }) manualOverride: boolean;
 }
 export const InvoiceDataSchema = SchemaFactory.createForClass(InvoiceData);
 
@@ -245,6 +246,12 @@ export class Booking {
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Technician' }], default: [] })
   notifiedTechnicianIds: Types.ObjectId[];
+
+  @Prop()
+  sheetLockedAt?: Date;
+
+  @Prop({ type: String, enum: ['ADMIN', 'SYSTEM'] })
+  sheetLockedBy?: string;
 
   /** Monotonic counter bumped on every technician/admin job-sheet save. */
   @Prop({ default: 0 })

@@ -138,12 +138,10 @@ export class JobSheetService {
         ? body.images
         : prevCompletion.images || [];
 
-    // Dot-path $set so nested subdocs always persist field-by-field
     const setPayload: Record<string, unknown> = {
       'productDetails.brand': productDetails.brand,
       'productDetails.modelNumber': productDetails.modelNumber,
       'productDetails.serialNumber': productDetails.serialNumber,
-      'completionData.labourCharge': labour,
       'completionData.remarks': remarks,
       'completionData.images': images,
       jobSheetRevision: (booking.jobSheetRevision || 0) + 1,
@@ -157,29 +155,15 @@ export class JobSheetService {
 
     if (body.invoice?.serviceTotal !== undefined) {
       setPayload['invoiceData.serviceTotal'] = labour;
+      setPayload['invoiceData.manualOverride'] = true;
     }
     if (body.invoice?.additionalCharges !== undefined) {
       setPayload['invoiceData.additionalCharges'] = body.invoice.additionalCharges;
     }
 
-    console.log(
-      `[JobSheet] save ${jobId} rev=${booking.jobSheetRevision} brand="${productDetails.brand}" diagnosis="${jobDetails.diagnosis?.slice(0, 40)}"`,
-    );
-
     await this.bookingModel.findByIdAndUpdate(jobId, { $set: setPayload }).exec();
 
     await this.bookingsService.generateInvoiceData(jobId);
-
-    const refreshed = await this.bookingModel.findById(jobId).lean().exec();
-    if (refreshed) {
-      await this.bookingModel.findByIdAndUpdate(jobId, {
-        $set: {
-          'completionData.labourCharge':
-            refreshed.invoiceData?.serviceTotal || labour,
-          'completionData.partsCharge': refreshed.invoiceData?.partsTotal || 0,
-        },
-      });
-    }
 
     return this.getJobSheet(jobId, technicianId);
   }
@@ -500,18 +484,6 @@ export class JobSheetService {
     await this.repairInventoryUsageCosts(jobId);
     await this.bumpSheetRevision(jobId);
     await this.bookingsService.generateInvoiceData(jobId);
-    const refreshed = await this.bookingModel.findById(jobId).exec();
-    if (refreshed) {
-      await this.bookingModel.findByIdAndUpdate(jobId, {
-        $set: {
-          'completionData.partsCharge': refreshed.invoiceData?.partsTotal || 0,
-          'completionData.labourCharge':
-            refreshed.invoiceData?.serviceTotal ||
-            refreshed.completionData?.labourCharge ||
-            0,
-        },
-      });
-    }
   }
 
   /**
@@ -599,8 +571,8 @@ export class JobSheetService {
       throw new ForbiddenException('Job must be accepted before editing the sheet');
     }
     if (opts.requireEditable !== false) {
-      if (booking.isBilled || booking.jobClosed) {
-        throw new BadRequestException('Job sheet is locked');
+      if (booking.isBilled || booking.jobClosed || (booking as any).sheetLockedAt) {
+        throw new ForbiddenException('Job sheet is locked');
       }
       if (!JOB_SHEET_EDITABLE_STATUSES.includes(booking.status as any)) {
         throw new BadRequestException(

@@ -13,6 +13,10 @@ export class SubCategory {
 
   @Prop({ required: true })
   price: string;
+
+  /** Canonical numeric price in paise (e.g. 24900 = ₹249). Null = legacy, fallback to string parse. */
+  @Prop()
+  priceNumeric?: number;
 }
 export const SubCategorySchema = SchemaFactory.createForClass(SubCategory);
 
@@ -29,6 +33,10 @@ export class Service {
 
   @Prop({ required: true })
   startingPrice: string;
+
+  /** Canonical numeric starting price in paise. Null = legacy, fallback to string parse. */
+  @Prop()
+  startingPriceNumeric?: number;
 
   @Prop({ required: true })
   icon: string;

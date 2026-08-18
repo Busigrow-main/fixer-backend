@@ -70,6 +70,7 @@
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.0.0",
     "jest": "^30.0.0",
+    "mongodb-memory-server": "^11.2.0",
     "playwright": "^1.52.0",
     "prettier": "^3.4.2",
     "source-map-support": "^0.5.21",

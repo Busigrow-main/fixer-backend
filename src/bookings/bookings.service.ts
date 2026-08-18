@@ -23,6 +23,14 @@ export class BookingsService {
     private visitsService: VisitsService,
   ) {}
 
+  private findSubCategoryById(service: ServiceDocument | Service | any, subCategoryId: unknown) {
+    if (!service?.subCategories || !subCategoryId) return null;
+    const target = String(subCategoryId);
+    return (
+      service.subCategories.find((sc: any) => String(sc?._id) === target) || null
+    );
+  }
+
   /** Full booking detail for admin/customer — always includes populated visits/parts. */
   async populateBookingDetail(id: string): Promise<any> {
     const booking = await this.bookingModel
@@ -95,15 +103,32 @@ export class BookingsService {
     const booking = await this.bookingModel.findById(id).exec();
     if (!booking) throw new NotFoundException('Booking not found');
 
-    // Auto-repair invoice totals, then always return fully populated detail
-    if (!booking.invoiceData?.serviceTotal || booking.invoiceData.serviceTotal === 0) {
-      await this.generateInvoiceData(id, { returnDetail: false });
+    // Recompute invoice if not manually overridden (fixes stale prices from old logic)
+    if (!booking.invoiceData?.manualOverride) {
+      try {
+        await this.generateInvoiceData(id, { returnDetail: false });
+      } catch (err) {
+        console.error('[findOne] generateInvoiceData failed:', err?.message);
+      }
     }
 
     return this.populateBookingDetail(id);
   }
 
   async create(createBookingDto: any, userId: string): Promise<Booking> {
+    if (createBookingDto.serviceId) {
+      const service = await this.serviceModel.findById(createBookingDto.serviceId).exec();
+      if (!service) throw new BadRequestException('Service not found');
+      if (createBookingDto.subCategoryId) {
+        const subCat = this.findSubCategoryById(service, createBookingDto.subCategoryId);
+        if (!subCat) {
+          throw new BadRequestException(
+            `subCategoryId ${createBookingDto.subCategoryId} does not exist in service ${service.slug}`,
+          );
+        }
+      }
+    }
+
     const createdBooking = new this.bookingModel({
       ...createBookingDto,
       userId,
@@ -111,10 +136,8 @@ export class BookingsService {
     });
     const savedBooking = await createdBooking.save();
 
-    // Immediately calculate initial price from catalog
     const withInvoice = await this.generateInvoiceData(savedBooking._id.toString());
 
-    // Broadcast to eligible technicians (non-blocking for create success)
     void this.jobDispatch.broadcastJob(savedBooking._id.toString());
 
     return withInvoice;
@@ -209,9 +232,13 @@ export class BookingsService {
     );
   }
 
-  async updateJobDetails(id: string, details: any): Promise<any> {
+  async updateJobDetails(id: string, details: any, role: 'ADMIN' | 'TECHNICIAN' = 'ADMIN'): Promise<any> {
     const existing = await this.bookingModel.findById(id).exec();
     if (!existing) throw new NotFoundException('Booking not found');
+
+    if (existing.sheetLockedAt && role !== 'ADMIN') {
+      throw new BadRequestException('Job sheet is locked');
+    }
 
     const incomingEmpty = !this.jobDetailsHasContent(details);
     const existingHasContent = this.jobDetailsHasContent(existing.jobDetails as any);
@@ -221,25 +248,31 @@ export class BookingsService {
       );
     }
 
-    await this.bookingModel.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          jobDetails: details,
-          jobSheetUpdatedAt: new Date(),
-          jobSheetUpdatedBy: 'ADMIN',
-        },
-        $inc: { jobSheetRevision: 1 },
-      },
-      { returnDocument: 'after' },
-    ).exec();
+    const setOps: Record<string, any> = {
+      jobSheetUpdatedAt: new Date(),
+      jobSheetUpdatedBy: role,
+    };
+    for (const [key, value] of Object.entries(details)) {
+      if (value !== undefined) {
+        setOps[`jobDetails.${key}`] = value;
+      }
+    }
+
+    await this.bookingModel.findByIdAndUpdate(id, {
+      $set: setOps,
+      $inc: { jobSheetRevision: 1 },
+    }).exec();
 
     return this.populateBookingDetail(id);
   }
 
-  async updateProductDetails(id: string, details: any): Promise<any> {
+  async updateProductDetails(id: string, details: any, role: 'ADMIN' | 'TECHNICIAN' = 'ADMIN'): Promise<any> {
     const existing = await this.bookingModel.findById(id).exec();
     if (!existing) throw new NotFoundException('Booking not found');
+
+    if (existing.sheetLockedAt && role !== 'ADMIN') {
+      throw new BadRequestException('Job sheet is locked');
+    }
 
     const incomingEmpty = !this.productDetailsHasContent(details);
     const existingHasContent = this.productDetailsHasContent(existing.productDetails as any);
@@ -249,20 +282,23 @@ export class BookingsService {
       );
     }
 
-    await this.bookingModel.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          productDetails: details,
-          jobSheetUpdatedAt: new Date(),
-          jobSheetUpdatedBy: 'ADMIN',
-        },
-        $inc: { jobSheetRevision: 1 },
-      },
-    ).exec();
-    
+    const setOps: Record<string, any> = {
+      jobSheetUpdatedAt: new Date(),
+      jobSheetUpdatedBy: role,
+    };
+    for (const [key, value] of Object.entries(details)) {
+      if (value !== undefined) {
+        setOps[`productDetails.${key}`] = value;
+      }
+    }
+
+    await this.bookingModel.findByIdAndUpdate(id, {
+      $set: setOps,
+      $inc: { jobSheetRevision: 1 },
+    }).exec();
+
     await this.generateInvoiceData(id, { returnDetail: false });
-    
+
     return this.populateBookingDetail(id);
   }
 
@@ -289,32 +325,34 @@ export class BookingsService {
     const booking = await this.bookingModel.findById(id).exec();
     if (!booking) throw new NotFoundException('Booking not found');
 
-    const invoiceData = { ...(booking.invoiceData || {}) } as any;
-    
+    const setOps: Record<string, any> = {};
+
     if (data.serviceTotal !== undefined) {
-      invoiceData.serviceTotal = data.serviceTotal;
-    } else if (invoiceData.serviceTotal === undefined || invoiceData.serviceTotal === 0) {
-      const service = await this.serviceModel.findById(booking.serviceId).exec();
-      if (service) {
-        const subCat = service.subCategories.id(booking.subCategoryId);
-        if (subCat) {
-          invoiceData.serviceTotal = this.parseNumericPrice(subCat.price);
-        }
-      }
+      setOps['invoiceData.serviceTotal'] = data.serviceTotal;
+      setOps['invoiceData.manualOverride'] = true;
     }
 
-    if (data.additionalCharges !== undefined) invoiceData.additionalCharges = data.additionalCharges;
+    if (data.additionalCharges !== undefined) {
+      setOps['invoiceData.additionalCharges'] = data.additionalCharges;
+    }
 
-    booking.invoiceData = invoiceData as any;
-    await booking.save();
+    if (Object.keys(setOps).length > 0) {
+      await this.bookingModel.findByIdAndUpdate(id, { $set: setOps }).exec();
+    }
+
     return this.generateInvoiceData(id);
   }
 
   async finalizeInvoice(id: string): Promise<any> {
     const booking = await this.bookingModel.findByIdAndUpdate(
       id,
-      { isBilled: true, status: 'COMPLETED' },
-      { returnDocument: 'after' }
+      {
+        isBilled: true,
+        status: 'COMPLETED',
+        sheetLockedAt: new Date(),
+        sheetLockedBy: 'SYSTEM',
+      },
+      { returnDocument: 'after' },
     ).exec();
     if (!booking) throw new NotFoundException('Booking not found');
 
@@ -323,8 +361,18 @@ export class BookingsService {
     } catch (err) {
       console.error('Warranty registration on finalize failed:', err);
     }
-    
+
     return this.generateInvoiceData(id);
+  }
+
+  async unlockSheet(id: string): Promise<any> {
+    const booking = await this.bookingModel.findByIdAndUpdate(
+      id,
+      { $unset: { sheetLockedAt: 1, sheetLockedBy: 1 } },
+      { returnDocument: 'after' },
+    ).exec();
+    if (!booking) throw new NotFoundException('Booking not found');
+    return this.populateBookingDetail(id);
   }
 
   async addAdminNote(id: string, note: string): Promise<Booking> {
@@ -342,84 +390,82 @@ export class BookingsService {
     opts: { returnDetail?: boolean } = { returnDetail: true },
   ): Promise<any> {
     const visits = await this.visitsService.findByBooking(id);
-    const booking = await this.bookingModel.findById(id).populate('serviceId').exec();
-    
+    const booking = await this.bookingModel.findById(id).exec();
+
     if (!booking) throw new NotFoundException('Booking not found');
-    
-    let partsTotal = 0;
-    const sparePartsSummary: { partName: string, quantity: number, cost: number, isThirdParty: boolean }[] = [];
-    let serviceTotal = booking.invoiceData?.serviceTotal;
 
-    const additionalCharges = booking.invoiceData?.additionalCharges || [];
-
-    if (serviceTotal === undefined || serviceTotal === 0) {
-      if (booking.serviceType === 'WARRANTY_CHECK') {
-        serviceTotal = 0;
-      } else {
-        const service = await this.serviceModel.findById(booking.serviceId).exec();
-        if (service) {
-          const subCat = service.subCategories.id(booking.subCategoryId);
-          if (subCat && subCat.price) {
-            serviceTotal = this.parseNumericPrice(subCat.price);
-          }
-          
-          if (!serviceTotal && service.startingPrice) {
-            serviceTotal = this.parseNumericPrice(service.startingPrice);
-          }
+    // --- Service Total ---
+    let serviceTotal: number;
+    if (booking.invoiceData?.manualOverride && booking.invoiceData.serviceTotal > 0) {
+      serviceTotal = booking.invoiceData.serviceTotal;
+    } else if (booking.serviceType === 'WARRANTY_CHECK') {
+      serviceTotal = 0;
+    } else {
+      serviceTotal = 0;
+      const service = await this.serviceModel.findById(booking.serviceId).exec();
+      if (service) {
+        const subCat = this.findSubCategoryById(service, booking.subCategoryId);
+        let serviceSource = 'missing-subcategory';
+        if (subCat) {
+          // Prefer numeric field; fall back to string parse for legacy data
+          serviceSource =
+            subCat.priceNumeric != null ? 'subcategory-priceNumeric' : 'subcategory-price-string';
+          serviceTotal = subCat.priceNumeric != null
+            ? subCat.priceNumeric / 100
+            : this.parseNumericPrice(subCat.price);
+        }
+        if (!serviceTotal) {
+          serviceSource =
+            (service as any).startingPriceNumeric != null
+              ? 'service-startingPriceNumeric'
+              : 'service-startingPrice-string';
+          serviceTotal = (service as any).startingPriceNumeric != null
+            ? (service as any).startingPriceNumeric / 100
+            : this.parseNumericPrice(service.startingPrice);
         }
       }
     }
-    if (serviceTotal === undefined) serviceTotal = 0;
+
+    // --- Parts Total ---
+    let partsTotal = 0;
+    const sparePartsSummary: { partName: string; quantity: number; cost: number; isThirdParty: boolean }[] = [];
 
     for (const visit of visits as any[]) {
       if (!visit.partsUsed) continue;
       for (const usage of visit.partsUsed) {
-        let partName = "";
-        let cost = 0;
         const quantity = usage.quantity || 1;
+        let partName = '';
+        let cost = 0;
 
         if (usage.isThirdParty) {
-          partName = usage.partName || "Generic Part";
+          partName = usage.partName || 'Generic Part';
           cost = usage.cost || 0;
-          partsTotal += cost * quantity;
         } else if (usage.sparePartId) {
-          partName = usage.partName || usage.sparePartId.name || "Spare Part";
-          const catalogPaise = this.parseNumericPrice(usage.sparePartId.price);
-          const catalogRupees = Math.round((catalogPaise / 100) * 100) / 100;
-          const stored = usage.cost != null ? Number(usage.cost) : null;
-          cost =
-            stored != null && stored !== catalogPaise
-              ? stored
-              : catalogRupees;
-          partsTotal += cost * quantity;
+          partName = usage.partName || usage.sparePartId.name || 'Spare Part';
+          cost = usage.cost != null ? Number(usage.cost) : 0;
         }
 
-        sparePartsSummary.push({
-          partName,
-          quantity,
-          cost,
-          isThirdParty: !!usage.isThirdParty
-        });
+        partsTotal += cost * quantity;
+        sparePartsSummary.push({ partName, quantity, cost, isThirdParty: !!usage.isThirdParty });
       }
     }
 
+    // --- Additional Charges ---
+    const additionalCharges = booking.invoiceData?.additionalCharges || [];
     const additionalTotal = additionalCharges.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
-    const totalAmount = (serviceTotal || 0) + partsTotal + additionalTotal;
+    const totalAmount = serviceTotal + partsTotal + additionalTotal;
 
-    await this.bookingModel.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          'invoiceData.generatedAt': new Date(),
-          'invoiceData.partsTotal': partsTotal,
-          'invoiceData.serviceTotal': serviceTotal,
-          'invoiceData.additionalCharges': additionalCharges,
-          'invoiceData.spareParts': sparePartsSummary,
-          'invoiceData.totalAmount': totalAmount,
-          'invoiceData.url': `/api/v1/user/bookings/${id}/invoice`
-        }
+    await this.bookingModel.findByIdAndUpdate(id, {
+      $set: {
+        'invoiceData.generatedAt': new Date(),
+        'invoiceData.partsTotal': partsTotal,
+        'invoiceData.serviceTotal': serviceTotal,
+        'invoiceData.additionalCharges': additionalCharges,
+        'invoiceData.spareParts': sparePartsSummary,
+        'invoiceData.totalAmount': totalAmount,
+        'invoiceData.url': `/api/v1/user/bookings/${id}/invoice`,
       },
-    ).exec();
+    }).exec();
 
     if (opts.returnDetail === false) {
       return this.bookingModel.findById(id).exec() as any;
