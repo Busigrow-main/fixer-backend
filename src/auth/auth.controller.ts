@@ -16,6 +16,12 @@ export class AuthController {
     return this.authService.login(user);
   }
 
+  /** Phone-only customer sign-in (creates account if needed). */
+  @Post('quick-login')
+  async quickLogin(@Body() body: { phone: string; fullName?: string }) {
+    return this.authService.quickLogin(body.phone, body.fullName);
+  }
+
   @UseGuards(AuthGuard('local'))
   @Post('login')
   async login(@Request() req: any) {

@@ -7,6 +7,7 @@ import { Service, ServiceSchema } from '../services/schemas/service.schema';
 import { WarrantiesModule } from '../warranties/warranties.module';
 import { DispatchModule } from '../technician-platform/dispatch/dispatch.module';
 import { VisitsModule } from '../visits/visits.module';
+import { CustomerAppliancesModule } from '../customer-appliances/customer-appliances.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { VisitsModule } from '../visits/visits.module';
     WarrantiesModule,
     DispatchModule,
     forwardRef(() => VisitsModule),
+    CustomerAppliancesModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

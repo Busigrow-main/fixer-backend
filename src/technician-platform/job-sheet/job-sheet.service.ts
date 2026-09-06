@@ -26,6 +26,7 @@ import {
   computeTechnicianSettlement,
 } from '../settlement';
 import { WarrantiesService } from '../../warranties/warranties.service';
+import { CustomerAppliancesService } from '../../customer-appliances/customer-appliances.service';
 
 export type JobSheetSaveBody = {
   productDetails?: {
@@ -54,6 +55,7 @@ export class JobSheetService {
     private visitsService: VisitsService,
     private sparePartsService: SparePartsService,
     private warrantiesService: WarrantiesService,
+    private customerAppliancesService: CustomerAppliancesService,
   ) {}
 
   async getJobSheet(jobId: string, technicianId: string) {
@@ -168,6 +170,16 @@ export class JobSheetService {
     await this.bookingModel.findByIdAndUpdate(jobId, { $set: setPayload }).exec();
 
     await this.bookingsService.generateInvoiceData(jobId);
+
+    if (productDetails.serialNumber) {
+      const refreshed = await this.bookingModel.findById(jobId).lean().exec();
+      if (refreshed) {
+        void this.customerAppliancesService.syncFromBooking(
+          refreshed as any,
+          'TECHNICIAN',
+        );
+      }
+    }
 
     return this.getJobSheet(jobId, technicianId);
   }

@@ -8,6 +8,7 @@ import { VisitsModule } from '../visits/visits.module';
 import { SparePartsModule } from '../spare-parts/spare-parts.module';
 import { DispatchModule } from './dispatch/dispatch.module';
 import { WarrantiesModule } from '../warranties/warranties.module';
+import { CustomerAppliancesModule } from '../customer-appliances/customer-appliances.module';
 
 import { OtpSession, OtpSessionSchema } from './schemas/otp-session.schema';
 import { RefreshToken, RefreshTokenSchema } from './schemas/refresh-token.schema';
@@ -67,6 +68,7 @@ import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.ser
     SparePartsModule,
     DispatchModule,
     WarrantiesModule,
+    CustomerAppliancesModule,
     MongooseModule.forFeature([
       { name: OtpSession.name, schema: OtpSessionSchema },
       { name: RefreshToken.name, schema: RefreshTokenSchema },

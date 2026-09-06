@@ -15,6 +15,7 @@ import {
   collectPartsFromVisits,
   computeTechnicianSettlement,
 } from '../technician-platform/settlement';
+import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
 
 @Injectable()
 export class BookingsService {
@@ -25,6 +26,7 @@ export class BookingsService {
     private jobDispatch: JobDispatchService,
     private notificationDispatch: NotificationDispatchService,
     private visitsService: VisitsService,
+    private customerAppliancesService: CustomerAppliancesService,
   ) {}
 
   private findSubCategoryById(service: ServiceDocument | Service | any, subCategoryId: unknown) {
@@ -178,6 +180,12 @@ export class BookingsService {
     const withInvoice = await this.generateInvoiceData(savedBooking._id.toString());
 
     void this.jobDispatch.broadcastJob(savedBooking._id.toString());
+
+    // Link to existing serial mappings for this phone (non-blocking)
+    void this.customerAppliancesService.linkBookingByPhone(
+      savedBooking._id.toString(),
+      savedBooking.contactPhone,
+    );
 
     return withInvoice;
   }
@@ -340,6 +348,17 @@ export class BookingsService {
     }).exec();
 
     await this.generateInvoiceData(id, { returnDetail: false });
+
+    // When a serial is saved, establish/refresh phone ↔ serial mapping
+    if (details?.serialNumber) {
+      const refreshed = await this.bookingModel.findById(id).lean().exec();
+      if (refreshed) {
+        void this.customerAppliancesService.syncFromBooking(
+          refreshed as any,
+          role,
+        );
+      }
+    }
 
     return this.populateBookingDetail(id);
   }

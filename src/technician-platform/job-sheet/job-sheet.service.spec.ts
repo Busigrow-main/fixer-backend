@@ -14,6 +14,7 @@ import { Visit, VisitSchema } from '../../visits/schemas/visit.schema';
 import { VisitsService } from '../../visits/visits.service';
 import { SparePartsService } from '../../spare-parts/spare-parts.service';
 import { WarrantiesService } from '../../warranties/warranties.service';
+import { CustomerAppliancesService } from '../../customer-appliances/customer-appliances.service';
 import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../common/notification-dispatch.service';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
@@ -77,6 +78,7 @@ describe('JobSheetService', () => {
         { provide: WarrantiesService, useValue: mockWarranties },
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },
+        { provide: CustomerAppliancesService, useValue: { syncFromBooking: jest.fn(), linkBookingByPhone: jest.fn().mockResolvedValue([]) } },
       ],
     }).compile();
 
