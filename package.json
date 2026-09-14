@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:appliances": "ts-node -r tsconfig-paths/register src/scripts/seed-appliances.ts",
+    "seed:offers": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-offers.ts",
     "earnings:recalc": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
     "db:adapt": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
     "ac:scrape": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/scrape-product-images.ts",

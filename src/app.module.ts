@@ -15,11 +15,12 @@ import { VisitsModule } from './visits/visits.module';
 import { WarrantiesModule } from './warranties/warranties.module';
 import { TechnicianPlatformModule } from './technician-platform/technician-platform.module';
 import { CustomerAppliancesModule } from './customer-appliances/customer-appliances.module';
+import { OffersModule } from './offers/offers.module';
 
 @Module({
   imports: [
     MongooseModule.forRoot(
-      process.env.MONGO_URI || 'mongodb://localhost:27017/Fixxer',
+      process.env.MONGO_URI || 'mongodb://localhost:27017/fixxer',
     ),
     UsersModule,
     AuthModule,
@@ -34,6 +35,7 @@ import { CustomerAppliancesModule } from './customer-appliances/customer-applian
     WarrantiesModule,
     TechnicianPlatformModule,
     CustomerAppliancesModule,
+    OffersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
