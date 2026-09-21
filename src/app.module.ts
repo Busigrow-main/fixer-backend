@@ -16,6 +16,7 @@ import { WarrantiesModule } from './warranties/warranties.module';
 import { TechnicianPlatformModule } from './technician-platform/technician-platform.module';
 import { CustomerAppliancesModule } from './customer-appliances/customer-appliances.module';
 import { OffersModule } from './offers/offers.module';
+import { ServiceablePincodesModule } from './serviceable-pincodes/serviceable-pincodes.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { OffersModule } from './offers/offers.module';
     TechnicianPlatformModule,
     CustomerAppliancesModule,
     OffersModule,
+    ServiceablePincodesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

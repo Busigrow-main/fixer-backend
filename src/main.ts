@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { json } from 'express';
@@ -23,7 +24,7 @@ async function bootstrap() {
 
     app.use(json({ limit: '10mb' }));
 
-    const port = process.env.PORT || 8080;
+    const port = process.env.PORT || 8081;
 
     await app.listen(port, '0.0.0.0');
 

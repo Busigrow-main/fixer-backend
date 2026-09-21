@@ -8,6 +8,7 @@ import { WarrantiesModule } from '../warranties/warranties.module';
 import { DispatchModule } from '../technician-platform/dispatch/dispatch.module';
 import { VisitsModule } from '../visits/visits.module';
 import { CustomerAppliancesModule } from '../customer-appliances/customer-appliances.module';
+import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CustomerAppliancesModule } from '../customer-appliances/customer-applia
     DispatchModule,
     forwardRef(() => VisitsModule),
     CustomerAppliancesModule,
+    ServiceablePincodesModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],
