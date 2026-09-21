@@ -1,11 +1,14 @@
 const mongoose = require('mongoose');
 const xlsx = require('xlsx');
 const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 
 // -----------------------------------------------------------------------------
 // Configuration
 // -----------------------------------------------------------------------------
-const defaultFilePath = '/Users/misanthropic/codebase/fixxer-backend/MARUTI_SPARE_2025.xlsx';
+const defaultFilePath = path.join(__dirname, 'MARUTI_SPARE_2025.xlsx');
+
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/fixxer';
 const BATCH_SIZE = 1000;
 
@@ -17,10 +20,11 @@ const filePath = process.argv[2] || defaultFilePath;
 // -----------------------------------------------------------------------------
 const SparePartSchema = new mongoose.Schema({
   slug: { type: String, required: true, unique: true, index: true },
-  partNumber: { type: String, required: true, unique: true, index: true }, // Extra explicit index for safety
+  sku: { type: String, required: true, unique: true, index: true },
+  partNumber: { type: String, required: true, unique: true, index: true },
   name: { type: String, required: true },
   category: { type: String, default: 'Automotive' },
-  price: { type: String, required: true }, // Storing as String to allow "₹2,500" logic if needed, but numeric parsing is handled
+  price: { type: String, required: true },
   manufacturer: { type: String, default: 'Maruti Suzuki' },
   seller: { type: String, default: 'Fixxer OEM Hub' },
   supportsServiceBooking: { type: Boolean, default: false },
@@ -128,12 +132,13 @@ function cleanAndTransformRow(rawRow) {
   }
 
   const finalDocument = {
-    slug: `part-${partNumberStr.toLowerCase()}`, 
+    slug: `part-${partNumberStr.toLowerCase()}`,
+    sku: partNumberStr,
     partNumber: partNumberStr,
-    name: partType, // Specific part type
-    category: inferredCategory, // Manufacturer as category
+    name: partType,
+    category: inferredCategory,
     price: formattedPrice,
-    image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800&auto=format&fit=crop', // Placeholder
+    image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800&auto=format&fit=crop',
     description: `High-quality ${partType} compatible with ${inferredManufacturer} appliances. Certified genuine component.`,
     manufacturer: inferredManufacturer
   };
@@ -155,7 +160,7 @@ async function seedDatabase() {
     console.log('✅ Connected to MongoDB.');
 
     // Ensure Indexes are built
-    await SparePart.init();
+    // await SparePart.init();
     
     console.log(`\n📖 Reading Excel file: ${filePath}`);
     const workbook = xlsx.readFile(filePath);
@@ -198,6 +203,8 @@ async function seedDatabase() {
       }));
 
       const result = await SparePart.bulkWrite(operations, { ordered: false });
+
+      console.log('First operation:', JSON.stringify(operations[0], null, 2));
       
       insertedCount += result.upsertedCount;
       updatedCount += result.modifiedCount;

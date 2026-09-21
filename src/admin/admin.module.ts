@@ -7,6 +7,7 @@ import { BookingsModule } from '../bookings/bookings.module';
 import { SparePartsModule } from '../spare-parts/spare-parts.module';
 import { PartOrdersModule } from '../part-orders/part-orders.module';
 import { WarrantiesModule } from '../warranties/warranties.module';
+import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { WarrantiesModule } from '../warranties/warranties.module';
     SparePartsModule,
     PartOrdersModule,
     WarrantiesModule,
+    ServiceablePincodesModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],
