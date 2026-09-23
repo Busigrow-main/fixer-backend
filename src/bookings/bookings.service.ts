@@ -172,7 +172,7 @@ export class BookingsService {
     const isServiceable = await this.serviceablePincodesService.isServiceable(pincode); 
 
     if (!isServiceable) {
-      throw new BadRequestException('Sorry, Fixxer is currently not available in this area.');
+      throw new BadRequestException('Sorry, Fixxer is  not fixing in this area.');
     }
 
     if (createBookingDto.serviceId) {
