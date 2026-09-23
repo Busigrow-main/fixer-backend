@@ -12,6 +12,7 @@ import { JobDispatchService } from '../technician-platform/dispatch/job-dispatch
 import { NotificationDispatchService } from '../technician-platform/common/notification-dispatch.service';
 import { VisitsService } from '../visits/visits.service';
 import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
+import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
 
 describe('BookingsService – Pricing', () => {
   jest.setTimeout(30000);
@@ -47,6 +48,7 @@ describe('BookingsService – Pricing', () => {
         { provide: NotificationDispatchService, useValue: mockNotification },
         { provide: VisitsService, useValue: mockVisits },
         { provide: CustomerAppliancesService, useValue: { syncFromBooking: jest.fn(), linkBookingByPhone: jest.fn().mockResolvedValue([]) } },
+        { provide: ServiceablePincodesService, useValue: { isServiceable: jest.fn().mockResolvedValue(true) } },
       ],
     }).compile();
 
