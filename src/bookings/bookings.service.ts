@@ -7,6 +7,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Booking, BookingDocument } from './schemas/booking.schema';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
+import { Technician, TechnicianDocument } from '../technicians/schemas/technician.schema';
 import { WarrantiesService } from '../warranties/warranties.service';
 import { JobDispatchService } from '../technician-platform/dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../technician-platform/common/notification-dispatch.service';
@@ -16,12 +17,21 @@ import {
   computeTechnicianSettlement,
 } from '../technician-platform/settlement';
 import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
+import {
+  buildCustomerPricingSummary,
+  getCustomerStatusView,
+  pickUpcomingVisitSchedule,
+  resolveExpectedArrival,
+  resolveFrozenEstimatedAmount,
+  sanitizeTechnicianForCustomer,
+} from './customer-booking.helpers';
 
 @Injectable()
 export class BookingsService {
   constructor(
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
+    @InjectModel(Technician.name) private technicianModel: Model<TechnicianDocument>,
     private warrantiesService: WarrantiesService,
     private jobDispatch: JobDispatchService,
     private notificationDispatch: NotificationDispatchService,
@@ -35,6 +45,43 @@ export class BookingsService {
     return (
       service.subCategories.find((sc: any) => String(sc?._id) === target) || null
     );
+  }
+
+  /**
+   * Resolve technician for customer payloads. Handles:
+   * - populated docs
+   * - legacy string technicianId (populate fails)
+   * - bare ObjectId left after failed populate
+   */
+  private async resolveTechnicianForCustomer(
+    technicianField: unknown,
+  ): Promise<{ _id: string; name: string; phone?: string } | null> {
+    const populated = sanitizeTechnicianForCustomer(
+      technicianField && typeof technicianField === 'object'
+        ? (technicianField as Record<string, any>)
+        : null,
+    );
+    if (populated) return populated;
+
+    const rawId =
+      typeof technicianField === 'string'
+        ? technicianField
+        : technicianField &&
+            typeof technicianField === 'object' &&
+            ((technicianField as any)._id || (technicianField as any).id || technicianField)
+          ? String((technicianField as any)._id || (technicianField as any).id || technicianField)
+          : null;
+
+    if (!rawId || !Types.ObjectId.isValid(rawId) || String(rawId).length !== 24) {
+      return null;
+    }
+
+    const tech = await this.technicianModel
+      .findById(rawId)
+      .select('name phone')
+      .lean()
+      .exec();
+    return sanitizeTechnicianForCustomer(tech as any);
   }
 
   /** Full booking detail for admin/customer — always includes populated visits/parts. */
@@ -76,25 +123,70 @@ export class BookingsService {
   }
 
   async findAllByUser(userId: string): Promise<any[]> {
+    // Production data historically stores userId as a plain string even though the
+    // schema declares ObjectId. Match both shapes so bookings always surface.
+    const userFilter =
+      Types.ObjectId.isValid(userId) && String(userId).length === 24
+        ? {
+            $or: [
+              { userId: new Types.ObjectId(userId) },
+              { userId: String(userId) },
+            ],
+          }
+        : { userId: String(userId) };
+
     const bookings = await this.bookingModel
-      .find({ userId })
-      .populate('userId serviceId')
+      .find(userFilter)
+      .populate('userId serviceId technicianId')
       .sort({ createdAt: -1 })
       .lean()
       .exec();
 
     const results: any[] = [];
     for (const booking of bookings as any[]) {
-      const installedParts = await this.warrantiesService.listInstalledParts(
-        String(booking._id),
-      );
+      const bookingId = String(booking._id);
+      const installedParts = await this.warrantiesService.listInstalledParts(bookingId);
       const parentId = booking.parentId ? String(booking.parentId) : null;
       const originalParts = await this.warrantiesService.listOriginalPartsForClaim(parentId);
+      const isWarrantyClaim =
+        booking.serviceType === 'WARRANTY_CHECK' || !!parentId;
+
+      const visitsRaw = await this.visitsService.findByBooking(bookingId);
+      const visitsPlain = visitsRaw.map((v) =>
+        typeof (v as any).toObject === 'function' ? (v as any).toObject() : v,
+      );
+      const upcomingVisit = pickUpcomingVisitSchedule(visitsPlain);
+      const schedule = resolveExpectedArrival(booking, upcomingVisit);
+      const technician = await this.resolveTechnicianForCustomer(booking.technicianId);
+      const hasTechnicianAssigned = !!(
+        technician ||
+        booking.technicianId
+      );
+      const statusView = getCustomerStatusView(booking.status, {
+        isWarrantyClaim,
+        arrivalAt: booking.arrivalAt,
+      });
+      const pricing = buildCustomerPricingSummary(booking);
+
       results.push({
         ...booking,
+        // Keep raw id for debugging; customer UI should prefer `technician`.
+        technicianId: technician || booking.technicianId || null,
+        technician,
+        hasTechnicianAssigned,
         installedParts,
         originalParts,
-        isWarrantyClaim: booking.serviceType === 'WARRANTY_CHECK' || !!parentId,
+        isWarrantyClaim,
+        upcomingVisit,
+        schedule,
+        statusView,
+        pricing,
+        visits: visitsPlain.map((v: any) => ({
+          _id: v._id,
+          visitOrder: v.visitOrder,
+          scheduledDate: v.scheduledDate,
+          status: v.status,
+        })),
       });
     }
     return results;
@@ -172,7 +264,8 @@ export class BookingsService {
 
     const createdBooking = new this.bookingModel({
       ...createBookingDto,
-      userId,
+      // Normalize so new rows are ObjectIds; findAllByUser still accepts legacy strings.
+      userId: Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : userId,
       dispatchStatus: 'OPEN',
     });
     const savedBooking = await createdBooking.save();
@@ -531,8 +624,14 @@ export class BookingsService {
       parts: collectPartsFromVisits(visits as any[]),
     });
 
+    const estimatedAmount = resolveFrozenEstimatedAmount(
+      booking.estimatedAmount,
+      serviceTotal,
+    );
+
     await this.bookingModel.findByIdAndUpdate(id, {
       $set: {
+        estimatedAmount,
         'invoiceData.generatedAt': new Date(),
         'invoiceData.partsTotal': partsTotal,
         'invoiceData.serviceTotal': serviceTotal,
@@ -541,7 +640,8 @@ export class BookingsService {
         'invoiceData.totalAmount': totalAmount,
         'invoiceData.technicianNet': settlement.technicianNet,
         'invoiceData.fixxerNet': settlement.fixxerNet,
-        'invoiceData.url': `/api/v1/user/bookings/${id}/invoice`,
+        // Client-side invoice printer; keep path stable for ops tooling.
+        'invoiceData.url': `/my-bookings?invoice=${id}`,
       },
     }).exec();
 

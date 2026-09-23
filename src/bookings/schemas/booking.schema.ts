@@ -190,6 +190,18 @@ export class Booking {
   @Prop({ default: 0 })
   estimatedAmount: number;
 
+  /** Customer-requested visit day (ISO date string YYYY-MM-DD). */
+  @Prop()
+  preferredVisitDate?: string;
+
+  /** Customer-requested window: MORNING | AFTERNOON | EVENING */
+  @Prop({ type: String, enum: ['MORNING', 'AFTERNOON', 'EVENING'] })
+  preferredVisitSlot?: string;
+
+  /** Ops/tech-set expected arrival; surfaced to customers when present. */
+  @Prop()
+  expectedArrivalAt?: Date;
+
   @Prop({ default: true })
   otpRequired: boolean;
 
