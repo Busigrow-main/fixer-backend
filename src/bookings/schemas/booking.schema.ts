@@ -80,8 +80,21 @@ export class JobCompletionData {
 }
 export const JobCompletionDataSchema = SchemaFactory.createForClass(JobCompletionData);
 
-export type BookingDocument = Booking & Document;
+@Schema({ _id: false })
+export class AddressData {
 
+  @Prop({ required: true })
+  zip: string;
+
+  @Prop({ required: true })
+  text: string;
+
+}
+
+export const AddressDataSchema =
+  SchemaFactory.createForClass(AddressData);
+
+export type BookingDocument = Booking & Document;
 @Schema({ timestamps: true })
 export class Booking {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
@@ -117,11 +130,11 @@ export class Booking {
   @Prop({ required: true })
   contactPhone: string;
 
-  @Prop({ type: Object, required: true })
-  addressData: {
-    zip: string;
-    text: string;
-  };
+  @Prop({
+    type: AddressDataSchema,
+    required: true,
+  })
+  addressData: AddressData;
 
   @Prop()
   description: string;

@@ -25,6 +25,7 @@ import {
   resolveFrozenEstimatedAmount,
   sanitizeTechnicianForCustomer,
 } from './customer-booking.helpers';
+import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
 
 @Injectable()
 export class BookingsService {
@@ -37,6 +38,7 @@ export class BookingsService {
     private notificationDispatch: NotificationDispatchService,
     private visitsService: VisitsService,
     private customerAppliancesService: CustomerAppliancesService,
+    private serviceablePincodesService: ServiceablePincodesService,
   ) {}
 
   private findSubCategoryById(service: ServiceDocument | Service | any, subCategoryId: unknown) {
@@ -249,6 +251,22 @@ export class BookingsService {
   }
 
   async create(createBookingDto: any, userId: string): Promise<Booking> {
+    console.log('BOOKING ADDRESS DATA:', createBookingDto.addressData);
+
+    const pincode = String(createBookingDto.addressData?.zip || '').trim();
+
+    console.log('BOOKING PINCODE:', pincode);
+
+    if (!/^\d{6}$/.test(pincode)) {
+      throw new BadRequestException('Please enter a valid 6-digit pincode');
+    }
+
+    const isServiceable = await this.serviceablePincodesService.isServiceable(pincode); 
+
+    if (!isServiceable) {
+      throw new BadRequestException('Sorry, Fixxer is  not fixing in this area.');
+    }
+
     if (createBookingDto.serviceId) {
       const service = await this.serviceModel.findById(createBookingDto.serviceId).exec();
       if (!service) throw new BadRequestException('Service not found');

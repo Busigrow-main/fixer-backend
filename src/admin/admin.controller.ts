@@ -14,6 +14,9 @@ import { BookingsService } from '../bookings/bookings.service';
 import { PartOrdersService } from '../part-orders/part-orders.service';
 import { WarrantiesService } from '../warranties/warranties.service';
 import { UpdateOrderBillDto } from '../part-orders/dtos/update-order-bill.dto';
+import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
+import { CreateServiceablePincodeDto } from '../serviceable-pincodes/dto/create-serviceable-pincode.dto';
+import { UpdateServiceablePincodeDto } from '../serviceable-pincodes/dto/update-serviceable-pincode.dto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const csv = require('csv-parser');
 import * as xlsx from 'xlsx';
@@ -29,6 +32,7 @@ export class AdminController {
     private readonly bookingsService: BookingsService,
     private readonly partOrdersService: PartOrdersService,
     private readonly warrantiesService: WarrantiesService,
+    private readonly serviceablePincodesService: ServiceablePincodesService,
   ) {}
 
   // ─── Dashboard ────────────────────────────────────────────
@@ -319,5 +323,33 @@ export class AdminController {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=spare-parts-template.csv');
     res.send(csvContent);
+  }
+
+  
+  // ─── Serviceable Pincodes   ─────────────────────────────────
+  
+  @Get('serviceable-pincodes')
+  async getServiceablePincodes() {
+    return this.serviceablePincodesService.findAll();
+  }
+  
+  @Post('serviceable-pincodes')
+  async createServiceablePincode(
+    @Body() createDto: CreateServiceablePincodeDto,
+  ) {
+    return this.serviceablePincodesService.create (createDto);
+  }
+  
+  @Put('serviceable-pincodes/:id')
+  async updateServiceablePincode(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateServiceablePincodeDto,
+  ) {
+    return this.serviceablePincodesService.update(id,   updateDto);
+  }
+  
+  @Put('serviceable-pincodes/:id/deactivate')
+  async deactivateServiceablePincode(@Param('id') id:   string) {
+    return this.serviceablePincodesService.remove(id);
   }
 }
