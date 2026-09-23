@@ -17,6 +17,7 @@ import { TechnicianPlatformModule } from './technician-platform/technician-platf
 import { CustomerAppliancesModule } from './customer-appliances/customer-appliances.module';
 import { OffersModule } from './offers/offers.module';
 import { ServiceablePincodesModule } from './serviceable-pincodes/serviceable-pincodes.module';
+import { LeadsModule } from './leads/leads.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ServiceablePincodesModule } from './serviceable-pincodes/serviceable-pi
     CustomerAppliancesModule,
     OffersModule,
     ServiceablePincodesModule,
+    LeadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
