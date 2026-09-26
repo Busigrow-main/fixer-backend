@@ -5,20 +5,35 @@ import { PartOrder, PartOrderDocument } from './schemas/part-order.schema';
 import { CreatePartOrderDto } from './dtos/create-part-order.dto';
 import { UpdateOrderBillDto } from './dtos/update-order-bill.dto';
 
-function computeInvoiceTotals(lineItems: { quantity: number; unitPrice: number }[], taxPercent = 0) {
+function computeInvoiceTotals(
+  lineItems: { quantity: number; unitPrice: number }[],
+  taxPercent = 0,
+) {
   const normalized = lineItems.map((row) => ({
     ...row,
     amount: Math.round(row.quantity * row.unitPrice * 100) / 100,
   }));
+
   const subtotal = normalized.reduce((sum, row) => sum + row.amount, 0);
-  const taxAmount = Math.round(subtotal * (taxPercent / 100) * 100) / 100;
-  const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
-  return { lineItems: normalized, subtotal, taxAmount, totalAmount };
+  const taxAmount =
+    Math.round(subtotal * (taxPercent / 100) * 100) / 100;
+  const totalAmount =
+    Math.round((subtotal + taxAmount) * 100) / 100;
+
+  return {
+    lineItems: normalized,
+    subtotal,
+    taxAmount,
+    totalAmount,
+  };
 }
 
 @Injectable()
 export class PartOrdersService {
-  constructor(@InjectModel(PartOrder.name) private partOrderModel: Model<PartOrderDocument>) {}
+  constructor(
+    @InjectModel(PartOrder.name)
+    private partOrderModel: Model<PartOrderDocument>,
+  ) {}
 
   async findAllByUser(userId: string): Promise<PartOrder[]> {
     return this.partOrderModel
@@ -33,12 +48,24 @@ export class PartOrdersService {
     limit = 20,
     status?: string,
     orderType?: 'part' | 'appliance',
+    cancelledBy?: 'CUSTOMER' | 'ADMIN',
   ): Promise<{ data: PartOrder[]; total: number }> {
     const filter: Record<string, unknown> = {};
-    if (status && status !== 'ALL') filter.status = status;
-    if (orderType) filter.orderType = orderType;
+
+    if (status && status !== 'ALL') {
+      filter.status = status;
+    }
+
+    if (orderType) {
+      filter.orderType = orderType;
+    }
+
+    if (cancelledBy) {
+      filter.cancelledBy = cancelledBy;
+    }
 
     const skip = (page - 1) * limit;
+
     const [data, total] = await Promise.all([
       this.partOrderModel
         .find(filter)
@@ -47,24 +74,39 @@ export class PartOrdersService {
         .limit(limit)
         .sort({ createdAt: -1 })
         .exec(),
+
       this.partOrderModel.countDocuments(filter).exec(),
     ]);
+
     return { data, total };
   }
 
   async findOne(id: string): Promise<PartOrder> {
-    const order = await this.partOrderModel.findById(id).populate('userId items.partId').exec();
-    if (!order) throw new NotFoundException('Order not found');
+    const order = await this.partOrderModel
+      .findById(id)
+      .populate('userId items.partId')
+      .exec();
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
     return order;
   }
 
-  async create(createOrderDto: CreatePartOrderDto, userId: string): Promise<PartOrder> {
+  async create(
+    createOrderDto: CreatePartOrderDto,
+    userId: string,
+  ): Promise<PartOrder> {
     const orderType = createOrderDto.orderType ?? 'part';
 
     if (orderType === 'appliance') {
       if (!createOrderDto.applianceItem) {
-        throw new BadRequestException('applianceItem is required for appliance enquiries');
+        throw new BadRequestException(
+          'applianceItem is required for appliance enquiries',
+        );
       }
+
       const createdOrder = new this.partOrderModel({
         orderType: 'appliance',
         contactData: createOrderDto.contactData,
@@ -72,12 +114,16 @@ export class PartOrdersService {
         items: [],
         userId,
       });
+
       return createdOrder.save();
     }
 
     const items = createOrderDto.items ?? [];
+
     if (items.length === 0) {
-      throw new BadRequestException('At least one spare part is required');
+      throw new BadRequestException(
+        'At least one spare part is required',
+      );
     }
 
     const createdOrder = new this.partOrderModel({
@@ -86,6 +132,7 @@ export class PartOrdersService {
       items,
       userId,
     });
+
     return createdOrder.save();
   }
 
@@ -100,62 +147,70 @@ export class PartOrdersService {
         userId,
       })
       .exec();
-  
+
     if (!order) {
       throw new NotFoundException('Order not found');
     }
-  
+
     if (order.status === 'CANCELLED') {
       throw new BadRequestException('Order is already cancelled');
     }
-  
+
     const nonCancellableStatuses = [
       'DISPATCHED',
       'DELIVERED',
       'RETURNED',
     ];
-  
+
     if (nonCancellableStatuses.includes(order.status)) {
       throw new BadRequestException(
         'This order can no longer be cancelled',
       );
     }
-  
+
     const trimmedReason = String(reason || '').trim();
-  
+
     if (!trimmedReason) {
       throw new BadRequestException(
         'Cancellation reason is required',
       );
     }
-  
+
     if (trimmedReason.length > 500) {
       throw new BadRequestException(
         'Cancellation reason cannot exceed 500 characters',
       );
     }
-  
+
     order.status = 'CANCELLED';
     order.cancellationReason = trimmedReason;
     order.cancelledAt = new Date();
-  
+    order.cancelledBy = 'CUSTOMER';
+
     await order.save();
-  
+
     const updatedOrder = await this.partOrderModel
       .findById(order._id)
       .populate('userId items.partId')
       .exec();
-  
+
     if (!updatedOrder) {
       throw new NotFoundException('Order not found');
     }
-  
+
     return updatedOrder;
   }
 
-  buildDefaultBillLines(order: PartOrder): { description: string; quantity: number; unitPrice: number }[] {
+  buildDefaultBillLines(
+    order: PartOrder,
+  ): {
+    description: string;
+    quantity: number;
+    unitPrice: number;
+  }[] {
     if (order.orderType === 'appliance' && order.applianceItem) {
       const item = order.applianceItem;
+
       return [
         {
           description: item.modelNumber
@@ -169,25 +224,46 @@ export class PartOrdersService {
 
     return (order.items ?? []).map((row: any) => {
       const part = row.partId;
-      const pricePaise = typeof part?.price === 'number' ? part.price : 0;
+      const pricePaise =
+        typeof part?.price === 'number' ? part.price : 0;
+
       return {
         description: part?.name || 'Spare Part',
         quantity: row.quantity ?? 1,
-        unitPrice: Math.round((pricePaise / 100) * 100) / 100,
+        unitPrice:
+          Math.round((pricePaise / 100) * 100) / 100,
       };
     });
   }
 
-  async upsertBill(id: string, dto: UpdateOrderBillDto): Promise<PartOrder> {
-    const order = await this.partOrderModel.findById(id).populate('items.partId').exec();
-    if (!order) throw new NotFoundException('Order not found');
+  async upsertBill(
+    id: string,
+    dto: UpdateOrderBillDto,
+  ): Promise<PartOrder> {
+    const order = await this.partOrderModel
+      .findById(id)
+      .populate('items.partId')
+      .exec();
 
-    if (!dto.lineItems?.length) {
-      throw new BadRequestException('At least one line item is required');
+    if (!order) {
+      throw new NotFoundException('Order not found');
     }
 
-    const taxPercent = dto.taxPercent ?? order.invoiceData?.taxPercent ?? 0;
-    const { lineItems, subtotal, taxAmount, totalAmount } = computeInvoiceTotals(
+    if (!dto.lineItems?.length) {
+      throw new BadRequestException(
+        'At least one line item is required',
+      );
+    }
+
+    const taxPercent =
+      dto.taxPercent ?? order.invoiceData?.taxPercent ?? 0;
+
+    const {
+      lineItems,
+      subtotal,
+      taxAmount,
+      totalAmount,
+    } = computeInvoiceTotals(
       dto.lineItems,
       taxPercent,
     );
@@ -202,9 +278,14 @@ export class PartOrdersService {
             taxPercent,
             taxAmount,
             totalAmount,
-            notes: dto.notes ?? order.invoiceData?.notes,
-            generatedAt: order.invoiceData?.generatedAt ?? new Date(),
-            finalizedAt: order.invoiceData?.finalizedAt,
+            notes:
+              dto.notes ??
+              order.invoiceData?.notes,
+            generatedAt:
+              order.invoiceData?.generatedAt ??
+              new Date(),
+            finalizedAt:
+              order.invoiceData?.finalizedAt,
           },
         },
         { returnDocument: 'after' },
@@ -212,21 +293,41 @@ export class PartOrdersService {
       .populate('userId items.partId')
       .exec();
 
-    if (!updated) throw new NotFoundException('Order not found');
+    if (!updated) {
+      throw new NotFoundException('Order not found');
+    }
+
     return updated;
   }
 
-  async markPaymentComplete(id: string): Promise<PartOrder> {
-    const order = await this.partOrderModel.findById(id).populate('items.partId').exec();
-    if (!order) throw new NotFoundException('Order not found');
+  async markPaymentComplete(
+    id: string,
+  ): Promise<PartOrder> {
+    const order = await this.partOrderModel
+      .findById(id)
+      .populate('items.partId')
+      .exec();
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
 
     let invoiceData = order.invoiceData;
+
     if (!invoiceData?.lineItems?.length) {
       const defaults = this.buildDefaultBillLines(order);
+
       if (!defaults.length) {
-        throw new BadRequestException('Cannot generate bill: no line items on this order');
+        throw new BadRequestException(
+          'Cannot generate bill: no line items on this order',
+        );
       }
-      const computed = computeInvoiceTotals(defaults, 0);
+
+      const computed = computeInvoiceTotals(
+        defaults,
+        0,
+      );
+
       invoiceData = {
         lineItems: computed.lineItems as any,
         subtotal: computed.subtotal,
@@ -243,7 +344,10 @@ export class PartOrdersService {
         {
           paymentStatus: 'PAID',
           isBilled: true,
-          status: order.status === 'PENDING' ? 'PROCESSING' : order.status,
+          status:
+            order.status === 'PENDING'
+              ? 'PROCESSING'
+              : order.status,
           invoiceData: {
             ...invoiceData,
             finalizedAt: new Date(),
@@ -254,47 +358,142 @@ export class PartOrdersService {
       .populate('userId items.partId')
       .exec();
 
-    if (!updated) throw new NotFoundException('Order not found');
+    if (!updated) {
+      throw new NotFoundException('Order not found');
+    }
+
     return updated;
   }
 
-  async updateStatus(id: string, status: string): Promise<PartOrder> {
-    const updatedOrder = await this.partOrderModel
-      .findByIdAndUpdate(id, { status }, { returnDocument: 'after' })
-      .exec();
-    if (!updatedOrder) throw new NotFoundException('Order not found');
-    return updatedOrder;
-  }
+  async updateStatus(
+    id: string,
+    status: string,
+    reason?: string,
+  ): Promise<PartOrder> {
+    /*
+     * Admin cancellation is handled separately so that
+     * cancellation metadata is always recorded correctly.
+     */
+    if (status === 'CANCELLED') {
+      const order = await this.partOrderModel
+        .findById(id)
+        .exec();
 
-  async attachTracking(id: string, trackingData: { courierName: string; trackingNumber: string }): Promise<PartOrder> {
+      if (!order) {
+        throw new NotFoundException('Order not found');
+      }
+
+      if (order.status === 'CANCELLED') {
+        throw new BadRequestException(
+          'Order is already cancelled',
+        );
+      }
+
+      const trimmedReason = String(reason || '').trim();
+
+      if (!trimmedReason) {
+        throw new BadRequestException(
+          'Cancellation reason is required',
+        );
+      }
+
+      if (trimmedReason.length > 500) {
+        throw new BadRequestException(
+          'Cancellation reason cannot exceed 500 characters',
+        );
+      }
+
+      order.status = 'CANCELLED';
+      order.cancellationReason = trimmedReason;
+      order.cancelledAt = new Date();
+      order.cancelledBy = 'ADMIN';
+
+      await order.save();
+
+      return order;
+    }
+
+    /*
+     * Preserve the existing behavior for every
+     * non-cancellation status update.
+     */
     const updatedOrder = await this.partOrderModel
       .findByIdAndUpdate(
         id,
-        { courierTracking: trackingData, status: 'DISPATCHED' },
+        { status },
         { returnDocument: 'after' },
       )
       .exec();
-    if (!updatedOrder) throw new NotFoundException('Order not found');
+
+    if (!updatedOrder) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return updatedOrder;
+  }
+
+  async attachTracking(
+    id: string,
+    trackingData: {
+      courierName: string;
+      trackingNumber: string;
+    },
+  ): Promise<PartOrder> {
+    const updatedOrder = await this.partOrderModel
+      .findByIdAndUpdate(
+        id,
+        {
+          courierTracking: trackingData,
+          status: 'DISPATCHED',
+        },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!updatedOrder) {
+      throw new NotFoundException('Order not found');
+    }
+
     return updatedOrder;
   }
 
   async countByStatus(): Promise<Record<string, number>> {
     const results = await this.partOrderModel
-      .aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }])
+      .aggregate([
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+          },
+        },
+      ])
       .exec();
 
     const counts: Record<string, number> = {};
-    results.forEach((r: { _id: string; count: number }) => {
-      counts[r._id] = r.count;
-    });
+
+    results.forEach(
+      (r: {
+        _id: string;
+        count: number;
+      }) => {
+        counts[r._id] = r.count;
+      },
+    );
+
     return counts;
   }
 
   async countAll(): Promise<number> {
-    return this.partOrderModel.countDocuments().exec();
+    return this.partOrderModel
+      .countDocuments()
+      .exec();
   }
 
-  async countByOrderType(orderType: 'part' | 'appliance'): Promise<number> {
-    return this.partOrderModel.countDocuments({ orderType }).exec();
+  async countByOrderType(
+    orderType: 'part' | 'appliance',
+  ): Promise<number> {
+    return this.partOrderModel
+      .countDocuments({ orderType })
+      .exec();
   }
 }
