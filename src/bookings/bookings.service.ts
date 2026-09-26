@@ -301,6 +301,76 @@ export class BookingsService {
     return withInvoice;
   }
 
+  async cancelBooking(
+    id: string,
+    userId: string,
+    reason: string,
+  ): Promise<any> {
+    const userFilter =
+      Types.ObjectId.isValid(userId) && String(userId).length === 24
+        ? {
+            $or: [
+              { userId: new Types.ObjectId(userId) },
+              { userId: String(userId) },
+            ],
+          }
+        : { userId: String(userId) };
+  
+    const booking = await this.bookingModel
+      .findOne({
+        _id: id,
+        ...userFilter,
+      })
+      .exec();
+  
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+  
+    if (booking.status === 'CANCELLED') {
+      throw new BadRequestException(
+        'Booking is already cancelled',
+      );
+    }
+  
+    const nonCancellableStatuses = [
+      'IN_PROGRESS',
+      'COMPLETED',
+      'PAYMENT_COLLECTED',
+    ];
+  
+    if (nonCancellableStatuses.includes(booking.status)) {
+      throw new BadRequestException(
+        'This booking can no longer be cancelled',
+      );
+    }
+  
+    const trimmedReason = String(reason || '').trim();
+  
+    if (!trimmedReason) {
+      throw new BadRequestException(
+        'Cancellation reason is required',
+      );
+    }
+  
+    if (trimmedReason.length > 500) {
+      throw new BadRequestException(
+        'Cancellation reason cannot exceed 500 characters',
+      );
+    }
+  
+    booking.status = 'CANCELLED';
+    booking.dispatchStatus = 'EXPIRED';
+  
+    // Store cancellation details
+    booking.cancellationReason = trimmedReason;
+    booking.cancelledAt = new Date();
+  
+    await booking.save();
+  
+    return this.populateBookingDetail(id);
+  }
+
   private async lockServiceWarranty(id: string) {
     const booking = await this.bookingModel.findById(id).exec();
     if (!booking) return;

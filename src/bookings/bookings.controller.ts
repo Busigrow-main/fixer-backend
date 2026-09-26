@@ -1,5 +1,15 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  Param,
+} from '@nestjs/common';
+
 import { BookingsService } from './bookings.service';
+
 import { AuthGuard } from '@nestjs/passport';
 
 @UseGuards(AuthGuard('jwt'))
@@ -8,14 +18,34 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   // USER ROUTES
+
   @Get('user/bookings')
   async getUserBookings(@Request() req: any) {
     return this.bookingsService.findAllByUser(req.user.userId);
   }
 
+  @Post('user/bookings/:id/cancel')
+  async cancelBooking(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+  ) {
+    return this.bookingsService.cancelBooking(
+      id,
+      req.user.userId,
+      reason,
+    );
+  }
+
   @Post('bookings')
-  async createBooking(@Request() req: any, @Body() createBookingDto: any) {
-    return this.bookingsService.create(createBookingDto, req.user.userId);
+  async createBooking(
+    @Request() req: any,
+    @Body() createBookingDto: any,
+  ) {
+    return this.bookingsService.create(
+      createBookingDto,
+      req.user.userId,
+    );
   }
 
   @Post('user/bookings/:id/claim-warranty')
@@ -23,4 +53,3 @@ export class BookingsController {
     return this.bookingsService.claimWarranty(id);
   }
 }
-
