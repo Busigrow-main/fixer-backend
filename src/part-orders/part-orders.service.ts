@@ -89,6 +89,70 @@ export class PartOrdersService {
     return createdOrder.save();
   }
 
+  async cancelOrder(
+    id: string,
+    userId: string,
+    reason: string,
+  ): Promise<PartOrder> {
+    const order = await this.partOrderModel
+      .findOne({
+        _id: id,
+        userId,
+      })
+      .exec();
+  
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+  
+    if (order.status === 'CANCELLED') {
+      throw new BadRequestException('Order is already cancelled');
+    }
+  
+    const nonCancellableStatuses = [
+      'DISPATCHED',
+      'DELIVERED',
+      'RETURNED',
+    ];
+  
+    if (nonCancellableStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'This order can no longer be cancelled',
+      );
+    }
+  
+    const trimmedReason = String(reason || '').trim();
+  
+    if (!trimmedReason) {
+      throw new BadRequestException(
+        'Cancellation reason is required',
+      );
+    }
+  
+    if (trimmedReason.length > 500) {
+      throw new BadRequestException(
+        'Cancellation reason cannot exceed 500 characters',
+      );
+    }
+  
+    order.status = 'CANCELLED';
+    order.cancellationReason = trimmedReason;
+    order.cancelledAt = new Date();
+  
+    await order.save();
+  
+    const updatedOrder = await this.partOrderModel
+      .findById(order._id)
+      .populate('userId items.partId')
+      .exec();
+  
+    if (!updatedOrder) {
+      throw new NotFoundException('Order not found');
+    }
+  
+    return updatedOrder;
+  }
+
   buildDefaultBillLines(order: PartOrder): { description: string; quantity: number; unitPrice: number }[] {
     if (order.orderType === 'appliance' && order.applianceItem) {
       const item = order.applianceItem;

@@ -14,6 +14,7 @@ export class OrderItem {
   @Prop()
   priceAtPurchase: string;
 }
+
 export const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
 
 @Schema({ _id: false })
@@ -39,7 +40,9 @@ export class ApplianceOrderItem {
   @Prop({ required: true, default: 1, min: 1 })
   quantity: number;
 }
-export const ApplianceOrderItemSchema = SchemaFactory.createForClass(ApplianceOrderItem);
+
+export const ApplianceOrderItemSchema =
+  SchemaFactory.createForClass(ApplianceOrderItem);
 
 @Schema({ _id: false })
 export class BillLineItem {
@@ -55,7 +58,9 @@ export class BillLineItem {
   @Prop({ required: true, min: 0 })
   amount: number;
 }
-export const BillLineItemSchema = SchemaFactory.createForClass(BillLineItem);
+
+export const BillLineItemSchema =
+  SchemaFactory.createForClass(BillLineItem);
 
 @Schema({ _id: false })
 export class OrderInvoiceData {
@@ -83,14 +88,20 @@ export class OrderInvoiceData {
   @Prop()
   finalizedAt?: Date;
 }
-export const OrderInvoiceDataSchema = SchemaFactory.createForClass(OrderInvoiceData);
+
+export const OrderInvoiceDataSchema =
+  SchemaFactory.createForClass(OrderInvoiceData);
 
 @Schema({ timestamps: true })
 export class PartOrder {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
-  @Prop({ type: String, enum: ['part', 'appliance'], default: 'part' })
+  @Prop({
+    type: String,
+    enum: ['part', 'appliance'],
+    default: 'part',
+  })
   orderType: 'part' | 'appliance';
 
   @Prop({
@@ -123,10 +134,24 @@ export class PartOrder {
 
   @Prop({
     type: String,
-    enum: ['PENDING', 'PROCESSING', 'DISPATCHED', 'DELIVERED', 'CANCELLED', 'RETURNED'],
+    enum: [
+      'PENDING',
+      'PROCESSING',
+      'DISPATCHED',
+      'DELIVERED',
+      'CANCELLED',
+      'RETURNED',
+    ],
     default: 'PENDING',
   })
   status: string;
+
+  // Cancellation details
+  @Prop()
+  cancellationReason?: string;
+
+  @Prop()
+  cancelledAt?: Date;
 
   @Prop({ type: Object })
   courierTracking?: {
@@ -148,4 +173,5 @@ export class PartOrder {
   isBilled: boolean;
 }
 
-export const PartOrderSchema = SchemaFactory.createForClass(PartOrder);
+export const PartOrderSchema =
+  SchemaFactory.createForClass(PartOrder);

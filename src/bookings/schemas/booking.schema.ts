@@ -1,100 +1,189 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+
 import { Document, Types } from 'mongoose';
 
 @Schema({ _id: false })
 export class ProductDetails {
-  @Prop({ default: "" }) brand: string;
-  @Prop({ default: "" }) modelNumber: string;
-  @Prop({ default: "" }) serialNumber: string;
+  @Prop({ default: "" })
+  brand: string;
+
+  @Prop({ default: "" })
+  modelNumber: string;
+
+  @Prop({ default: "" })
+  serialNumber: string;
 }
-export const ProductDetailsSchema = SchemaFactory.createForClass(ProductDetails);
+
+export const ProductDetailsSchema =
+  SchemaFactory.createForClass(ProductDetails);
 
 @Schema({ _id: false })
 export class JobDetails {
-  @Prop({ default: "" }) diagnosis: string;
-  @Prop({ default: "" }) workDone: string;
-  @Prop({ default: "" }) recommendations: string;
-  @Prop({ default: "60 Days" }) warrantyPeriod: string;
+  @Prop({ default: "" })
+  diagnosis: string;
+
+  @Prop({ default: "" })
+  workDone: string;
+
+  @Prop({ default: "" })
+  recommendations: string;
+
+  @Prop({ default: "60 Days" })
+  warrantyPeriod: string;
 
   // New Job Sheet Fields
-  @Prop({ default: "" }) asset: string;
-  @Prop({ default: "" }) warrantyCode: string;
-  @Prop({ default: "" }) warrantyDesc: string;
-  @Prop({ default: "" }) assetSaleDate: string;
-  @Prop({ default: "" }) assetExpiryDate: string;
-  @Prop({ default: "" }) contractCode: string;
-  @Prop({ default: "" }) contractDesc: string;
-  @Prop({ default: "" }) contractStartDate: string;
-  @Prop({ default: "" }) contractExpiryDate: string;
-  @Prop({ default: "" }) visitCategory: string;
-  @Prop({ default: "" }) invoiceNumber: string;
+  @Prop({ default: "" })
+  asset: string;
+
+  @Prop({ default: "" })
+  warrantyCode: string;
+
+  @Prop({ default: "" })
+  warrantyDesc: string;
+
+  @Prop({ default: "" })
+  assetSaleDate: string;
+
+  @Prop({ default: "" })
+  assetExpiryDate: string;
+
+  @Prop({ default: "" })
+  contractCode: string;
+
+  @Prop({ default: "" })
+  contractDesc: string;
+
+  @Prop({ default: "" })
+  contractStartDate: string;
+
+  @Prop({ default: "" })
+  contractExpiryDate: string;
+
+  @Prop({ default: "" })
+  visitCategory: string;
+
+  @Prop({ default: "" })
+  invoiceNumber: string;
 }
-export const JobDetailsSchema = SchemaFactory.createForClass(JobDetails);
+
+export const JobDetailsSchema =
+  SchemaFactory.createForClass(JobDetails);
 
 @Schema({ _id: false })
 export class AdditionalCharge {
-  @Prop({ required: true }) label: string;
-  @Prop({ required: true, default: 0 }) amount: number;
+  @Prop({ required: true })
+  label: string;
+
+  @Prop({ required: true, default: 0 })
+  amount: number;
 }
-export const AdditionalChargeSchema = SchemaFactory.createForClass(AdditionalCharge);
+
+export const AdditionalChargeSchema =
+  SchemaFactory.createForClass(AdditionalCharge);
 
 @Schema({ _id: false })
 export class InvoiceData {
-  @Prop() url: string;
-  @Prop({ default: 0 }) serviceTotal: number;
-  @Prop({ default: 0 }) partsTotal: number;
-  @Prop({ type: [AdditionalChargeSchema], default: [] }) additionalCharges: AdditionalCharge[];
-  @Prop({ 
-    type: [{ 
-      partName: String, 
-      quantity: Number, 
-      cost: Number, 
-      isThirdParty: Boolean,
-      warrantyCovered: Boolean,
-      serialNumber: String,
-    }], 
-    default: [] 
-  }) spareParts: { partName: string, quantity: number, cost: number, isThirdParty: boolean }[];
-  @Prop({ default: 0 }) totalAmount: number;
-  @Prop() generatedAt: Date;
-  @Prop({ default: false }) manualOverride: boolean;
-  @Prop({ default: 0 }) technicianNet: number;
-  @Prop({ default: 0 }) fixxerNet: number;
+  @Prop()
+  url: string;
+
+  @Prop({ default: 0 })
+  serviceTotal: number;
+
+  @Prop({ default: 0 })
+  partsTotal: number;
+
+  @Prop({
+    type: [AdditionalChargeSchema],
+    default: [],
+  })
+  additionalCharges: AdditionalCharge[];
+
+  @Prop({
+    type: [
+      {
+        partName: String,
+        quantity: Number,
+        cost: Number,
+        isThirdParty: Boolean,
+        warrantyCovered: Boolean,
+        serialNumber: String,
+      },
+    ],
+    default: [],
+  })
+  spareParts: {
+    partName: string;
+    quantity: number;
+    cost: number;
+    isThirdParty: boolean;
+  }[];
+
+  @Prop({ default: 0 })
+  totalAmount: number;
+
+  @Prop()
+  generatedAt: Date;
+
+  @Prop({ default: false })
+  manualOverride: boolean;
+
+  @Prop({ default: 0 })
+  technicianNet: number;
+
+  @Prop({ default: 0 })
+  fixxerNet: number;
 }
-export const InvoiceDataSchema = SchemaFactory.createForClass(InvoiceData);
+
+export const InvoiceDataSchema =
+  SchemaFactory.createForClass(InvoiceData);
 
 @Schema({ _id: false })
 export class GpsLocation {
-  @Prop({ required: true }) lat: number;
-  @Prop({ required: true }) lng: number;
-  @Prop({ required: true }) capturedAt: Date;
+  @Prop({ required: true })
+  lat: number;
+
+  @Prop({ required: true })
+  lng: number;
+
+  @Prop({ required: true })
+  capturedAt: Date;
 }
-export const GpsLocationSchema = SchemaFactory.createForClass(GpsLocation);
+
+export const GpsLocationSchema =
+  SchemaFactory.createForClass(GpsLocation);
 
 @Schema({ _id: false })
 export class JobCompletionData {
-  @Prop({ default: 0 }) labourCharge: number;
-  @Prop({ default: 0 }) partsCharge: number;
-  @Prop({ default: '' }) remarks: string;
-  @Prop({ type: [String], default: [] }) images: string[];
+  @Prop({ default: 0 })
+  labourCharge: number;
+
+  @Prop({ default: 0 })
+  partsCharge: number;
+
+  @Prop({ default: '' })
+  remarks: string;
+
+  @Prop({ type: [String], default: [] })
+  images: string[];
 }
-export const JobCompletionDataSchema = SchemaFactory.createForClass(JobCompletionData);
+
+export const JobCompletionDataSchema =
+  SchemaFactory.createForClass(JobCompletionData);
 
 @Schema({ _id: false })
 export class AddressData {
-
   @Prop({ required: true })
   zip: string;
 
   @Prop({ required: true })
   text: string;
-
 }
 
 export const AddressDataSchema =
   SchemaFactory.createForClass(AddressData);
 
 export type BookingDocument = Booking & Document;
+
 @Schema({ timestamps: true })
 export class Booking {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
@@ -156,17 +245,34 @@ export class Booking {
   })
   status: string;
 
+  // Cancellation details
+  @Prop()
+  cancellationReason?: string;
+
+  @Prop()
+  cancelledAt?: Date;
+
   @Prop({
     type: String,
-    enum: ['REPAIR', 'INSTALLATION', 'MAINTENANCE', 'WARRANTY_CHECK'],
-    default: 'REPAIR'
+    enum: [
+      'REPAIR',
+      'INSTALLATION',
+      'MAINTENANCE',
+      'WARRANTY_CHECK',
+    ],
+    default: 'REPAIR',
   })
   serviceType: string;
 
   @Prop({
     type: String,
-    enum: ['UNPAID', 'PAID_CASH', 'PAID_ONLINE', 'WARRANTY_SERVICE'],
-    default: 'UNPAID'
+    enum: [
+      'UNPAID',
+      'PAID_CASH',
+      'PAID_ONLINE',
+      'WARRANTY_SERVICE',
+    ],
+    default: 'UNPAID',
   })
   paymentStatus: string;
 
@@ -182,7 +288,10 @@ export class Booking {
   @Prop({ type: [String], default: [] })
   adminNotes: string[];
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Visit' }], default: [] })
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'Visit' }],
+    default: [],
+  })
   visits: Types.ObjectId[];
 
   @Prop({ type: Types.ObjectId, ref: 'Feedback' })
@@ -194,7 +303,10 @@ export class Booking {
   @Prop({ type: Types.ObjectId, ref: 'Booking' })
   parentId?: Types.ObjectId;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Booking' }], default: [] })
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'Booking' }],
+    default: [],
+  })
   claimBookingIds: Types.ObjectId[];
 
   @Prop({ default: false })
@@ -208,7 +320,10 @@ export class Booking {
   preferredVisitDate?: string;
 
   /** Customer-requested window: MORNING | AFTERNOON | EVENING */
-  @Prop({ type: String, enum: ['MORNING', 'AFTERNOON', 'EVENING'] })
+  @Prop({
+    type: String,
+    enum: ['MORNING', 'AFTERNOON', 'EVENING'],
+  })
   preferredVisitSlot?: string;
 
   /** Ops/tech-set expected arrival; surfaced to customers when present. */
@@ -260,7 +375,13 @@ export class Booking {
   /** Marketplace dispatch: OPEN until a tech claims, expires to NEEDS_ADMIN after 10m. */
   @Prop({
     type: String,
-    enum: ['OPEN', 'CLAIMED', 'EXPIRED', 'NEEDS_ADMIN', 'ADMIN_ASSIGNED'],
+    enum: [
+      'OPEN',
+      'CLAIMED',
+      'EXPIRED',
+      'NEEDS_ADMIN',
+      'ADMIN_ASSIGNED',
+    ],
     default: 'OPEN',
     index: true,
   })
@@ -276,7 +397,10 @@ export class Booking {
   @Prop()
   adminEscalatedAt?: Date;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Technician' }], default: [] })
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'Technician' }],
+    default: [],
+  })
   notifiedTechnicianIds: Types.ObjectId[];
 
   @Prop()
@@ -292,9 +416,18 @@ export class Booking {
   @Prop()
   jobSheetUpdatedAt?: Date;
 
-  @Prop({ type: String, enum: ['TECHNICIAN', 'ADMIN'] })
+  @Prop({
+    type: String,
+    enum: ['TECHNICIAN', 'ADMIN'],
+  })
   jobSheetUpdatedBy?: string;
 }
 
-export const BookingSchema = SchemaFactory.createForClass(Booking);
-BookingSchema.index({ dispatchStatus: 1, 'addressData.zip': 1, serviceId: 1 });
+export const BookingSchema =
+  SchemaFactory.createForClass(Booking);
+
+BookingSchema.index({
+  dispatchStatus: 1,
+  'addressData.zip': 1,
+  serviceId: 1,
+});
