@@ -254,6 +254,12 @@ export class Booking {
 
   @Prop({
     type: String,
+    enum: ['CUSTOMER', 'ADMIN'],
+  })
+  cancelledBy?: 'CUSTOMER' | 'ADMIN';
+
+  @Prop({
+    type: String,
     enum: [
       'REPAIR',
       'INSTALLATION',

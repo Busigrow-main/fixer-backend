@@ -153,6 +153,12 @@ export class PartOrder {
   @Prop()
   cancelledAt?: Date;
 
+  @Prop({
+    type: String,
+    enum: ['CUSTOMER', 'ADMIN'],
+  })
+  cancelledBy?: 'CUSTOMER' | 'ADMIN';
+
   @Prop({ type: Object })
   courierTracking?: {
     courierName: string;

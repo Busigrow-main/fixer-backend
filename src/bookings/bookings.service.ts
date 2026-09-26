@@ -7,7 +7,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Booking, BookingDocument } from './schemas/booking.schema';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
-import { Technician, TechnicianDocument } from '../technicians/schemas/technician.schema';
+import {
+  Technician,
+  TechnicianDocument,
+} from '../technicians/schemas/technician.schema';
 import { WarrantiesService } from '../warranties/warranties.service';
 import { JobDispatchService } from '../technician-platform/dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../technician-platform/common/notification-dispatch.service';
@@ -30,9 +33,12 @@ import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-
 @Injectable()
 export class BookingsService {
   constructor(
-    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
-    @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
-    @InjectModel(Technician.name) private technicianModel: Model<TechnicianDocument>,
+    @InjectModel(Booking.name)
+    private bookingModel: Model<BookingDocument>,
+    @InjectModel(Service.name)
+    private serviceModel: Model<ServiceDocument>,
+    @InjectModel(Technician.name)
+    private technicianModel: Model<TechnicianDocument>,
     private warrantiesService: WarrantiesService,
     private jobDispatch: JobDispatchService,
     private notificationDispatch: NotificationDispatchService,
@@ -41,11 +47,18 @@ export class BookingsService {
     private serviceablePincodesService: ServiceablePincodesService,
   ) {}
 
-  private findSubCategoryById(service: ServiceDocument | Service | any, subCategoryId: unknown) {
+  private findSubCategoryById(
+    service: ServiceDocument | Service | any,
+    subCategoryId: unknown,
+  ) {
     if (!service?.subCategories || !subCategoryId) return null;
+
     const target = String(subCategoryId);
+
     return (
-      service.subCategories.find((sc: any) => String(sc?._id) === target) || null
+      service.subCategories.find(
+        (sc: any) => String(sc?._id) === target,
+      ) || null
     );
   }
 
@@ -63,6 +76,7 @@ export class BookingsService {
         ? (technicianField as Record<string, any>)
         : null,
     );
+
     if (populated) return populated;
 
     const rawId =
@@ -70,11 +84,21 @@ export class BookingsService {
         ? technicianField
         : technicianField &&
             typeof technicianField === 'object' &&
-            ((technicianField as any)._id || (technicianField as any).id || technicianField)
-          ? String((technicianField as any)._id || (technicianField as any).id || technicianField)
+            ((technicianField as any)._id ||
+              (technicianField as any).id ||
+              technicianField)
+          ? String(
+              (technicianField as any)._id ||
+                (technicianField as any).id ||
+                technicianField,
+            )
           : null;
 
-    if (!rawId || !Types.ObjectId.isValid(rawId) || String(rawId).length !== 24) {
+    if (
+      !rawId ||
+      !Types.ObjectId.isValid(rawId) ||
+      String(rawId).length !== 24
+    ) {
       return null;
     }
 
@@ -83,6 +107,7 @@ export class BookingsService {
       .select('name phone')
       .lean()
       .exec();
+
     return sanitizeTechnicianForCustomer(tech as any);
   }
 
@@ -94,24 +119,34 @@ export class BookingsService {
       .lean()
       .exec();
 
-    if (!booking) throw new NotFoundException('Booking not found');
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
 
     const visits = await this.visitsService.findByBooking(id);
+
     const visitsPlain = visits.map((v) =>
-      typeof (v as any).toObject === 'function' ? (v as any).toObject() : v,
+      typeof (v as any).toObject === 'function'
+        ? (v as any).toObject()
+        : v,
     );
 
     const technicianSettlement = computeTechnicianSettlement({
       serviceTotal: (booking as any).invoiceData?.serviceTotal || 0,
-      additionalCharges: (booking as any).invoiceData?.additionalCharges || [],
+      additionalCharges:
+        (booking as any).invoiceData?.additionalCharges || [],
       parts: collectPartsFromVisits(visitsPlain),
     });
 
-    const installedParts = await this.warrantiesService.listInstalledParts(id);
+    const installedParts =
+      await this.warrantiesService.listInstalledParts(id);
+
     const parentId = (booking as any).parentId
       ? String((booking as any).parentId)
       : null;
-    const originalParts = await this.warrantiesService.listOriginalPartsForClaim(parentId);
+
+    const originalParts =
+      await this.warrantiesService.listOriginalPartsForClaim(parentId);
 
     return {
       ...booking,
@@ -120,7 +155,8 @@ export class BookingsService {
       installedParts,
       originalParts,
       isWarrantyClaim:
-        (booking as any).serviceType === 'WARRANTY_CHECK' || !!parentId,
+        (booking as any).serviceType === 'WARRANTY_CHECK' ||
+        !!parentId,
     };
   }
 
@@ -128,7 +164,8 @@ export class BookingsService {
     // Production data historically stores userId as a plain string even though the
     // schema declares ObjectId. Match both shapes so bookings always surface.
     const userFilter =
-      Types.ObjectId.isValid(userId) && String(userId).length === 24
+      Types.ObjectId.isValid(userId) &&
+      String(userId).length === 24
         ? {
             $or: [
               { userId: new Types.ObjectId(userId) },
@@ -145,35 +182,73 @@ export class BookingsService {
       .exec();
 
     const results: any[] = [];
+
     for (const booking of bookings as any[]) {
       const bookingId = String(booking._id);
-      const installedParts = await this.warrantiesService.listInstalledParts(bookingId);
-      const parentId = booking.parentId ? String(booking.parentId) : null;
-      const originalParts = await this.warrantiesService.listOriginalPartsForClaim(parentId);
-      const isWarrantyClaim =
-        booking.serviceType === 'WARRANTY_CHECK' || !!parentId;
 
-      const visitsRaw = await this.visitsService.findByBooking(bookingId);
+      const installedParts =
+        await this.warrantiesService.listInstalledParts(
+          bookingId,
+        );
+
+      const parentId = booking.parentId
+        ? String(booking.parentId)
+        : null;
+
+      const originalParts =
+        await this.warrantiesService.listOriginalPartsForClaim(
+          parentId,
+        );
+
+      const isWarrantyClaim =
+        booking.serviceType === 'WARRANTY_CHECK' ||
+        !!parentId;
+
+      const visitsRaw =
+        await this.visitsService.findByBooking(bookingId);
+
       const visitsPlain = visitsRaw.map((v) =>
-        typeof (v as any).toObject === 'function' ? (v as any).toObject() : v,
+        typeof (v as any).toObject === 'function'
+          ? (v as any).toObject()
+          : v,
       );
-      const upcomingVisit = pickUpcomingVisitSchedule(visitsPlain);
-      const schedule = resolveExpectedArrival(booking, upcomingVisit);
-      const technician = await this.resolveTechnicianForCustomer(booking.technicianId);
+
+      const upcomingVisit =
+        pickUpcomingVisitSchedule(visitsPlain);
+
+      const schedule = resolveExpectedArrival(
+        booking,
+        upcomingVisit,
+      );
+
+      const technician =
+        await this.resolveTechnicianForCustomer(
+          booking.technicianId,
+        );
+
       const hasTechnicianAssigned = !!(
         technician ||
         booking.technicianId
       );
-      const statusView = getCustomerStatusView(booking.status, {
-        isWarrantyClaim,
-        arrivalAt: booking.arrivalAt,
-      });
-      const pricing = buildCustomerPricingSummary(booking);
+
+      const statusView = getCustomerStatusView(
+        booking.status,
+        {
+          isWarrantyClaim,
+          arrivalAt: booking.arrivalAt,
+        },
+      );
+
+      const pricing =
+        buildCustomerPricingSummary(booking);
 
       results.push({
         ...booking,
         // Keep raw id for debugging; customer UI should prefer `technician`.
-        technicianId: technician || booking.technicianId || null,
+        technicianId:
+          technician ||
+          booking.technicianId ||
+          null,
         technician,
         hasTechnicianAssigned,
         installedParts,
@@ -191,6 +266,7 @@ export class BookingsService {
         })),
       });
     }
+
     return results;
   }
 
@@ -199,8 +275,10 @@ export class BookingsService {
     limit = 20,
     status?: string,
     dispatchStatus?: string,
+    cancelledBy?: 'CUSTOMER' | 'ADMIN',
   ): Promise<{ data: Booking[]; total: number }> {
     const filter: any = {};
+
     if (status && status !== 'ALL') {
       if (status === 'NEEDS_ASSIGNMENT') {
         filter.dispatchStatus = 'NEEDS_ADMIN';
@@ -209,69 +287,130 @@ export class BookingsService {
         filter.status = status;
       }
     }
-    if (dispatchStatus && dispatchStatus !== 'ALL') {
+
+    if (
+      dispatchStatus &&
+      dispatchStatus !== 'ALL'
+    ) {
       filter.dispatchStatus = dispatchStatus;
     }
 
+    if (cancelledBy) {
+      filter.cancelledBy = cancelledBy;
+    }
+
     const skip = (page - 1) * limit;
+
     const [data, total] = await Promise.all([
       this.bookingModel
         .find(filter)
         .populate('userId serviceId technicianId')
         .skip(skip)
         .limit(limit)
-        .sort({ adminEscalatedAt: -1, createdAt: -1 })
+        .sort({
+          adminEscalatedAt: -1,
+          createdAt: -1,
+        })
         .exec(),
-      this.bookingModel.countDocuments(filter).exec(),
+
+      this.bookingModel
+        .countDocuments(filter)
+        .exec(),
     ]);
+
     return { data, total };
   }
 
   async countNeedsAdminAssignment(): Promise<number> {
-    return this.bookingModel.countDocuments({
-      dispatchStatus: 'NEEDS_ADMIN',
-      technicianId: null,
-    });
+    return this.bookingModel
+      .countDocuments({
+        dispatchStatus: 'NEEDS_ADMIN',
+        technicianId: null,
+      })
+      .exec();
   }
 
   async findOne(id: string): Promise<any> {
-    const booking = await this.bookingModel.findById(id).exec();
-    if (!booking) throw new NotFoundException('Booking not found');
+    const booking =
+      await this.bookingModel.findById(id).exec();
+
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
 
     // Recompute invoice if not manually overridden (fixes stale prices from old logic)
     if (!booking.invoiceData?.manualOverride) {
       try {
-        await this.generateInvoiceData(id, { returnDetail: false });
+        await this.generateInvoiceData(id, {
+          returnDetail: false,
+        });
       } catch (err) {
-        console.error('[findOne] generateInvoiceData failed:', err?.message);
+        console.error(
+          '[findOne] generateInvoiceData failed:',
+          err?.message,
+        );
       }
     }
 
     return this.populateBookingDetail(id);
   }
 
-  async create(createBookingDto: any, userId: string): Promise<Booking> {
-    console.log('BOOKING ADDRESS DATA:', createBookingDto.addressData);
+  async create(
+    createBookingDto: any,
+    userId: string,
+  ): Promise<Booking> {
+    console.log(
+      'BOOKING ADDRESS DATA:',
+      createBookingDto.addressData,
+    );
 
-    const pincode = String(createBookingDto.addressData?.zip || '').trim();
+    const pincode = String(
+      createBookingDto.addressData?.zip || '',
+    ).trim();
 
-    console.log('BOOKING PINCODE:', pincode);
+    console.log(
+      'BOOKING PINCODE:',
+      pincode,
+    );
 
     if (!/^\d{6}$/.test(pincode)) {
-      throw new BadRequestException('Please enter a valid 6-digit pincode');
+      throw new BadRequestException(
+        'Please enter a valid 6-digit pincode',
+      );
     }
 
-    const isServiceable = await this.serviceablePincodesService.isServiceable(pincode); 
+    const isServiceable =
+      await this.serviceablePincodesService.isServiceable(
+        pincode,
+      );
 
     if (!isServiceable) {
-      throw new BadRequestException('Sorry, Fixxer is  not fixing in this area.');
+      throw new BadRequestException(
+        'Sorry, Fixxer is  not fixing in this area.',
+      );
     }
 
     if (createBookingDto.serviceId) {
-      const service = await this.serviceModel.findById(createBookingDto.serviceId).exec();
-      if (!service) throw new BadRequestException('Service not found');
+      const service =
+        await this.serviceModel
+          .findById(createBookingDto.serviceId)
+          .exec();
+
+      if (!service) {
+        throw new BadRequestException(
+          'Service not found',
+        );
+      }
+
       if (createBookingDto.subCategoryId) {
-        const subCat = this.findSubCategoryById(service, createBookingDto.subCategoryId);
+        const subCat =
+          this.findSubCategoryById(
+            service,
+            createBookingDto.subCategoryId,
+          );
+
         if (!subCat) {
           throw new BadRequestException(
             `subCategoryId ${createBookingDto.subCategoryId} does not exist in service ${service.slug}`,
@@ -280,17 +419,29 @@ export class BookingsService {
       }
     }
 
-    const createdBooking = new this.bookingModel({
-      ...createBookingDto,
-      // Normalize so new rows are ObjectIds; findAllByUser still accepts legacy strings.
-      userId: Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : userId,
-      dispatchStatus: 'OPEN',
-    });
-    const savedBooking = await createdBooking.save();
+    const createdBooking =
+      new this.bookingModel({
+        ...createBookingDto,
 
-    const withInvoice = await this.generateInvoiceData(savedBooking._id.toString());
+        // Normalize so new rows are ObjectIds; findAllByUser still accepts legacy strings.
+        userId: Types.ObjectId.isValid(userId)
+          ? new Types.ObjectId(userId)
+          : userId,
 
-    void this.jobDispatch.broadcastJob(savedBooking._id.toString());
+        dispatchStatus: 'OPEN',
+      });
+
+    const savedBooking =
+      await createdBooking.save();
+
+    const withInvoice =
+      await this.generateInvoiceData(
+        savedBooking._id.toString(),
+      );
+
+    void this.jobDispatch.broadcastJob(
+      savedBooking._id.toString(),
+    );
 
     // Link to existing serial mappings for this phone (non-blocking)
     void this.customerAppliancesService.linkBookingByPhone(
@@ -307,87 +458,145 @@ export class BookingsService {
     reason: string,
   ): Promise<any> {
     const userFilter =
-      Types.ObjectId.isValid(userId) && String(userId).length === 24
+      Types.ObjectId.isValid(userId) &&
+      String(userId).length === 24
         ? {
             $or: [
-              { userId: new Types.ObjectId(userId) },
-              { userId: String(userId) },
+              {
+                userId: new Types.ObjectId(userId),
+              },
+              {
+                userId: String(userId),
+              },
             ],
           }
         : { userId: String(userId) };
-  
-    const booking = await this.bookingModel
-      .findOne({
-        _id: id,
-        ...userFilter,
-      })
-      .exec();
-  
+
+    const booking =
+      await this.bookingModel
+        .findOne({
+          _id: id,
+          ...userFilter,
+        })
+        .exec();
+
     if (!booking) {
-      throw new NotFoundException('Booking not found');
+      throw new NotFoundException(
+        'Booking not found',
+      );
     }
-  
+
     if (booking.status === 'CANCELLED') {
       throw new BadRequestException(
         'Booking is already cancelled',
       );
     }
-  
+
     const nonCancellableStatuses = [
       'IN_PROGRESS',
       'COMPLETED',
       'PAYMENT_COLLECTED',
     ];
-  
-    if (nonCancellableStatuses.includes(booking.status)) {
+
+    if (
+      nonCancellableStatuses.includes(
+        booking.status,
+      )
+    ) {
       throw new BadRequestException(
         'This booking can no longer be cancelled',
       );
     }
-  
-    const trimmedReason = String(reason || '').trim();
-  
+
+    const trimmedReason =
+      String(reason || '').trim();
+
     if (!trimmedReason) {
       throw new BadRequestException(
         'Cancellation reason is required',
       );
     }
-  
+
     if (trimmedReason.length > 500) {
       throw new BadRequestException(
         'Cancellation reason cannot exceed 500 characters',
       );
     }
-  
+
     booking.status = 'CANCELLED';
     booking.dispatchStatus = 'EXPIRED';
-  
-    // Store cancellation details
-    booking.cancellationReason = trimmedReason;
+
+    // Store customer cancellation details
+    booking.cancellationReason =
+      trimmedReason;
     booking.cancelledAt = new Date();
-  
+    booking.cancelledBy = 'CUSTOMER';
+
     await booking.save();
-  
+
     return this.populateBookingDetail(id);
   }
 
-  private async lockServiceWarranty(id: string) {
-    const booking = await this.bookingModel.findById(id).exec();
+  private async lockServiceWarranty(
+    id: string,
+  ) {
+    const booking =
+      await this.bookingModel
+        .findById(id)
+        .exec();
+
     if (!booking) return;
+
     if (booking.warrantyExpiry) {
-      const existingService = await this.warrantiesService.findByBooking(id);
-      if (existingService.some((w) => w.type === 'SERVICE')) return;
+      const existingService =
+        await this.warrantiesService.findByBooking(
+          id,
+        );
+
+      if (
+        existingService.some(
+          (w) => w.type === 'SERVICE',
+        )
+      ) {
+        return;
+      }
     }
 
-    const period = booking.jobDetails?.warrantyPeriod || '60 Days';
-    const daysMatch = String(period).match(/(\d+)/);
-    const days = daysMatch ? parseInt(daysMatch[1], 10) : 60;
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + days);
-    await this.bookingModel.findByIdAndUpdate(id, { warrantyExpiry: expiryDate }).exec();
+    const period =
+      booking.jobDetails?.warrantyPeriod ||
+      '60 Days';
 
-    const existingService = await this.warrantiesService.findByBooking(id);
-    if (existingService.some((w) => w.type === 'SERVICE')) return;
+    const daysMatch =
+      String(period).match(/(\d+)/);
+
+    const days = daysMatch
+      ? parseInt(daysMatch[1], 10)
+      : 60;
+
+    const expiryDate = new Date();
+
+    expiryDate.setDate(
+      expiryDate.getDate() + days,
+    );
+
+    await this.bookingModel
+      .findByIdAndUpdate(id, {
+        warrantyExpiry: expiryDate,
+      })
+      .exec();
+
+    const existingService =
+      await this.warrantiesService.findByBooking(
+        id,
+      );
+
+    if (
+      existingService.some(
+        (w) => w.type === 'SERVICE',
+      )
+    ) {
+      return;
+    }
 
     await this.warrantiesService.create({
       bookingId: booking._id,
@@ -400,43 +609,142 @@ export class BookingsService {
     });
   }
 
-  async registerWarrantiesOnComplete(id: string) {
+  async registerWarrantiesOnComplete(
+    id: string,
+  ) {
     await this.lockServiceWarranty(id);
-    await this.warrantiesService.registerPartsForBooking(id);
+    await this.warrantiesService.registerPartsForBooking(
+      id,
+    );
   }
 
-  async updateStatus(id: string, status: string): Promise<any> {
-    const updatedBooking = await this.bookingModel.findByIdAndUpdate(id, { status }, { returnDocument: 'after' }).exec();
-    if (!updatedBooking) throw new NotFoundException('Booking not found');
-    
+  async updateStatus(
+    id: string,
+    status: string,
+    reason?: string,
+  ): Promise<any> {
+    /*
+     * Admin cancellation needs to store the cancellation
+     * reason, timestamp and actor separately from the
+     * normal booking lifecycle status.
+     */
+    if (status === 'CANCELLED') {
+      const booking =
+        await this.bookingModel
+          .findById(id)
+          .exec();
+
+      if (!booking) {
+        throw new NotFoundException(
+          'Booking not found',
+        );
+      }
+
+      if (booking.status === 'CANCELLED') {
+        throw new BadRequestException(
+          'Booking is already cancelled',
+        );
+      }
+
+      const trimmedReason =
+        String(reason || '').trim();
+
+      if (!trimmedReason) {
+        throw new BadRequestException(
+          'Cancellation reason is required',
+        );
+      }
+
+      if (trimmedReason.length > 500) {
+        throw new BadRequestException(
+          'Cancellation reason cannot exceed 500 characters',
+        );
+      }
+
+      booking.status = 'CANCELLED';
+      booking.dispatchStatus = 'EXPIRED';
+      booking.cancellationReason =
+        trimmedReason;
+      booking.cancelledAt = new Date();
+      booking.cancelledBy = 'ADMIN';
+
+      await booking.save();
+
+      return this.populateBookingDetail(id);
+    }
+
+    /*
+     * Preserve the existing behavior for every
+     * non-cancellation status update.
+     */
+    const updatedBooking =
+      await this.bookingModel
+        .findByIdAndUpdate(
+          id,
+          { status },
+          { returnDocument: 'after' },
+        )
+        .exec();
+
+    if (!updatedBooking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
+
     if (status === 'COMPLETED') {
       try {
-        await this.generateInvoiceData(id, { returnDetail: false });
-        await this.registerWarrantiesOnComplete(id);
+        await this.generateInvoiceData(
+          id,
+          { returnDetail: false },
+        );
+
+        await this.registerWarrantiesOnComplete(
+          id,
+        );
       } catch (err) {
-        console.error('Invoice/Warranty lock failed:', err);
+        console.error(
+          'Invoice/Warranty lock failed:',
+          err,
+        );
       }
     }
-    
+
     return this.populateBookingDetail(id);
   }
 
-  async assignTechnician(id: string, technicianId: string): Promise<any> {
-    const updatedBooking = await this.bookingModel.findByIdAndUpdate(
-      id,
-      {
-        technicianId: new Types.ObjectId(technicianId),
-        status: 'ASSIGNED',
-        assignmentStatus: 'PENDING_ACCEPTANCE',
-        assignedAt: new Date(),
-        acceptedAt: null,
-        declinedAt: null,
-        declineReason: null,
-        dispatchStatus: 'ADMIN_ASSIGNED',
-      },
-      { returnDocument: 'after' },
-    ).exec();
-    if (!updatedBooking) throw new NotFoundException('Booking not found');
+  async assignTechnician(
+    id: string,
+    technicianId: string,
+  ): Promise<any> {
+    const updatedBooking =
+      await this.bookingModel
+        .findByIdAndUpdate(
+          id,
+          {
+            technicianId:
+              new Types.ObjectId(
+                technicianId,
+              ),
+            status: 'ASSIGNED',
+            assignmentStatus:
+              'PENDING_ACCEPTANCE',
+            assignedAt: new Date(),
+            acceptedAt: null,
+            declinedAt: null,
+            declineReason: null,
+            dispatchStatus:
+              'ADMIN_ASSIGNED',
+          },
+          { returnDocument: 'after' },
+        )
+        .exec();
+
+    if (!updatedBooking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
 
     await this.notificationDispatch.notify(
       technicianId,
@@ -449,31 +757,74 @@ export class BookingsService {
     return this.populateBookingDetail(id);
   }
 
-  private jobDetailsHasContent(details: Record<string, any> | null | undefined): boolean {
+  private jobDetailsHasContent(
+    details:
+      | Record<string, any>
+      | null
+      | undefined,
+  ): boolean {
     if (!details) return false;
+
     return Object.values(details).some(
-      (v) => typeof v === 'string' && v.trim().length > 0 && v.trim() !== '60 Days',
+      (v) =>
+        typeof v === 'string' &&
+        v.trim().length > 0 &&
+        v.trim() !== '60 Days',
     );
   }
 
-  private productDetailsHasContent(details: Record<string, any> | null | undefined): boolean {
+  private productDetailsHasContent(
+    details:
+      | Record<string, any>
+      | null
+      | undefined,
+  ): boolean {
     if (!details) return false;
+
     return Object.values(details).some(
-      (v) => typeof v === 'string' && v.trim().length > 0,
+      (v) =>
+        typeof v === 'string' &&
+        v.trim().length > 0,
     );
   }
 
-  async updateJobDetails(id: string, details: any, role: 'ADMIN' | 'TECHNICIAN' = 'ADMIN'): Promise<any> {
-    const existing = await this.bookingModel.findById(id).exec();
-    if (!existing) throw new NotFoundException('Booking not found');
+  async updateJobDetails(
+    id: string,
+    details: any,
+    role: 'ADMIN' | 'TECHNICIAN' = 'ADMIN',
+  ): Promise<any> {
+    const existing =
+      await this.bookingModel
+        .findById(id)
+        .exec();
 
-    if (existing.sheetLockedAt && role !== 'ADMIN') {
-      throw new BadRequestException('Job sheet is locked');
+    if (!existing) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
     }
 
-    const incomingEmpty = !this.jobDetailsHasContent(details);
-    const existingHasContent = this.jobDetailsHasContent(existing.jobDetails as any);
-    if (incomingEmpty && existingHasContent) {
+    if (
+      existing.sheetLockedAt &&
+      role !== 'ADMIN'
+    ) {
+      throw new BadRequestException(
+        'Job sheet is locked',
+      );
+    }
+
+    const incomingEmpty =
+      !this.jobDetailsHasContent(details);
+
+    const existingHasContent =
+      this.jobDetailsHasContent(
+        existing.jobDetails as any,
+      );
+
+    if (
+      incomingEmpty &&
+      existingHasContent
+    ) {
       throw new BadRequestException(
         'Refusing to overwrite job sheet with empty details',
       );
@@ -483,31 +834,64 @@ export class BookingsService {
       jobSheetUpdatedAt: new Date(),
       jobSheetUpdatedBy: role,
     };
-    for (const [key, value] of Object.entries(details)) {
+
+    for (const [key, value] of Object.entries(
+      details,
+    )) {
       if (value !== undefined) {
         setOps[`jobDetails.${key}`] = value;
       }
     }
 
-    await this.bookingModel.findByIdAndUpdate(id, {
-      $set: setOps,
-      $inc: { jobSheetRevision: 1 },
-    }).exec();
+    await this.bookingModel
+      .findByIdAndUpdate(id, {
+        $set: setOps,
+        $inc: { jobSheetRevision: 1 },
+      })
+      .exec();
 
     return this.populateBookingDetail(id);
   }
 
-  async updateProductDetails(id: string, details: any, role: 'ADMIN' | 'TECHNICIAN' = 'ADMIN'): Promise<any> {
-    const existing = await this.bookingModel.findById(id).exec();
-    if (!existing) throw new NotFoundException('Booking not found');
+  async updateProductDetails(
+    id: string,
+    details: any,
+    role: 'ADMIN' | 'TECHNICIAN' = 'ADMIN',
+  ): Promise<any> {
+    const existing =
+      await this.bookingModel
+        .findById(id)
+        .exec();
 
-    if (existing.sheetLockedAt && role !== 'ADMIN') {
-      throw new BadRequestException('Job sheet is locked');
+    if (!existing) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
     }
 
-    const incomingEmpty = !this.productDetailsHasContent(details);
-    const existingHasContent = this.productDetailsHasContent(existing.productDetails as any);
-    if (incomingEmpty && existingHasContent) {
+    if (
+      existing.sheetLockedAt &&
+      role !== 'ADMIN'
+    ) {
+      throw new BadRequestException(
+        'Job sheet is locked',
+      );
+    }
+
+    const incomingEmpty =
+      !this.productDetailsHasContent(
+        details,
+      );
+
+    const existingHasContent =
+      this.productDetailsHasContent(
+        existing.productDetails as any,
+      );
+
+    if (
+      incomingEmpty &&
+      existingHasContent
+    ) {
       throw new BadRequestException(
         'Refusing to overwrite product details with empty values',
       );
@@ -517,22 +901,36 @@ export class BookingsService {
       jobSheetUpdatedAt: new Date(),
       jobSheetUpdatedBy: role,
     };
-    for (const [key, value] of Object.entries(details)) {
+
+    for (const [key, value] of Object.entries(
+      details,
+    )) {
       if (value !== undefined) {
-        setOps[`productDetails.${key}`] = value;
+        setOps[`productDetails.${key}`] =
+          value;
       }
     }
 
-    await this.bookingModel.findByIdAndUpdate(id, {
-      $set: setOps,
-      $inc: { jobSheetRevision: 1 },
-    }).exec();
+    await this.bookingModel
+      .findByIdAndUpdate(id, {
+        $set: setOps,
+        $inc: { jobSheetRevision: 1 },
+      })
+      .exec();
 
-    await this.generateInvoiceData(id, { returnDetail: false });
+    await this.generateInvoiceData(
+      id,
+      { returnDetail: false },
+    );
 
     // When a serial is saved, establish/refresh phone ↔ serial mapping
     if (details?.serialNumber) {
-      const refreshed = await this.bookingModel.findById(id).lean().exec();
+      const refreshed =
+        await this.bookingModel
+          .findById(id)
+          .lean()
+          .exec();
+
       if (refreshed) {
         void this.customerAppliancesService.syncFromBooking(
           refreshed as any,
@@ -544,125 +942,268 @@ export class BookingsService {
     return this.populateBookingDetail(id);
   }
 
-  async updateServiceProperties(id: string, data: { serviceType?: string; paymentStatus?: string }): Promise<any> {
-    const booking = await this.bookingModel.findByIdAndUpdate(
-      id,
-      data,
-      { returnDocument: 'after' }
-    ).exec();
-    if (!booking) throw new NotFoundException('Booking not found');
+  async updateServiceProperties(
+    id: string,
+    data: {
+      serviceType?: string;
+      paymentStatus?: string;
+    },
+  ): Promise<any> {
+    const booking =
+      await this.bookingModel
+        .findByIdAndUpdate(
+          id,
+          data,
+          { returnDocument: 'after' },
+        )
+        .exec();
+
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
+
     return this.populateBookingDetail(id);
   }
 
-  private parseNumericPrice(price: string | number): number {
-    if (typeof price === 'number') return price;
-    if (!price) return 0;
-    // Extract numeric part from strings like "Starting at ₹249" or "₹1,499.00"
-    const cleaned = price.toString().replace(/,/g, '');
-    const match = cleaned.match(/(\d+)/);
-    return match ? parseFloat(match[1]) : 0;
-  }
-
-  async updateInvoiceManual(id: string, data: { serviceTotal?: number; additionalCharges?: any[] }): Promise<any> {
-    const booking = await this.bookingModel.findById(id).exec();
-    if (!booking) throw new NotFoundException('Booking not found');
-
-    const setOps: Record<string, any> = {};
-
-    if (data.serviceTotal !== undefined) {
-      setOps['invoiceData.serviceTotal'] = data.serviceTotal;
-      setOps['invoiceData.manualOverride'] = true;
+  private parseNumericPrice(
+    price: string | number,
+  ): number {
+    if (typeof price === 'number') {
+      return price;
     }
 
-    if (data.additionalCharges !== undefined) {
-      setOps['invoiceData.additionalCharges'] = data.additionalCharges;
+    if (!price) return 0;
+
+    // Extract numeric part from strings like "Starting at ₹249" or "₹1,499.00"
+    const cleaned = price
+      .toString()
+      .replace(/,/g, '');
+
+    const match =
+      cleaned.match(/(\d+)/);
+
+    return match
+      ? parseFloat(match[1])
+      : 0;
+  }
+
+  async updateInvoiceManual(
+    id: string,
+    data: {
+      serviceTotal?: number;
+      additionalCharges?: any[];
+    },
+  ): Promise<any> {
+    const booking =
+      await this.bookingModel
+        .findById(id)
+        .exec();
+
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
+
+    const setOps: Record<string, any> =
+      {};
+
+    if (data.serviceTotal !== undefined) {
+      setOps['invoiceData.serviceTotal'] =
+        data.serviceTotal;
+
+      setOps['invoiceData.manualOverride'] =
+        true;
+    }
+
+    if (
+      data.additionalCharges !==
+      undefined
+    ) {
+      setOps[
+        'invoiceData.additionalCharges'
+      ] = data.additionalCharges;
     }
 
     if (Object.keys(setOps).length > 0) {
-      await this.bookingModel.findByIdAndUpdate(id, { $set: setOps }).exec();
+      await this.bookingModel
+        .findByIdAndUpdate(id, {
+          $set: setOps,
+        })
+        .exec();
     }
 
     return this.generateInvoiceData(id);
   }
 
-  async finalizeInvoice(id: string): Promise<any> {
-    const booking = await this.bookingModel.findByIdAndUpdate(
-      id,
-      {
-        isBilled: true,
-        status: 'COMPLETED',
-        sheetLockedAt: new Date(),
-        sheetLockedBy: 'SYSTEM',
-      },
-      { returnDocument: 'after' },
-    ).exec();
-    if (!booking) throw new NotFoundException('Booking not found');
+  async finalizeInvoice(
+    id: string,
+  ): Promise<any> {
+    const booking =
+      await this.bookingModel
+        .findByIdAndUpdate(
+          id,
+          {
+            isBilled: true,
+            status: 'COMPLETED',
+            sheetLockedAt: new Date(),
+            sheetLockedBy: 'SYSTEM',
+          },
+          { returnDocument: 'after' },
+        )
+        .exec();
+
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
 
     try {
-      await this.registerWarrantiesOnComplete(id);
+      await this.registerWarrantiesOnComplete(
+        id,
+      );
     } catch (err) {
-      console.error('Warranty registration on finalize failed:', err);
+      console.error(
+        'Warranty registration on finalize failed:',
+        err,
+      );
     }
 
     return this.generateInvoiceData(id);
   }
 
-  async unlockSheet(id: string): Promise<any> {
-    const booking = await this.bookingModel.findByIdAndUpdate(
-      id,
-      { $unset: { sheetLockedAt: 1, sheetLockedBy: 1 } },
-      { returnDocument: 'after' },
-    ).exec();
-    if (!booking) throw new NotFoundException('Booking not found');
+  async unlockSheet(
+    id: string,
+  ): Promise<any> {
+    const booking =
+      await this.bookingModel
+        .findByIdAndUpdate(
+          id,
+          {
+            $unset: {
+              sheetLockedAt: 1,
+              sheetLockedBy: 1,
+            },
+          },
+          { returnDocument: 'after' },
+        )
+        .exec();
+
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
+
     return this.populateBookingDetail(id);
   }
 
-  async addAdminNote(id: string, note: string): Promise<Booking> {
-    const booking = await this.bookingModel.findByIdAndUpdate(
-      id,
-      { $push: { adminNotes: note } },
-      { returnDocument: 'after' }
-    ).exec();
-    if (!booking) throw new NotFoundException('Booking not found');
+  async addAdminNote(
+    id: string,
+    note: string,
+  ): Promise<Booking> {
+    const booking =
+      await this.bookingModel
+        .findByIdAndUpdate(
+          id,
+          { $push: { adminNotes: note } },
+          { returnDocument: 'after' },
+        )
+        .exec();
+
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
+
     return booking;
   }
 
   async generateInvoiceData(
     id: string,
-    opts: { returnDetail?: boolean } = { returnDetail: true },
+    opts: { returnDetail?: boolean } = {
+      returnDetail: true,
+    },
   ): Promise<any> {
-    const visits = await this.visitsService.findByBooking(id);
-    const booking = await this.bookingModel.findById(id).exec();
+    const visits =
+      await this.visitsService.findByBooking(
+        id,
+      );
 
-    if (!booking) throw new NotFoundException('Booking not found');
+    const booking =
+      await this.bookingModel
+        .findById(id)
+        .exec();
+
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
 
     // --- Service Total ---
     let serviceTotal: number;
-    if (booking.invoiceData?.manualOverride && booking.invoiceData.serviceTotal > 0) {
-      serviceTotal = booking.invoiceData.serviceTotal;
-    } else if (booking.serviceType === 'WARRANTY_CHECK') {
+
+    if (
+      booking.invoiceData?.manualOverride &&
+      booking.invoiceData.serviceTotal > 0
+    ) {
+      serviceTotal =
+        booking.invoiceData.serviceTotal;
+    } else if (
+      booking.serviceType ===
+      'WARRANTY_CHECK'
+    ) {
       serviceTotal = 0;
     } else {
       serviceTotal = 0;
-      const service = await this.serviceModel.findById(booking.serviceId).exec();
+
+      const service =
+        await this.serviceModel
+          .findById(
+            booking.serviceId,
+          )
+          .exec();
+
       if (service) {
-        const subCat = this.findSubCategoryById(service, booking.subCategoryId);
+        const subCat =
+          this.findSubCategoryById(
+            service,
+            booking.subCategoryId,
+          );
+
         if (subCat) {
           // Prefer numeric field; fall back to string parse for legacy data
-          serviceTotal = subCat.priceNumeric != null
-            ? subCat.priceNumeric / 100
-            : this.parseNumericPrice(subCat.price);
+          serviceTotal =
+            subCat.priceNumeric != null
+              ? subCat.priceNumeric / 100
+              : this.parseNumericPrice(
+                  subCat.price,
+                );
         }
+
         if (!serviceTotal) {
-          serviceTotal = (service as any).startingPriceNumeric != null
-            ? (service as any).startingPriceNumeric / 100
-            : this.parseNumericPrice(service.startingPrice);
+          serviceTotal =
+            (service as any)
+              .startingPriceNumeric !=
+            null
+              ? (service as any)
+                  .startingPriceNumeric /
+                100
+              : this.parseNumericPrice(
+                  service.startingPrice,
+                );
         }
       }
     }
 
     // --- Parts Total ---
     let partsTotal = 0;
+
     const sparePartsSummary: {
       partName: string;
       quantity: number;
@@ -674,162 +1215,336 @@ export class BookingsService {
 
     for (const visit of visits as any[]) {
       if (!visit.partsUsed) continue;
+
       for (const usage of visit.partsUsed) {
-        const quantity = usage.quantity || 1;
+        const quantity =
+          usage.quantity || 1;
+
         let partName = '';
         let cost = 0;
 
         if (usage.warrantyCovered) {
-          partName = usage.partName || usage.sparePartId?.name || 'Warranty replacement';
+          partName =
+            usage.partName ||
+            usage.sparePartId?.name ||
+            'Warranty replacement';
+
           cost = 0;
         } else if (usage.isThirdParty) {
-          partName = usage.partName || 'Generic Part';
+          partName =
+            usage.partName ||
+            'Generic Part';
+
           cost = usage.cost || 0;
         } else if (usage.sparePartId) {
-          partName = usage.partName || usage.sparePartId.name || 'Spare Part';
-          cost = usage.cost != null ? Number(usage.cost) : 0;
+          partName =
+            usage.partName ||
+            usage.sparePartId.name ||
+            'Spare Part';
+
+          cost =
+            usage.cost != null
+              ? Number(usage.cost)
+              : 0;
         }
 
-        partsTotal += cost * quantity;
+        partsTotal +=
+          cost * quantity;
+
         sparePartsSummary.push({
           partName,
           quantity,
           cost,
-          isThirdParty: !!usage.isThirdParty,
-          warrantyCovered: !!usage.warrantyCovered,
-          serialNumber: usage.serialNumber || undefined,
+          isThirdParty:
+            !!usage.isThirdParty,
+          warrantyCovered:
+            !!usage.warrantyCovered,
+          serialNumber:
+            usage.serialNumber ||
+            undefined,
         });
       }
     }
 
     // --- Additional Charges ---
-    const additionalCharges = booking.invoiceData?.additionalCharges || [];
-    const additionalTotal = additionalCharges.reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
-    const totalAmount = serviceTotal + partsTotal + additionalTotal;
-    const settlement = computeTechnicianSettlement({
-      serviceTotal,
-      additionalCharges,
-      parts: collectPartsFromVisits(visits as any[]),
-    });
+    const additionalCharges =
+      booking.invoiceData
+        ?.additionalCharges || [];
 
-    const estimatedAmount = resolveFrozenEstimatedAmount(
-      booking.estimatedAmount,
-      serviceTotal,
-    );
+    const additionalTotal =
+      additionalCharges.reduce(
+        (sum: number, c: any) =>
+          sum + (c.amount || 0),
+        0,
+      );
 
-    await this.bookingModel.findByIdAndUpdate(id, {
-      $set: {
-        estimatedAmount,
-        'invoiceData.generatedAt': new Date(),
-        'invoiceData.partsTotal': partsTotal,
-        'invoiceData.serviceTotal': serviceTotal,
-        'invoiceData.additionalCharges': additionalCharges,
-        'invoiceData.spareParts': sparePartsSummary,
-        'invoiceData.totalAmount': totalAmount,
-        'invoiceData.technicianNet': settlement.technicianNet,
-        'invoiceData.fixxerNet': settlement.fixxerNet,
-        // Client-side invoice printer; keep path stable for ops tooling.
-        'invoiceData.url': `/my-bookings?invoice=${id}`,
-      },
-    }).exec();
+    const totalAmount =
+      serviceTotal +
+      partsTotal +
+      additionalTotal;
+
+    const settlement =
+      computeTechnicianSettlement({
+        serviceTotal,
+        additionalCharges,
+        parts: collectPartsFromVisits(
+          visits as any[],
+        ),
+      });
+
+    const estimatedAmount =
+      resolveFrozenEstimatedAmount(
+        booking.estimatedAmount,
+        serviceTotal,
+      );
+
+    await this.bookingModel
+      .findByIdAndUpdate(id, {
+        $set: {
+          estimatedAmount,
+          'invoiceData.generatedAt':
+            new Date(),
+          'invoiceData.partsTotal':
+            partsTotal,
+          'invoiceData.serviceTotal':
+            serviceTotal,
+          'invoiceData.additionalCharges':
+            additionalCharges,
+          'invoiceData.spareParts':
+            sparePartsSummary,
+          'invoiceData.totalAmount':
+            totalAmount,
+          'invoiceData.technicianNet':
+            settlement.technicianNet,
+          'invoiceData.fixxerNet':
+            settlement.fixxerNet,
+          // Client-side invoice printer; keep path stable for ops tooling.
+          'invoiceData.url':
+            `/my-bookings?invoice=${id}`,
+        },
+      })
+      .exec();
 
     if (opts.returnDetail === false) {
-      return this.bookingModel.findById(id).exec() as any;
+      return this.bookingModel
+        .findById(id)
+        .exec() as any;
     }
 
     return this.populateBookingDetail(id);
   }
 
-  private isJobFinished(booking: { status?: string; jobClosed?: boolean }) {
+  private isJobFinished(
+    booking: {
+      status?: string;
+      jobClosed?: boolean;
+    },
+  ) {
     return (
       booking.jobClosed === true ||
       booking.status === 'COMPLETED' ||
-      booking.status === 'PAYMENT_COLLECTED'
+      booking.status ===
+        'PAYMENT_COLLECTED'
     );
   }
 
-  async claimWarranty(id: string): Promise<any> {
-    const originalBooking = await this.bookingModel.findById(id).exec();
-    if (!originalBooking) throw new NotFoundException('Booking not found');
+  async claimWarranty(
+    id: string,
+  ): Promise<any> {
+    const originalBooking =
+      await this.bookingModel
+        .findById(id)
+        .exec();
+
+    if (!originalBooking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
 
     if (!this.isJobFinished(originalBooking)) {
-      throw new BadRequestException('Warranty can only be claimed for completed services');
+      throw new BadRequestException(
+        'Warranty can only be claimed for completed services',
+      );
     }
 
     if (!originalBooking.warrantyExpiry) {
       await this.lockServiceWarranty(id);
     }
-    const refreshed = await this.bookingModel.findById(id).exec();
-    if (!refreshed?.warrantyExpiry || new Date() > refreshed.warrantyExpiry) {
-      throw new BadRequestException('Warranty has expired or is not applicable');
+
+    const refreshed =
+      await this.bookingModel
+        .findById(id)
+        .exec();
+
+    if (
+      !refreshed?.warrantyExpiry ||
+      new Date() >
+        refreshed.warrantyExpiry
+    ) {
+      throw new BadRequestException(
+        'Warranty has expired or is not applicable',
+      );
     }
 
-    if (originalBooking.claimBookingIds && originalBooking.claimBookingIds.length > 0) {
-      throw new BadRequestException('A warranty claim has already been initiated for this booking.');
+    if (
+      originalBooking.claimBookingIds &&
+      originalBooking.claimBookingIds.length >
+        0
+    ) {
+      throw new BadRequestException(
+        'A warranty claim has already been initiated for this booking.',
+      );
     }
 
-    const claimBooking = new this.bookingModel({
-      userId: originalBooking.userId,
-      serviceId: originalBooking.serviceId,
-      subCategoryId: originalBooking.subCategoryId,
-      contactPhone: originalBooking.contactPhone,
-      addressData: originalBooking.addressData,
-      description: `WARRANTY CLAIM for Booking #${id.slice(-6).toUpperCase()}. Original Issue: ${originalBooking.description}`,
-      status: 'PENDING',
-      serviceType: 'WARRANTY_CHECK',
-      paymentStatus: 'WARRANTY_SERVICE',
-      parentId: originalBooking._id,
-      productDetails: originalBooking.productDetails,
-      dispatchStatus: 'OPEN',
-    });
+    const claimBooking =
+      new this.bookingModel({
+        userId: originalBooking.userId,
+        serviceId:
+          originalBooking.serviceId,
+        subCategoryId:
+          originalBooking.subCategoryId,
+        contactPhone:
+          originalBooking.contactPhone,
+        addressData:
+          originalBooking.addressData,
+        description: `WARRANTY CLAIM for Booking #${id.slice(-6).toUpperCase()}. Original Issue: ${originalBooking.description}`,
+        status: 'PENDING',
+        serviceType: 'WARRANTY_CHECK',
+        paymentStatus:
+          'WARRANTY_SERVICE',
+        parentId:
+          originalBooking._id,
+        productDetails:
+          originalBooking.productDetails,
+        dispatchStatus: 'OPEN',
+      });
 
-    const saved = await claimBooking.save();
+    const saved =
+      await claimBooking.save();
 
-    await this.bookingModel.findByIdAndUpdate(id, {
-      $push: { claimBookingIds: saved._id }
-    }).exec();
+    await this.bookingModel
+      .findByIdAndUpdate(id, {
+        $push: {
+          claimBookingIds: saved._id,
+        },
+      })
+      .exec();
 
-    void this.jobDispatch.broadcastJob(saved._id.toString());
+    void this.jobDispatch.broadcastJob(
+      saved._id.toString(),
+    );
 
-    return this.populateBookingDetail(saved._id.toString());
+    return this.populateBookingDetail(
+      saved._id.toString(),
+    );
   }
 
   async getFixxerRevenueStats() {
-    const paid = await this.bookingModel
-      .find({
-        $or: [
-          { paymentStatus: { $in: ['PAID_CASH', 'PAID_ONLINE'] } },
-          { status: 'PAYMENT_COLLECTED' },
-          { paidAt: { $exists: true, $ne: null } },
-        ],
-      })
-      .select(
-        '_id paidAt jobClosedAt updatedAt invoiceData paymentStatus jobPaymentMethod',
-      )
-      .lean()
-      .exec();
+    const paid =
+      await this.bookingModel
+        .find({
+          $or: [
+            {
+              paymentStatus: {
+                $in: [
+                  'PAID_CASH',
+                  'PAID_ONLINE',
+                ],
+              },
+            },
+            {
+              status:
+                'PAYMENT_COLLECTED',
+            },
+            {
+              paidAt: {
+                $exists: true,
+                $ne: null,
+              },
+            },
+          ],
+        })
+        .select(
+          '_id paidAt jobClosedAt updatedAt invoiceData paymentStatus jobPaymentMethod',
+        )
+        .lean()
+        .exec();
 
-    const ids = paid.map((b: any) => String(b._id));
-    const visits = await this.visitsService.findByBookingIds(ids);
-    const visitsByBooking = new Map<string, any[]>();
+    const ids = paid.map((b) =>
+      String(b._id),
+    );
+
+    const visits =
+      await this.visitsService.findByBookingIds(
+        ids,
+      );
+
+    const visitsByBooking =
+      new Map<string, any[]>();
+
     for (const visit of visits as any[]) {
-      const bid = String(visit.bookingId);
-      if (!visitsByBooking.has(bid)) visitsByBooking.set(bid, []);
-      visitsByBooking.get(bid)!.push(visit);
+      const bid = String(
+        visit.bookingId,
+      );
+
+      if (
+        !visitsByBooking.has(bid)
+      ) {
+        visitsByBooking.set(
+          bid,
+          [],
+        );
+      }
+
+      visitsByBooking
+        .get(bid)!
+        .push(visit);
     }
 
     const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const startOfWeek = new Date(startOfDay);
-    const weekday = startOfWeek.getDay();
-    startOfWeek.setDate(startOfWeek.getDate() - (weekday === 0 ? 6 : weekday - 1));
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const empty = { collections: 0, customerTotal: 0, fixxerNet: 0, technicianNet: 0 };
+    const startOfDay =
+      new Date(now);
+
+    startOfDay.setHours(
+      0,
+      0,
+      0,
+      0,
+    );
+
+    const startOfWeek =
+      new Date(startOfDay);
+
+    const weekday =
+      startOfWeek.getDay();
+
+    startOfWeek.setDate(
+      startOfWeek.getDate() -
+        (weekday === 0
+          ? 6
+          : weekday - 1),
+    );
+
+    const startOfMonth =
+      new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+      );
+
+    const empty = {
+      collections: 0,
+      customerTotal: 0,
+      fixxerNet: 0,
+      technicianNet: 0,
+    };
+
     const daily = { ...empty };
     const weekly = { ...empty };
     const monthly = { ...empty };
+
     const recent: Array<{
       bookingId: string;
       collectedAt: Date;
@@ -841,53 +1556,138 @@ export class BookingsService {
 
     const add = (
       bucket: typeof empty,
-      row: { customerTotal: number; fixxerNet: number; technicianNet: number },
+      row: {
+        customerTotal: number;
+        fixxerNet: number;
+        technicianNet: number;
+      },
     ) => {
       bucket.collections += 1;
-      bucket.customerTotal += row.customerTotal;
-      bucket.fixxerNet += row.fixxerNet;
-      bucket.technicianNet += row.technicianNet;
+      bucket.customerTotal +=
+        row.customerTotal;
+      bucket.fixxerNet +=
+        row.fixxerNet;
+      bucket.technicianNet +=
+        row.technicianNet;
     };
 
-    for (const booking of paid as any[]) {
-      const invoice = booking.invoiceData || {};
-      let customerTotal = Number(invoice.totalAmount) || 0;
-      let fixxerNet = invoice.fixxerNet;
-      let technicianNet = invoice.technicianNet;
-      if (fixxerNet == null || technicianNet == null) {
-        const settlement = computeTechnicianSettlement({
-          serviceTotal: invoice.serviceTotal || 0,
-          additionalCharges: invoice.additionalCharges || [],
-          parts: collectPartsFromVisits(visitsByBooking.get(String(booking._id)) || []),
-        });
-        customerTotal = settlement.customerTotal || customerTotal;
-        fixxerNet = settlement.fixxerNet;
-        technicianNet = settlement.technicianNet;
+    for (
+      const booking of paid as any[]
+    ) {
+      const invoice =
+        booking.invoiceData || {};
+
+      let customerTotal =
+        Number(
+          invoice.totalAmount,
+        ) || 0;
+
+      let fixxerNet =
+        invoice.fixxerNet;
+
+      let technicianNet =
+        invoice.technicianNet;
+
+      if (
+        fixxerNet == null ||
+        technicianNet == null
+      ) {
+        const settlement =
+          computeTechnicianSettlement(
+            {
+              serviceTotal:
+                invoice.serviceTotal ||
+                0,
+              additionalCharges:
+                invoice.additionalCharges ||
+                [],
+              parts:
+                collectPartsFromVisits(
+                  visitsByBooking.get(
+                    String(
+                      booking._id,
+                    ),
+                  ) || [],
+                ),
+            },
+          );
+
+        customerTotal =
+          settlement.customerTotal ||
+          customerTotal;
+
+        fixxerNet =
+          settlement.fixxerNet;
+
+        technicianNet =
+          settlement.technicianNet;
       }
 
-      const collectedAt = new Date(
-        booking.paidAt || booking.jobClosedAt || invoice.generatedAt || booking.updatedAt || now,
-      );
+      const collectedAt =
+        new Date(
+          booking.paidAt ||
+            booking.jobClosedAt ||
+            invoice.generatedAt ||
+            booking.updatedAt ||
+            now,
+        );
+
       const row = {
-        bookingId: String(booking._id),
+        bookingId: String(
+          booking._id,
+        ),
         collectedAt,
         customerTotal,
         fixxerNet,
         technicianNet,
-        paymentMethod: booking.jobPaymentMethod || booking.paymentStatus,
+        paymentMethod:
+          booking.jobPaymentMethod ||
+          booking.paymentStatus,
       };
+
       recent.push(row);
-      if (collectedAt >= startOfDay) add(daily, row);
-      if (collectedAt >= startOfWeek) add(weekly, row);
-      if (collectedAt >= startOfMonth) add(monthly, row);
+
+      if (
+        collectedAt >= startOfDay
+      ) {
+        add(daily, row);
+      }
+
+      if (
+        collectedAt >= startOfWeek
+      ) {
+        add(weekly, row);
+      }
+
+      if (
+        collectedAt >= startOfMonth
+      ) {
+        add(monthly, row);
+      }
     }
 
-    recent.sort((a, b) => b.collectedAt.getTime() - a.collectedAt.getTime());
-    const roundBucket = (b: typeof empty) => ({
+    recent.sort(
+      (a, b) =>
+        b.collectedAt.getTime() -
+        a.collectedAt.getTime(),
+    );
+
+    const roundBucket = (
+      b: typeof empty,
+    ) => ({
       collections: b.collections,
-      customerTotal: Math.round(b.customerTotal * 100) / 100,
-      fixxerNet: Math.round(b.fixxerNet * 100) / 100,
-      technicianNet: Math.round(b.technicianNet * 100) / 100,
+      customerTotal:
+        Math.round(
+          b.customerTotal * 100,
+        ) / 100,
+      fixxerNet:
+        Math.round(
+          b.fixxerNet * 100,
+        ) / 100,
+      technicianNet:
+        Math.round(
+          b.technicianNet * 100,
+        ) / 100,
     });
 
     return {
@@ -898,17 +1698,40 @@ export class BookingsService {
     };
   }
 
-  async countByStatus(): Promise<Record<string, number>> {
-    const results = await this.bookingModel.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } }
-    ]).exec();
+  async countByStatus(): Promise<
+    Record<string, number>
+  > {
+    const results =
+      await this.bookingModel
+        .aggregate([
+          {
+            $group: {
+              _id: '$status',
+              count: {
+                $sum: 1,
+              },
+            },
+          },
+        ])
+        .exec();
 
-    const counts: Record<string, number> = {};
-    results.forEach((r: any) => { counts[r._id] = r.count; });
+    const counts: Record<
+      string,
+      number
+    > = {};
+
+    results.forEach(
+      (r: any) => {
+        counts[r._id] = r.count;
+      },
+    );
+
     return counts;
   }
 
   async countAll(): Promise<number> {
-    return this.bookingModel.countDocuments().exec();
+    return this.bookingModel
+      .countDocuments()
+      .exec();
   }
 }
