@@ -18,6 +18,7 @@ import { CustomerAppliancesModule } from './customer-appliances/customer-applian
 import { OffersModule } from './offers/offers.module';
 import { ServiceablePincodesModule } from './serviceable-pincodes/serviceable-pincodes.module';
 import { LeadsModule } from './leads/leads.module';
+import { ShopPartHelpModule } from './shop-part-help/shop-part-help.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { LeadsModule } from './leads/leads.module';
     OffersModule,
     ServiceablePincodesModule,
     LeadsModule,
+    ShopPartHelpModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -13,6 +13,9 @@ export class OrderItem {
 
   @Prop()
   priceAtPurchase: string;
+
+  @Prop({ min: 0 })
+  warrantyMonthsAtPurchase?: number;
 }
 
 export const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
@@ -39,6 +42,12 @@ export class ApplianceOrderItem {
 
   @Prop({ required: true, default: 1, min: 1 })
   quantity: number;
+
+  @Prop({ min: 0 })
+  productWarrantyYearsAtPurchase?: number;
+
+  @Prop({ min: 0 })
+  compressorWarrantyYearsAtPurchase?: number;
 }
 
 export const ApplianceOrderItemSchema =
@@ -94,6 +103,12 @@ export const OrderInvoiceDataSchema =
 
 @Schema({ timestamps: true })
 export class PartOrder {
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'ShopPartHelpRequest',
+  })
+  sourceHelpRequestId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
@@ -181,3 +196,12 @@ export class PartOrder {
 
 export const PartOrderSchema =
   SchemaFactory.createForClass(PartOrder);
+
+PartOrderSchema.index(
+  { sourceHelpRequestId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { sourceHelpRequestId: { $type: 'objectId' } },
+    name: 'part_order_source_help_request_unique',
+  },
+);
