@@ -31,6 +31,8 @@
 $ npm install
 ```
 
+Local development uses the deployed database by default. Follow [docs/local-production-database.md](docs/local-production-database.md).
+
 ## Compile and run the project
 
 ```bash
