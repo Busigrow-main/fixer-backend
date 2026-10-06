@@ -11,6 +11,12 @@ export class UsersService {
     return this.userModel.findOne({ phone }).exec();
   }
 
+  async findOneByEmail(email: string): Promise<UserDocument | null> {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return this.userModel.findOne({ email: normalized }).exec();
+  }
+
   async findById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).exec();
   }

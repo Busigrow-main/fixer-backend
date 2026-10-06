@@ -1,14 +1,28 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { EmailOtpService } from './email-otp.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private emailOtpService: EmailOtpService,
   ) {}
+
+  normalizeEmail(raw: string): string {
+    return String(raw || '').trim().toLowerCase();
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
 
   /** Shared default for quick sign-in / auto-created accounts (override via env). */
   defaultCustomerPassword(): string {
@@ -92,6 +106,78 @@ export class AuthService {
       });
     } else if (fullName?.trim() && !user.fullName) {
       user.fullName = fullName.trim();
+      await user.save();
+    }
+
+    return this.login(user);
+  }
+
+  async sendEmailOtp(email: string) {
+    const normalized = this.normalizeEmail(email);
+    if (!this.isValidEmail(normalized)) {
+      throw new BadRequestException('Enter a valid email address');
+    }
+    return this.emailOtpService.sendOtp(normalized);
+  }
+
+  /**
+   * Verify email OTP and issue a JWT.
+   * Existing users are found by email. New users need a phone number
+   * (accounts are still phone-keyed).
+   */
+  async verifyEmailOtp(
+    email: string,
+    otp: string,
+    options?: { phone?: string; fullName?: string },
+  ) {
+    const normalized = this.normalizeEmail(email);
+    if (!this.isValidEmail(normalized)) {
+      throw new BadRequestException('Enter a valid email address');
+    }
+    if (!otp || String(otp).trim().length < 4) {
+      throw new BadRequestException('Enter the OTP from your email');
+    }
+
+    const valid = await this.emailOtpService.verifyOtp(
+      normalized,
+      String(otp).trim(),
+    );
+    if (!valid) {
+      throw new UnauthorizedException('Invalid or expired OTP');
+    }
+
+    let user = await this.usersService.findOneByEmail(normalized);
+    if (!user) {
+      const phone = this.normalizePhone(options?.phone || '');
+      if (!phone || phone.length < 10) {
+        throw new BadRequestException(
+          'No account for this email yet. Provide a 10-digit phone to create one.',
+        );
+      }
+
+      const existingPhone = await this.findUserByPhone(phone);
+      if (existingPhone) {
+        existingPhone.email = normalized;
+        if (options?.fullName?.trim() && !existingPhone.fullName) {
+          existingPhone.fullName = options.fullName.trim();
+        }
+        await existingPhone.save();
+        user = existingPhone;
+      } else {
+        const salt = await bcrypt.genSalt();
+        const passwordHash = await bcrypt.hash(
+          this.defaultCustomerPassword(),
+          salt,
+        );
+        user = await this.usersService.create({
+          phone,
+          email: normalized,
+          passwordHash,
+          fullName: options?.fullName?.trim() || undefined,
+        });
+      }
+    } else if (options?.fullName?.trim() && !user.fullName) {
+      user.fullName = options.fullName.trim();
       await user.save();
     }
 

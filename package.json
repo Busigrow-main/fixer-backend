@@ -30,6 +30,7 @@
     "ac:pipeline": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/orchestrate.ts"
   },
   "dependencies": {
+    "@azure/communication-email": "^1.1.0",
     "@elastic/elasticsearch": "^9.3.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",

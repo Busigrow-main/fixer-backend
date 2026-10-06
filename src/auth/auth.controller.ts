@@ -22,6 +22,32 @@ export class AuthController {
     return this.authService.quickLogin(body.phone, body.fullName);
   }
 
+  /** Send a 6-digit login code to the given email via Azure Communication Services. */
+  @Post('send-email-otp')
+  async sendEmailOtp(@Body() body: { email: string }) {
+    return this.authService.sendEmailOtp(body.email);
+  }
+
+  /**
+   * Verify the email OTP and return a JWT.
+   * New accounts also need phone (accounts remain phone-keyed).
+   */
+  @Post('verify-email-otp')
+  async verifyEmailOtp(
+    @Body()
+    body: {
+      email: string;
+      otp: string;
+      phone?: string;
+      fullName?: string;
+    },
+  ) {
+    return this.authService.verifyEmailOtp(body.email, body.otp, {
+      phone: body.phone,
+      fullName: body.fullName,
+    });
+  }
+
   @UseGuards(AuthGuard('local'))
   @Post('login')
   async login(@Request() req: any) {
