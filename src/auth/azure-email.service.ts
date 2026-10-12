@@ -31,27 +31,42 @@ export class AzureEmailService {
   }
 
   async sendOtpEmail(to: string, code: string): Promise<void> {
+    const content = buildOtpEmail(code, to);
+    await this.sendMessage({
+      to,
+      subject: content.subject,
+      plainText: content.plainText,
+      html: content.html,
+    });
+  }
+
+  async sendMessage(input: {
+    to: string;
+    subject: string;
+    plainText: string;
+    html: string;
+    attachments?: {
+      name: string;
+      contentType: string;
+      contentInBase64: string;
+    }[];
+  }): Promise<void> {
     const client = this.getClient();
     const sender = this.getSender();
-    const content = buildOtpEmail(code, to);
-
-    const message = {
+    const poller = await client.beginSend({
       senderAddress: sender,
       content: {
-        subject: content.subject,
-        plainText: content.plainText,
-        html: content.html,
+        subject: input.subject,
+        plainText: input.plainText,
+        html: input.html,
       },
-      recipients: {
-        to: [{ address: to }],
-      },
-    };
-
-    const poller = await client.beginSend(message);
+      recipients: { to: [{ address: input.to }] },
+      attachments: input.attachments,
+    });
     const result = await poller.pollUntilDone();
     if (result.status !== 'Succeeded') {
       this.logger.error(`Azure email send failed: ${result.status}`);
-      throw new ServiceUnavailableException('Could not send login email');
+      throw new ServiceUnavailableException('Could not send email');
     }
   }
 }

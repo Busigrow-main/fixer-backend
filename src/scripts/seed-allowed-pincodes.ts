@@ -1,16 +1,13 @@
 /**
  * Seed allowed pincodes for technician onboarding.
- * Usage: npx ts-node -r tsconfig-paths/register src/scripts/seed-allowed-pincodes.ts
+ * Usage: npx ts-node -r tsconfig-paths/register -r dotenv/config src/scripts/seed-allowed-pincodes.ts
  */
 import mongoose from 'mongoose';
 
-const PINCODES = [
-  { pincode: '700091', city: 'Kolkata' },
-  { pincode: '700001', city: 'Kolkata' },
-  { pincode: '110001', city: 'New Delhi' },
-  { pincode: '400001', city: 'Mumbai' },
-  { pincode: '560001', city: 'Bengaluru' },
-];
+const PINCODES = Array.from({ length: 29 }, (_, index) => ({
+  pincode: String(800001 + index),
+  city: 'Patna',
+}));
 
 async function seed() {
   const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/fixxer';

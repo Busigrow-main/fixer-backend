@@ -106,6 +106,7 @@ export class InvoiceData {
         cost: Number,
         isThirdParty: Boolean,
         warrantyCovered: Boolean,
+        warrantyMonths: Number,
         serialNumber: String,
       },
     ],
@@ -257,6 +258,12 @@ export class Booking {
     enum: ['CUSTOMER', 'ADMIN'],
   })
   cancelledBy?: 'CUSTOMER' | 'ADMIN';
+
+  @Prop()
+  confirmationEmailSentAt?: Date;
+
+  @Prop()
+  closeEmailSentAt?: Date;
 
   @Prop({
     type: String,

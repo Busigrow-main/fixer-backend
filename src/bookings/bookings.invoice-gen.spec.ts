@@ -26,11 +26,17 @@ describe('BookingsService – Invoice Generation', () => {
   const mockDispatch = { broadcastJob: jest.fn() };
   const mockNotification = { notify: jest.fn() };
 
-  let mockVisits: { findByBooking: jest.Mock };
+  let mockVisits: {
+    findByBooking: jest.Mock;
+    correctCatalogCost: jest.Mock;
+  };
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
-    mockVisits = { findByBooking: jest.fn().mockResolvedValue([]) };
+    mockVisits = {
+      findByBooking: jest.fn().mockResolvedValue([]),
+      correctCatalogCost: jest.fn(async (usage: any) => Number(usage?.cost) || 0),
+    };
 
     module = await Test.createTestingModule({
       imports: [
@@ -136,6 +142,22 @@ describe('BookingsService – Invoice Generation', () => {
     const result = await service.generateInvoiceData(booking._id.toString(), { returnDetail: false });
     expect(result.invoiceData.serviceTotal).toBe(1199);
     expect(result.invoiceData.totalAmount).toBe(1299); // 1199 + 100
+  });
+
+  it('keeps a manual service charge of zero', async () => {
+    const booking = await bookingModel.create({
+      userId: new Types.ObjectId(),
+      serviceId: serviceDoc._id,
+      subCategoryId: serviceDoc.subCategories[0]._id,
+      contactPhone: '9999999999',
+      addressData: { zip: '110001', text: 'Test' },
+      status: 'IN_PROGRESS',
+      invoiceData: { serviceTotal: 0, manualOverride: true },
+    });
+
+    const result = await service.generateInvoiceData(booking._id.toString(), { returnDetail: false });
+    expect(result.invoiceData.serviceTotal).toBe(0);
+    expect(result.invoiceData.totalAmount).toBe(0);
   });
 
   it('always recomputes (no sticky guard)', async () => {

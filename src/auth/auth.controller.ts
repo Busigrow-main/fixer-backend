@@ -48,6 +48,14 @@ export class AuthController {
     });
   }
 
+  /** Google Identity Services ID token → Fixxer JWT. Phone is collected on the booking form. */
+  @Post('google')
+  async googleLogin(@Body() body: { idToken: string; fullName?: string }) {
+    return this.authService.loginWithGoogle(body.idToken, {
+      fullName: body.fullName,
+    });
+  }
+
   @UseGuards(AuthGuard('local'))
   @Post('login')
   async login(@Request() req: any) {

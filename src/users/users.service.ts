@@ -17,6 +17,11 @@ export class UsersService {
     return this.userModel.findOne({ email: normalized }).exec();
   }
 
+  async findOneByGoogleId(googleId: string): Promise<UserDocument | null> {
+    if (!googleId) return null;
+    return this.userModel.findOne({ googleId }).exec();
+  }
+
   async findById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).exec();
   }

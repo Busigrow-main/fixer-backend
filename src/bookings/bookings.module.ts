@@ -11,6 +11,9 @@ import { DispatchModule } from '../technician-platform/dispatch/dispatch.module'
 import { VisitsModule } from '../visits/visits.module';
 import { CustomerAppliancesModule } from '../customer-appliances/customer-appliances.module';
 import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
+import { AuthModule } from '../auth/auth.module';
+import { BillEmailService } from './bill-email.service';
+import { EmailPreviewController } from './email-preview.controller';
 
 @Module({
   imports: [
@@ -25,9 +28,10 @@ import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-p
     forwardRef(() => VisitsModule),
     CustomerAppliancesModule,
     ServiceablePincodesModule,
+    AuthModule,
   ],
-  controllers: [BookingsController],
-  providers: [BookingsService],
+  controllers: [BookingsController, EmailPreviewController],
+  providers: [BookingsService, BillEmailService],
   exports: [BookingsService],
 })
 export class BookingsModule {}

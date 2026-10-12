@@ -25,7 +25,10 @@ describe('BookingsService – State Machine', () => {
   const mockWarranties = { findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn(), listInstalledParts: jest.fn().mockResolvedValue([]), listOriginalPartsForClaim: jest.fn().mockResolvedValue([]) };
   const mockDispatch = { broadcastJob: jest.fn() };
   const mockNotification = { notify: jest.fn() };
-  const mockVisits = { findByBooking: jest.fn().mockResolvedValue([]) };
+  const mockVisits = {
+    findByBooking: jest.fn().mockResolvedValue([]),
+    correctCatalogCost: jest.fn(async (usage: any) => Number(usage?.cost) || 0),
+  };
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();

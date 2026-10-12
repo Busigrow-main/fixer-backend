@@ -36,6 +36,6 @@ import {
     AzureEmailService,
   ],
   controllers: [AuthController],
-  exports: [AuthService, RolesGuard, JwtModule],
+  exports: [AuthService, RolesGuard, JwtModule, AzureEmailService],
 })
 export class AuthModule {}

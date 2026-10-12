@@ -89,19 +89,20 @@ export class VisitsService {
     
     if (!existingVisit) throw new NotFoundException('Visit not found');
     
-    // If completed, we should ideally trigger stock deductions here.
+    // Deduct only lines that have not already reduced stock (admin adds onto a
+    // visit that is already COMPLETED deduct at insert time).
     if (updateData.status === 'COMPLETED') {
       const visitObj = existingVisit.toObject() as any;
-      if (visitObj.partsUsed && visitObj.partsUsed.length > 0) {
-        for (const usage of visitObj.partsUsed) {
-          if (!usage.isThirdParty && usage.sparePartId && usage.quantity) {
-            const spareId =
-              usage.sparePartId._id || usage.sparePartId;
-            await this.sparePartModel.findByIdAndUpdate(spareId, {
-              $inc: { stock: -Math.abs(usage.quantity) }
-            }).exec();
-          }
-        }
+      for (const usage of visitObj.partsUsed || []) {
+        if (usage.isThirdParty || usage.sourcedBy === 'SELF') continue;
+        if (!usage.sparePartId || usage.stockDeducted) continue;
+        const quantity = this.normalizeQuantity(usage.quantity);
+        const spareId = usage.sparePartId._id || usage.sparePartId;
+        await this.deductStock(spareId, quantity);
+        await this.sparePartUsageModel.findByIdAndUpdate(usage._id, {
+          stockDeducted: true,
+          quantity,
+        });
       }
     }
     
@@ -112,12 +113,45 @@ export class VisitsService {
     const payload = { ...partData };
     delete payload._skipSerialAssert;
 
-    // Admin path: resolve inventory warranty months + require serial when covered
-    if (!payload.isThirdParty && payload.sparePartId && payload.warrantyMonths == null) {
-      const spare = await this.sparePartModel.findById(payload.sparePartId).exec();
-      if (spare) {
+    const visit = await this.visitModel.findById(visitId).exec();
+    if (!visit) throw new NotFoundException('Visit not found');
+
+    // Always the units entered for this job. Never the catalog stock balance.
+    const quantity = this.normalizeQuantity(payload.quantity);
+    payload.quantity = quantity;
+
+    let inventorySpare: SparePartDocument | null = null;
+    if (!payload.isThirdParty && payload.sparePartId) {
+      inventorySpare = await this.sparePartModel.findById(payload.sparePartId).exec();
+      if (!inventorySpare || inventorySpare.isActive === false) {
+        throw new NotFoundException('Spare part not found in inventory');
+      }
+      const available = Math.max(0, Number(inventorySpare.stock) || 0);
+      if (available < 1) {
+        throw new BadRequestException('This part is out of stock');
+      }
+      if (quantity > available) {
+        throw new BadRequestException(
+          `Quantity cannot exceed available stock (${available})`,
+        );
+      }
+
+      const pricePaise =
+        typeof inventorySpare.price === 'number'
+          ? inventorySpare.price
+          : Number(inventorySpare.price) || 0;
+      const unitPriceRupees = Math.round(pricePaise) / 100;
+      const rawCost = Number(payload.cost);
+      // Catalog `price` is paise. A blank cost, or a cost copied from the raw
+      // paise figure, is the unit price in rupees — not price × stock.
+      if (!Number.isFinite(rawCost) || rawCost <= 0 || rawCost === pricePaise) {
+        payload.cost = unitPriceRupees;
+      }
+      if (!payload.partName) payload.partName = inventorySpare.name;
+
+      if (payload.warrantyMonths == null) {
         const months = this.warrantiesService.resolveInventoryWarrantyMonths(
-          spare.warrantyMonths,
+          inventorySpare.warrantyMonths,
           null,
         );
         if (months > 0) {
@@ -162,12 +196,26 @@ export class VisitsService {
       }
     }
 
-    const usage = new this.sparePartUsageModel({ visitId, ...payload });
+    const usage = new this.sparePartUsageModel({ visitId, ...payload, stockDeducted: false });
     await usage.save();
     
     await this.visitModel.findByIdAndUpdate(visitId, {
       $push: { partsUsed: usage._id }
     });
+
+    if (inventorySpare && visit.status === 'COMPLETED') {
+      try {
+        await this.deductStock(inventorySpare._id, quantity);
+      } catch (err) {
+        await this.sparePartUsageModel.findByIdAndDelete(usage._id).exec();
+        await this.visitModel.findByIdAndUpdate(visitId, {
+          $pull: { partsUsed: usage._id },
+        });
+        throw err;
+      }
+      usage.stockDeducted = true;
+      await usage.save();
+    }
 
     return usage;
   }
@@ -175,13 +223,75 @@ export class VisitsService {
   async removeSparePartFromVisit(visitId: string, usageId: string): Promise<void> {
     const usage = await this.sparePartUsageModel.findById(usageId).exec();
     if (!usage) throw new NotFoundException('Spare part usage not found');
-    if (String(usage.visitId) !== visitId) {
+    if (String(usage.visitId) !== String(visitId)) {
       throw new NotFoundException('Spare part usage not found on this visit');
+    }
+
+    if (usage.stockDeducted && !usage.isThirdParty && usage.sparePartId) {
+      const quantity = this.normalizeQuantity(usage.quantity);
+      await this.sparePartModel.findByIdAndUpdate(usage.sparePartId, {
+        $inc: { stock: quantity },
+        $set: { isInStock: true },
+      });
     }
 
     await this.sparePartUsageModel.findByIdAndDelete(usageId).exec();
     await this.visitModel.findByIdAndUpdate(visitId, {
       $pull: { partsUsed: new Types.ObjectId(usageId) },
     });
+  }
+
+  /**
+   * Catalog price is paise. A line stored at the raw paise figure is rewritten
+   * to rupees so the admin bill and the customer bill use the same unit cost.
+   */
+  async correctCatalogCost(usage: any): Promise<number> {
+    if (usage?.warrantyCovered) return 0;
+    const raw = Number(usage?.cost);
+    let cost = Number.isFinite(raw) ? raw : 0;
+    if (usage?.isThirdParty || usage?.sourcedBy === 'SELF') return cost;
+
+    const catalog = usage?.sparePartId;
+    if (!catalog || typeof catalog !== 'object' || catalog.price == null) {
+      return cost;
+    }
+    const pricePaise = Number(catalog.price) || 0;
+    const rupees = Math.round(pricePaise) / 100;
+    const storedAsPaise =
+      pricePaise > 0 && (cost === pricePaise || (rupees > 0 && cost > rupees * 50));
+    if (!storedAsPaise) return cost;
+
+    cost = rupees;
+    if (usage._id) {
+      await this.sparePartUsageModel.findByIdAndUpdate(usage._id, { cost }).exec();
+      usage.cost = cost;
+    }
+    return cost;
+  }
+
+  /** Positive integer quantity for this line. Missing or invalid values mean 1, never the on-hand stock. */
+  private normalizeQuantity(raw: unknown): number {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 1;
+    const quantity = Math.floor(n);
+    return quantity < 1 ? 1 : quantity;
+  }
+
+  private async deductStock(sparePartId: any, quantity: number) {
+    const updated = await this.sparePartModel
+      .findOneAndUpdate(
+        { _id: sparePartId, stock: { $gte: quantity } },
+        { $inc: { stock: -quantity } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+    if (!updated) {
+      throw new BadRequestException(
+        `Not enough stock to use ${quantity} unit${quantity === 1 ? '' : 's'}`,
+      );
+    }
+    if ((updated.stock || 0) <= 0) {
+      await this.sparePartModel.updateOne({ _id: sparePartId }, { isInStock: false }).exec();
+    }
   }
 }

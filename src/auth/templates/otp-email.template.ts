@@ -43,7 +43,6 @@ export function buildOtpEmail(code: string, toEmail: string): OtpEmailContent {
   const termsUrl = `${base}/terms`;
   const privacyUrl = `${base}/privacy`;
   const warrantyUrl = `${base}/warranty`;
-  const logoUrl = process.env.FIXXER_BRAND_LOGO_URL?.trim();
 
   const subject = 'Your Fixxer login code';
 
@@ -69,12 +68,6 @@ export function buildOtpEmail(code: string, toEmail: string): OtpEmailContent {
     '© Fixxer. All rights reserved.',
   ].join('\n');
 
-  const logoBlock = logoUrl
-    ? `<img src="${escapeHtml(logoUrl)}" width="120" height="40" alt="Fixxer" style="display:block;border:0;outline:none;text-decoration:none;height:40px;width:auto;max-width:140px;" />`
-    : `<div style="font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:700;letter-spacing:-0.5px;color:${BRAND.onPrimary};line-height:1;">
-         Fixx<span style="color:#FFB3B1;">er</span>
-       </div>`;
-
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,9 +83,9 @@ export function buildOtpEmail(code: string, toEmail: string): OtpEmailContent {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background-color:${BRAND.surfaceBright};border-radius:16px;overflow:hidden;border:1px solid ${BRAND.outline};">
           <!-- Header -->
           <tr>
-            <td style="background-color:${BRAND.primary};padding:28px 32px;text-align:left;">
-              ${logoBlock}
-              <p style="margin:12px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.85);">
+            <td style="background-color:#C8102E;padding:28px 32px;text-align:left;">
+              <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:700;letter-spacing:-0.4px;color:#FFFFFF;">Fixxer<span style="color:#FFB3B1;">.</span></div>
+              <p style="margin:10px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#FFD0D4;">
                 Master appliance repair
               </p>
             </td>

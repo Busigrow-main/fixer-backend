@@ -183,4 +183,88 @@ export class AuthService {
 
     return this.login(user);
   }
+
+  /**
+   * Sign in with a Google ID token. Mobile number is collected later on the booking form.
+   */
+  async loginWithGoogle(
+    idToken: string,
+    options?: { phone?: string; fullName?: string },
+  ) {
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      throw new BadRequestException(
+        'Google sign-in is not configured (missing GOOGLE_CLIENT_ID)',
+      );
+    }
+    if (!idToken?.trim()) {
+      throw new BadRequestException('Google sign-in token is required');
+    }
+
+    const { OAuth2Client } = await import('google-auth-library');
+    const client = new OAuth2Client(clientId);
+    let payload: {
+      sub?: string;
+      email?: string;
+      email_verified?: boolean | string;
+      name?: string;
+    };
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: idToken.trim(),
+        audience: clientId,
+      });
+      payload = ticket.getPayload() || {};
+    } catch {
+      throw new UnauthorizedException('Invalid Google sign-in token');
+    }
+
+    const googleId = payload.sub;
+    const email = this.normalizeEmail(payload.email || '');
+    const emailVerified =
+      payload.email_verified === true || payload.email_verified === 'true';
+    const googleName = payload.name?.trim();
+
+    if (!googleId || !email || !emailVerified) {
+      throw new UnauthorizedException(
+        'Google account must have a verified email',
+      );
+    }
+
+    let user =
+      (await this.usersService.findOneByGoogleId(googleId)) ||
+      (await this.usersService.findOneByEmail(email));
+
+    if (user) {
+      let dirty = false;
+      if (!user.googleId) {
+        user.googleId = googleId;
+        dirty = true;
+      }
+      if (!user.email) {
+        user.email = email;
+        dirty = true;
+      }
+      const name = options?.fullName?.trim() || googleName;
+      if (name && !user.fullName) {
+        user.fullName = name;
+        dirty = true;
+      }
+      if (dirty) await user.save();
+      return this.login(user);
+    }
+
+    const salt = await bcrypt.genSalt();
+    const passwordHash = await bcrypt.hash(
+      this.defaultCustomerPassword(),
+      salt,
+    );
+    user = await this.usersService.create({
+      email,
+      googleId,
+      passwordHash,
+      fullName: options?.fullName?.trim() || googleName || undefined,
+    });
+    return this.login(user);
+  }
 }

@@ -18,6 +18,10 @@ export class SparePartUsage {
   @Prop()
   quantity?: number;
 
+  /** Set once catalog stock has been reduced by `quantity`. Prevents a second deduction. */
+  @Prop({ default: false })
+  stockDeducted?: boolean;
+
   // Third-party fields
   @Prop()
   partName?: string;

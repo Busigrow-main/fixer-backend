@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Booking, BookingDocument } from './schemas/booking.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
 import {
   Technician,
@@ -29,6 +31,7 @@ import {
   sanitizeTechnicianForCustomer,
 } from './customer-booking.helpers';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
+import { BillEmailService } from './bill-email.service';
 
 @Injectable()
 export class BookingsService {
@@ -39,13 +42,37 @@ export class BookingsService {
     private serviceModel: Model<ServiceDocument>,
     @InjectModel(Technician.name)
     private technicianModel: Model<TechnicianDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
     private warrantiesService: WarrantiesService,
     private jobDispatch: JobDispatchService,
     private notificationDispatch: NotificationDispatchService,
     private visitsService: VisitsService,
     private customerAppliancesService: CustomerAppliancesService,
     private serviceablePincodesService: ServiceablePincodesService,
+    @Optional() private billEmail?: BillEmailService,
   ) {}
+
+  /** Save the booking contact number on a Google account that has no phone yet. */
+  private async attachBookingPhoneToUser(
+    userId: string,
+    contactPhone: unknown,
+  ) {
+    const digits = String(contactPhone || '').replace(/\D/g, '');
+    const phone = digits.length >= 10 ? digits.slice(-10) : '';
+    if (!phone) return;
+
+    const user = await this.userModel.findById(userId).exec();
+    if (!user || user.phone) return;
+
+    const taken = await this.userModel
+      .findOne({ phone, _id: { $ne: user._id } })
+      .exec();
+    if (taken) return;
+
+    user.phone = phone;
+    await user.save();
+  }
 
   private findSubCategoryById(
     service: ServiceDocument | Service | any,
@@ -213,6 +240,8 @@ export class BookingsService {
           : v,
       );
 
+      await this.syncInvoicePartsFromVisits(booking, visitsPlain);
+
       const upcomingVisit =
         pickUpcomingVisitSchedule(visitsPlain);
 
@@ -268,6 +297,86 @@ export class BookingsService {
     }
 
     return results;
+  }
+
+  private async syncInvoicePartsFromVisits(
+    booking: any,
+    visits: any[],
+  ) {
+    let partsTotal = 0;
+    const spareParts: {
+      partName: string;
+      quantity: number;
+      cost: number;
+      isThirdParty: boolean;
+      warrantyCovered?: boolean;
+      warrantyMonths?: number;
+      serialNumber?: string;
+    }[] = [];
+
+    for (const visit of visits) {
+      for (const usage of visit.partsUsed || []) {
+        const quantity = Number(usage.quantity) || 1;
+        let partName = usage.partName || 'Spare part';
+        let cost = Number(usage.cost) || 0;
+
+        if (usage.warrantyCovered) {
+          partName =
+            usage.partName ||
+            usage.sparePartId?.name ||
+            'Warranty replacement';
+          cost = 0;
+        } else if (usage.isThirdParty || usage.sourcedBy === 'SELF') {
+          partName = usage.partName || 'Generic Part';
+          cost = Number(usage.cost) || 0;
+        } else if (usage.sparePartId) {
+          partName =
+            usage.partName ||
+            usage.sparePartId?.name ||
+            'Spare Part';
+          cost = await this.visitsService.correctCatalogCost(usage);
+        }
+
+        partsTotal += cost * quantity;
+        spareParts.push({
+          partName,
+          quantity,
+          cost,
+          isThirdParty: !!usage.isThirdParty,
+          warrantyCovered: !!usage.warrantyCovered,
+          warrantyMonths: Number(usage.warrantyMonths) || undefined,
+          serialNumber: usage.serialNumber || undefined,
+        });
+      }
+    }
+
+    const serviceTotal = Number(booking.invoiceData?.serviceTotal || 0);
+    const additionalCharges = booking.invoiceData?.additionalCharges || [];
+    const additionalTotal = additionalCharges.reduce(
+      (sum: number, charge: any) => sum + (Number(charge?.amount) || 0),
+      0,
+    );
+    const totalAmount = serviceTotal + partsTotal + additionalTotal;
+
+    booking.invoiceData = {
+      ...(booking.invoiceData || {}),
+      serviceTotal,
+      additionalCharges,
+      spareParts,
+      partsTotal,
+      totalAmount,
+    };
+
+    await this.bookingModel.updateOne(
+      { _id: booking._id },
+      {
+        $set: {
+          'invoiceData.spareParts': spareParts,
+          'invoiceData.partsTotal': partsTotal,
+          'invoiceData.totalAmount': totalAmount,
+        },
+      },
+    );
   }
 
   async findAllForAdmin(
@@ -340,18 +449,16 @@ export class BookingsService {
       );
     }
 
-    // Recompute invoice if not manually overridden (fixes stale prices from old logic)
-    if (!booking.invoiceData?.manualOverride) {
-      try {
-        await this.generateInvoiceData(id, {
-          returnDetail: false,
-        });
-      } catch (err) {
-        console.error(
-          '[findOne] generateInvoiceData failed:',
-          err?.message,
-        );
-      }
+    // Always rebuild parts and totals from visits. A manual service fee is kept.
+    try {
+      await this.generateInvoiceData(id, {
+        returnDetail: false,
+      });
+    } catch (err) {
+      console.error(
+        '[findOne] generateInvoiceData failed:',
+        err?.message,
+      );
     }
 
     return this.populateBookingDetail(id);
@@ -433,6 +540,11 @@ export class BookingsService {
 
     const savedBooking =
       await createdBooking.save();
+
+    await this.attachBookingPhoneToUser(
+      userId,
+      createBookingDto.contactPhone,
+    );
 
     const withInvoice =
       await this.generateInvoiceData(
@@ -673,6 +785,17 @@ export class BookingsService {
       return this.populateBookingDetail(id);
     }
 
+    const existing =
+      await this.bookingModel.findById(id).exec();
+
+    if (!existing) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
+
+    const previousStatus = existing.status;
+
     /*
      * Preserve the existing behavior for every
      * non-cancellation status update.
@@ -692,6 +815,18 @@ export class BookingsService {
       );
     }
 
+    if (
+      status === 'CONFIRMED' &&
+      previousStatus !== 'CONFIRMED' &&
+      this.billEmail
+    ) {
+      try {
+        await this.billEmail.sendConfirmation(id);
+      } catch (err) {
+        console.error('Confirmation email failed:', err);
+      }
+    }
+
     if (status === 'COMPLETED') {
       try {
         await this.generateInvoiceData(
@@ -707,6 +842,14 @@ export class BookingsService {
           'Invoice/Warranty lock failed:',
           err,
         );
+      }
+
+      if (previousStatus !== 'COMPLETED' && this.billEmail) {
+        try {
+          await this.billEmail.sendForBooking(id);
+        } catch (err) {
+          console.error('Closing bill email failed:', err);
+        }
       }
     }
 
@@ -1072,7 +1215,17 @@ export class BookingsService {
       );
     }
 
-    return this.generateInvoiceData(id);
+    const detail = await this.generateInvoiceData(id);
+
+    if (this.billEmail) {
+      try {
+        await this.billEmail.sendForBooking(id);
+      } catch (err) {
+        console.error('Bill email failed:', err);
+      }
+    }
+
+    return detail;
   }
 
   async unlockSheet(
@@ -1148,12 +1301,8 @@ export class BookingsService {
     // --- Service Total ---
     let serviceTotal: number;
 
-    if (
-      booking.invoiceData?.manualOverride &&
-      booking.invoiceData.serviceTotal > 0
-    ) {
-      serviceTotal =
-        booking.invoiceData.serviceTotal;
+    if (booking.invoiceData?.manualOverride) {
+      serviceTotal = Number(booking.invoiceData.serviceTotal) || 0;
     } else if (
       booking.serviceType ===
       'WARRANTY_CHECK'
@@ -1210,6 +1359,7 @@ export class BookingsService {
       cost: number;
       isThirdParty: boolean;
       warrantyCovered?: boolean;
+      warrantyMonths?: number;
       serialNumber?: string;
     }[] = [];
 
@@ -1242,10 +1392,7 @@ export class BookingsService {
             usage.sparePartId.name ||
             'Spare Part';
 
-          cost =
-            usage.cost != null
-              ? Number(usage.cost)
-              : 0;
+          cost = await this.visitsService.correctCatalogCost(usage);
         }
 
         partsTotal +=
@@ -1259,6 +1406,9 @@ export class BookingsService {
             !!usage.isThirdParty,
           warrantyCovered:
             !!usage.warrantyCovered,
+          warrantyMonths:
+            Number(usage.warrantyMonths) ||
+            undefined,
           serialNumber:
             usage.serialNumber ||
             undefined,

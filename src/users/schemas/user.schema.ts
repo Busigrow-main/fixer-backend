@@ -5,14 +5,19 @@ export type UserDocument = User & Document;
 
 @Schema({ timestamps: true })
 export class User {
-  @Prop({ required: true, unique: true })
-  phone: string;
+  /** Set at booking time for Google accounts. Required for phone sign-in. */
+  @Prop({ unique: true, sparse: true })
+  phone?: string;
 
   @Prop({ required: true })
   passwordHash: string;
 
   @Prop()
   email?: string;
+
+  /** Google account subject (`sub`) when the user signed in with Google. */
+  @Prop({ unique: true, sparse: true, index: true })
+  googleId?: string;
 
   @Prop()
   fullName?: string;
