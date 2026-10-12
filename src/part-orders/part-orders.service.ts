@@ -1,9 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { PartOrder, PartOrderDocument } from './schemas/part-order.schema';
 import { CreatePartOrderDto } from './dtos/create-part-order.dto';
 import { UpdateOrderBillDto } from './dtos/update-order-bill.dto';
+import { SparePart, SparePartDocument } from '../spare-parts/schemas/spare-part.schema';
+import { Appliance, ApplianceDocument } from '../appliances/schemas/appliance.schema';
+
+export interface CreatePartOrderOptions {
+  sourceHelpRequestId?: string;
+  acceptedQuote?: { description: string; quantity: number; unitPrice: number };
+}
 
 function computeInvoiceTotals(
   lineItems: { quantity: number; unitPrice: number }[],
@@ -33,11 +40,22 @@ export class PartOrdersService {
   constructor(
     @InjectModel(PartOrder.name)
     private partOrderModel: Model<PartOrderDocument>,
+    @InjectModel(SparePart.name)
+    private sparePartModel: Model<SparePartDocument>,
+    @InjectModel(Appliance.name)
+    private applianceModel: Model<ApplianceDocument>,
   ) {}
 
   async findAllByUser(userId: string): Promise<PartOrder[]> {
+    const ownerId = Types.ObjectId.isValid(userId)
+      ? new Types.ObjectId(userId)
+      : userId;
     return this.partOrderModel
-      .find({ userId })
+      .find({
+        userId: Types.ObjectId.isValid(userId)
+          ? { $in: [ownerId, userId] }
+          : userId,
+      })
       .populate('items.partId')
       .sort({ createdAt: -1 })
       .exec();
@@ -94,10 +112,24 @@ export class PartOrdersService {
     return order;
   }
 
+  async findBySourceHelpRequestId(sourceHelpRequestId: string): Promise<PartOrder | null> {
+    if (!Types.ObjectId.isValid(sourceHelpRequestId)) return null;
+    return this.partOrderModel
+      .findOne({ sourceHelpRequestId: new Types.ObjectId(sourceHelpRequestId) })
+      .populate('userId items.partId')
+      .exec();
+  }
+
   async create(
     createOrderDto: CreatePartOrderDto,
     userId: string,
+    options: CreatePartOrderOptions = {},
   ): Promise<PartOrder> {
+    if (options.sourceHelpRequestId) {
+      const existing = await this.findBySourceHelpRequestId(options.sourceHelpRequestId);
+      if (existing) return existing;
+    }
+
     const orderType = createOrderDto.orderType ?? 'part';
 
     if (orderType === 'appliance') {
@@ -107,12 +139,25 @@ export class PartOrdersService {
         );
       }
 
+      const applianceItem = { ...createOrderDto.applianceItem } as any;
+      delete applianceItem.productWarrantyYearsAtPurchase;
+      delete applianceItem.compressorWarrantyYearsAtPurchase;
+      const appliance = applianceItem.applianceId && Types.ObjectId.isValid(applianceItem.applianceId)
+        ? await this.applianceModel.findById(applianceItem.applianceId).lean().exec()
+        : await this.applianceModel.findOne({ slug: applianceItem.slug, isActive: true }).lean().exec();
+      if (appliance) {
+        applianceItem.productWarrantyYearsAtPurchase = appliance.productWarrantyYears ?? 0;
+        applianceItem.compressorWarrantyYearsAtPurchase = appliance.compressorWarrantyYears ?? 0;
+      }
+
       const createdOrder = new this.partOrderModel({
         orderType: 'appliance',
         contactData: createOrderDto.contactData,
-        applianceItem: createOrderDto.applianceItem,
+        applianceItem,
         items: [],
-        userId,
+        userId: Types.ObjectId.isValid(userId)
+          ? new Types.ObjectId(userId)
+          : userId,
       });
 
       return createdOrder.save();
@@ -126,14 +171,62 @@ export class PartOrdersService {
       );
     }
 
+    const partIds = items.map((item) => item.partId);
+    const parts = await this.sparePartModel
+      .find({ _id: { $in: partIds } })
+      .select('_id warrantyMonths')
+      .lean()
+      .exec();
+    const partsById = new Map(parts.map((part) => [String(part._id), part]));
+    const orderItems = items.map((item) => {
+      const part = partsById.get(String(item.partId));
+      if (!part) {
+        throw new NotFoundException(`Spare part ${item.partId} not found`);
+      }
+      return {
+        ...item,
+        // Snapshot from the catalog. An absent/zero catalog duration means no warranty.
+        warrantyMonthsAtPurchase: Math.max(0, Number(part.warrantyMonths) || 0),
+      };
+    });
+
+    const invoiceData = options.acceptedQuote
+      ? (() => {
+          const line = options.acceptedQuote!;
+          const totals = computeInvoiceTotals([{ quantity: line.quantity, unitPrice: line.unitPrice }]);
+          return {
+            lineItems: [{ ...totals.lineItems[0], description: line.description }],
+            subtotal: totals.subtotal,
+            taxPercent: 0,
+            taxAmount: 0,
+            totalAmount: totals.totalAmount,
+            generatedAt: new Date(),
+          };
+        })()
+      : undefined;
+
     const createdOrder = new this.partOrderModel({
       orderType: 'part',
       contactData: createOrderDto.contactData,
-      items,
-      userId,
+      items: orderItems,
+      userId: Types.ObjectId.isValid(userId)
+        ? new Types.ObjectId(userId)
+        : userId,
+      sourceHelpRequestId: options.sourceHelpRequestId
+        ? new Types.ObjectId(options.sourceHelpRequestId)
+        : undefined,
+      invoiceData,
     });
 
-    return createdOrder.save();
+    try {
+      return await createdOrder.save();
+    } catch (error: any) {
+      if (options.sourceHelpRequestId && error?.code === 11000) {
+        const existing = await this.findBySourceHelpRequestId(options.sourceHelpRequestId);
+        if (existing) return existing;
+      }
+      throw error;
+    }
   }
 
   async cancelOrder(
@@ -141,10 +234,13 @@ export class PartOrdersService {
     userId: string,
     reason: string,
   ): Promise<PartOrder> {
+    const ownerId = Types.ObjectId.isValid(userId)
+      ? new Types.ObjectId(userId)
+      : userId;
     const order = await this.partOrderModel
       .findOne({
         _id: id,
-        userId,
+        userId: ownerId,
       })
       .exec();
 
