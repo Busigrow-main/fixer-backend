@@ -7,6 +7,7 @@ import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 import { SparePart, SparePartDocument } from '../spare-parts/schemas/spare-part.schema';
 import { WarrantiesService } from '../warranties/warranties.service';
+import { buildJobSheetDefaults, partsFromVisits } from '../bookings/job-sheet-defaults';
 
 @Injectable()
 export class VisitsService {
@@ -217,7 +218,34 @@ export class VisitsService {
       await usage.save();
     }
 
+    await this.syncJobSheet(String(visit.bookingId)).catch((err) => {
+      console.error('Job sheet auto-fill failed', err);
+    });
     return usage;
+  }
+
+  private async syncJobSheet(bookingId: string) {
+    if (!bookingId || !Types.ObjectId.isValid(bookingId)) return;
+    const booking = await this.bookingModel.findById(bookingId).lean().exec();
+    if (!booking) return;
+    const visits = await this.findByBooking(bookingId);
+    const patch = buildJobSheetDefaults({
+      bookingId,
+      createdAt: (booking as any).createdAt,
+      serviceType: (booking as any).serviceType,
+      jobDetails: (booking as any).jobDetails,
+      parts: partsFromVisits(
+        visits.map((visit) =>
+          typeof (visit as any).toObject === 'function' ? (visit as any).toObject() : visit,
+        ),
+      ),
+    });
+    if (!Object.keys(patch).length) return;
+    await this.bookingModel.findByIdAndUpdate(bookingId, {
+      $set: Object.fromEntries(
+        Object.entries(patch).map(([key, value]) => [`jobDetails.${key}`, value]),
+      ),
+    });
   }
 
   async removeSparePartFromVisit(visitId: string, usageId: string): Promise<void> {

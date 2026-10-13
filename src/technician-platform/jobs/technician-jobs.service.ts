@@ -14,6 +14,12 @@ import { technicianIdQuery, resolveTechnicianId } from '../common/technician-id.
 import { Booking, BookingDocument } from '../../bookings/schemas/booking.schema';
 import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { categoriesForServiceSlug } from '../dispatch/service-category.util';
+import { stripFixxerCodeSecrets } from '../../bookings/fixxer-code';
+
+function presentTechnicianBooking(booking: any) {
+  const plain = booking?.toObject ? booking.toObject() : { ...(booking || {}) };
+  return stripFixxerCodeSecrets(plain);
+}
 
 @Injectable()
 export class TechnicianJobsService {
@@ -52,12 +58,14 @@ export class TechnicianJobsService {
         break;
     }
 
-    return this.bookingModel
+    const jobs = await this.bookingModel
       .find(query)
       .populate('userId', 'fullName phone')
       .populate('serviceId', 'name icon slug')
       .sort({ assignedAt: -1, createdAt: -1 })
       .exec();
+
+    return jobs.map((job) => presentTechnicianBooking(job));
   }
 
   /** Open marketplace jobs matching this technician's pincode + categories. */
@@ -87,11 +95,13 @@ export class TechnicianJobsService {
       .sort({ createdAt: -1 })
       .exec();
 
-    return open.filter((booking: any) => {
-      const slug = booking.serviceId?.slug as string | undefined;
-      const required = categoriesForServiceSlug(slug);
-      return required.some((c) => categories.map((x) => x.toLowerCase()).includes(c.toLowerCase()));
-    });
+    return open
+      .filter((booking: any) => {
+        const slug = booking.serviceId?.slug as string | undefined;
+        const required = categoriesForServiceSlug(slug);
+        return required.some((c) => categories.map((x) => x.toLowerCase()).includes(c.toLowerCase()));
+      })
+      .map((booking) => presentTechnicianBooking(booking));
   }
 
   async getJob(technicianId: string, jobId: string) {
@@ -131,6 +141,7 @@ export class TechnicianJobsService {
     }
 
     const now = new Date();
+    const issued = this.bookingsService.prepareAssignmentCode();
     const claimed = await this.bookingModel
       .findOneAndUpdate(
         {
@@ -139,12 +150,17 @@ export class TechnicianJobsService {
           $or: [{ technicianId: null }, { technicianId: { $exists: false } }],
         },
         {
-          technicianId: new Types.ObjectId(technicianId),
-          status: 'ASSIGNED',
-          assignmentStatus: 'ACCEPTED',
-          assignedAt: now,
-          acceptedAt: now,
-          dispatchStatus: 'CLAIMED',
+          $set: {
+            technicianId: new Types.ObjectId(technicianId),
+            status: 'ASSIGNED',
+            assignmentStatus: 'ACCEPTED',
+            assignedAt: now,
+            acceptedAt: now,
+            dispatchStatus: 'CLAIMED',
+            ...issued.fields,
+            fixxerCodeVerifiedAt: null,
+          },
+          $unset: { assignmentEmailSentAt: 1 },
         },
         { returnDocument: 'after' },
       )
@@ -158,6 +174,7 @@ export class TechnicianJobsService {
 
     const notified = (existing.notifiedTechnicianIds ?? []) as Types.ObjectId[];
     void this.jobDispatch.notifyJobTaken(jobId, technicianId, notified);
+    await this.bookingsService.deliverAssignmentCode(jobId, issued.code);
 
     return this.formatJobDetail(claimed);
   }
@@ -181,7 +198,7 @@ export class TechnicianJobsService {
       .populate('serviceId', 'name')
       .exec();
 
-    return updated;
+    return presentTechnicianBooking(updated);
   }
 
   async rejectJob(technicianId: string, jobId: string, reason: string) {
@@ -199,12 +216,22 @@ export class TechnicianJobsService {
       .findByIdAndUpdate(
         jobId,
         {
-          assignmentStatus: 'DECLINED',
-          declinedAt: new Date(),
-          declineReason: reason,
-          technicianId: null,
-          status: 'CONFIRMED',
-          dispatchStatus: 'OPEN',
+          $set: {
+            assignmentStatus: 'DECLINED',
+            declinedAt: new Date(),
+            declineReason: reason,
+            technicianId: null,
+            status: 'CONFIRMED',
+            dispatchStatus: 'OPEN',
+          },
+          $unset: {
+            fixxerCodeCiphertext: 1,
+            fixxerCodeIv: 1,
+            fixxerCodeAuthTag: 1,
+            fixxerCodeIssuedAt: 1,
+            fixxerCodeVerifiedAt: 1,
+            assignmentEmailSentAt: 1,
+          },
         },
         { returnDocument: 'after' },
       )
@@ -213,10 +240,15 @@ export class TechnicianJobsService {
     // Re-broadcast to eligible technicians
     void this.jobDispatch.broadcastJob(jobId);
 
-    return updated;
+    return presentTechnicianBooking(updated);
   }
 
-  async updateStatus(technicianId: string, jobId: string, nextStatus: string) {
+  async updateStatus(
+    technicianId: string,
+    jobId: string,
+    nextStatus: string,
+    fixxerCode?: string,
+  ) {
     const booking = await this.bookingModel.findById(jobId).exec();
     if (!booking) throw new NotFoundException('Job not found');
     this.assertOwnership(booking, technicianId);
@@ -239,7 +271,12 @@ export class TechnicianJobsService {
       throw new BadRequestException(`Cannot skip states. Current: ${current}, requested: ${nextStatus}`);
     }
 
-    const updated = await this.bookingsService.updateStatus(jobId, nextStatus);
+    const updated = await this.bookingsService.updateStatus(
+      jobId,
+      nextStatus,
+      undefined,
+      fixxerCode,
+    );
 
     if (nextStatus === 'IN_PROGRESS') {
       await this.techniciansService.update(technicianId, { availabilityStatus: 'ON_JOB' });
@@ -261,19 +298,21 @@ export class TechnicianJobsService {
       throw new BadRequestException('Job is not in a valid state for arrival');
     }
 
-    return this.bookingModel
-      .findByIdAndUpdate(
-        jobId,
-        {
-          status: 'EN_ROUTE',
-          arrivalAt: new Date(),
-          arrivalGps: { lat, lng, capturedAt: new Date() },
-        },
-        { returnDocument: 'after' },
-      )
-      .populate('userId', 'fullName phone')
-      .populate('serviceId', 'name')
-      .exec();
+    return presentTechnicianBooking(
+      await this.bookingModel
+        .findByIdAndUpdate(
+          jobId,
+          {
+            status: 'EN_ROUTE',
+            arrivalAt: new Date(),
+            arrivalGps: { lat, lng, capturedAt: new Date() },
+          },
+          { returnDocument: 'after' },
+        )
+        .populate('userId', 'fullName phone')
+        .populate('serviceId', 'name')
+        .exec(),
+    );
   }
 
   private async expireStaleOpenJobs() {
@@ -321,7 +360,7 @@ export class TechnicianJobsService {
   }
 
   private formatJobDetail(booking: any) {
-    return {
+    return stripFixxerCodeSecrets({
       ...(booking.toObject?.() || booking),
       customer: booking.userId,
       address: booking.addressData,
@@ -329,6 +368,6 @@ export class TechnicianJobsService {
       estimatedAmount: booking.estimatedAmount || booking.invoiceData?.totalAmount || 0,
       location: booking.arrivalGps,
       otpRequired: booking.otpRequired,
-    };
+    });
   }
 }

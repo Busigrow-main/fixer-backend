@@ -58,7 +58,11 @@ export class JobCompletionController {
   }
 
   @Post(':jobId/close')
-  close(@CurrentTechnician() technician: any, @Param('jobId') jobId: string) {
-    return this.completionService.closeJob(jobId, technician._id.toString());
+  close(
+    @CurrentTechnician() technician: any,
+    @Param('jobId') jobId: string,
+    @Body('fixxerCode') fixxerCode?: string,
+  ) {
+    return this.completionService.closeJob(jobId, technician._id.toString(), fixxerCode);
   }
 }

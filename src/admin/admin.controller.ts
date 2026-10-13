@@ -157,11 +157,13 @@ export class AdminController {
     @Param('id') id: string,
     @Body('status') status: string,
     @Body('reason') reason?: string,
+    @Body('fixxerCode') fixxerCode?: string,
   ) {
     return this.bookingsService.updateStatus(
       id,
       status,
       reason,
+      fixxerCode,
     );
   }
 
@@ -229,8 +231,11 @@ export class AdminController {
   }
 
   @Put('bookings/:id/finalize-invoice')
-  async finalizeInvoice(@Param('id') id: string) {
-    return this.bookingsService.finalizeInvoice(id);
+  async finalizeInvoice(
+    @Param('id') id: string,
+    @Body('fixxerCode') fixxerCode?: string,
+  ) {
+    return this.bookingsService.finalizeInvoice(id, fixxerCode);
   }
 
   @Get('bookings/:id/warranties')

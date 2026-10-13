@@ -32,6 +32,13 @@ import {
 } from './customer-booking.helpers';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
 import { BillEmailService } from './bill-email.service';
+import {
+  decryptFixxerCode,
+  fixxerCodesMatch,
+  issueFixxerCode,
+  stripFixxerCodeSecrets,
+} from './fixxer-code';
+import { buildJobSheetDefaults, partsFromVisits } from './job-sheet-defaults';
 
 @Injectable()
 export class BookingsService {
@@ -175,7 +182,26 @@ export class BookingsService {
     const originalParts =
       await this.warrantiesService.listOriginalPartsForClaim(parentId);
 
-    return {
+    const sheetPatch = buildJobSheetDefaults({
+      bookingId: id,
+      createdAt: (booking as any).createdAt,
+      serviceType: (booking as any).serviceType,
+      jobDetails: (booking as any).jobDetails,
+      parts: partsFromVisits(visitsPlain),
+    });
+    if (Object.keys(sheetPatch).length) {
+      await this.bookingModel.findByIdAndUpdate(id, {
+        $set: Object.fromEntries(
+          Object.entries(sheetPatch).map(([key, value]) => [`jobDetails.${key}`, value]),
+        ),
+      });
+      (booking as any).jobDetails = {
+        ...((booking as any).jobDetails || {}),
+        ...sheetPatch,
+      };
+    }
+
+    return stripFixxerCodeSecrets({
       ...booking,
       visits: visitsPlain,
       technicianSettlement,
@@ -184,7 +210,7 @@ export class BookingsService {
       isWarrantyClaim:
         (booking as any).serviceType === 'WARRANTY_CHECK' ||
         !!parentId,
-    };
+    });
   }
 
   async findAllByUser(userId: string): Promise<any[]> {
@@ -271,7 +297,7 @@ export class BookingsService {
       const pricing =
         buildCustomerPricingSummary(booking);
 
-      results.push({
+      const row = stripFixxerCodeSecrets({
         ...booking,
         // Keep raw id for debugging; customer UI should prefer `technician`.
         technicianId:
@@ -294,6 +320,12 @@ export class BookingsService {
           status: v.status,
         })),
       });
+      const jobFinished = booking.status === 'COMPLETED' || booking.jobClosed;
+      if (!jobFinished) {
+        const code = decryptFixxerCode(booking);
+        if (code) row.fixxerCode = code;
+      }
+      results.push(row);
     }
 
     return results;
@@ -730,10 +762,64 @@ export class BookingsService {
     );
   }
 
+  async requireFixxerCode(id: string, submitted?: string): Promise<void> {
+    const booking = await this.bookingModel.findById(id).exec();
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+    if (booking.fixxerCodeVerifiedAt) return;
+    if (!booking.technicianId) {
+      throw new BadRequestException('Assign a technician before closing this job');
+    }
+    if (!booking.fixxerCodeCiphertext) {
+      throw new BadRequestException('FIXXER CODE has not been issued for this job');
+    }
+
+    const stored = decryptFixxerCode(booking);
+    if (!fixxerCodesMatch(stored, submitted)) {
+      throw new BadRequestException('FIXXER CODE does not match');
+    }
+
+    await this.bookingModel.findByIdAndUpdate(id, {
+      fixxerCodeVerifiedAt: new Date(),
+    });
+  }
+
+  prepareAssignmentCode() {
+    try {
+      return issueFixxerCode();
+    } catch {
+      throw new BadRequestException('FIXXER CODE is not configured');
+    }
+  }
+
+  async deliverAssignmentCode(bookingId: string, code: string): Promise<void> {
+    if (!this.billEmail) return;
+    try {
+      await this.billEmail.sendAssignment(bookingId, code);
+    } catch (err) {
+      console.error('Assignment email failed:', err);
+    }
+  }
+
+  async clearAssignmentCode(bookingId: string): Promise<void> {
+    await this.bookingModel.findByIdAndUpdate(bookingId, {
+      $unset: {
+        fixxerCodeCiphertext: 1,
+        fixxerCodeIv: 1,
+        fixxerCodeAuthTag: 1,
+        fixxerCodeIssuedAt: 1,
+        fixxerCodeVerifiedAt: 1,
+        assignmentEmailSentAt: 1,
+      },
+    });
+  }
+
   async updateStatus(
     id: string,
     status: string,
     reason?: string,
+    fixxerCode?: string,
   ): Promise<any> {
     /*
      * Admin cancellation needs to store the cancellation
@@ -795,6 +881,10 @@ export class BookingsService {
     }
 
     const previousStatus = existing.status;
+
+    if (status === 'COMPLETED' && previousStatus !== 'COMPLETED') {
+      await this.requireFixxerCode(id, fixxerCode);
+    }
 
     /*
      * Preserve the existing behavior for every
@@ -860,24 +950,38 @@ export class BookingsService {
     id: string,
     technicianId: string,
   ): Promise<any> {
+    const existing = await this.bookingModel.findById(id).exec();
+    if (!existing) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    const previousTechnicianId = existing.technicianId
+      ? String(existing.technicianId)
+      : '';
+    const keepCode =
+      previousTechnicianId === String(technicianId) &&
+      !!existing.fixxerCodeCiphertext;
+    const issued = keepCode ? null : this.prepareAssignmentCode();
+
     const updatedBooking =
       await this.bookingModel
         .findByIdAndUpdate(
           id,
           {
-            technicianId:
-              new Types.ObjectId(
-                technicianId,
-              ),
-            status: 'ASSIGNED',
-            assignmentStatus:
-              'PENDING_ACCEPTANCE',
-            assignedAt: new Date(),
-            acceptedAt: null,
-            declinedAt: null,
-            declineReason: null,
-            dispatchStatus:
-              'ADMIN_ASSIGNED',
+            $set: {
+              technicianId: new Types.ObjectId(technicianId),
+              status: 'ASSIGNED',
+              assignmentStatus: 'PENDING_ACCEPTANCE',
+              assignedAt: new Date(),
+              acceptedAt: null,
+              declinedAt: null,
+              declineReason: null,
+              dispatchStatus: 'ADMIN_ASSIGNED',
+              ...(issued
+                ? { ...issued.fields, fixxerCodeVerifiedAt: null }
+                : {}),
+            },
+            ...(issued ? { $unset: { assignmentEmailSentAt: 1 } } : {}),
           },
           { returnDocument: 'after' },
         )
@@ -887,6 +991,10 @@ export class BookingsService {
       throw new NotFoundException(
         'Booking not found',
       );
+    }
+
+    if (issued) {
+      await this.deliverAssignmentCode(id, issued.code);
     }
 
     await this.notificationDispatch.notify(
@@ -1183,7 +1291,10 @@ export class BookingsService {
 
   async finalizeInvoice(
     id: string,
+    fixxerCode?: string,
   ): Promise<any> {
+    await this.requireFixxerCode(id, fixxerCode);
+
     const booking =
       await this.bookingModel
         .findByIdAndUpdate(

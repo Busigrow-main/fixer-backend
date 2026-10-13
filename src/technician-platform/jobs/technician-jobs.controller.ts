@@ -126,8 +126,14 @@ export class TechnicianJobsController {
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
     @Body('status') status: string,
+    @Body('fixxerCode') fixxerCode?: string,
   ) {
-    return this.jobsService.updateStatus(technician._id.toString(), jobId, status);
+    return this.jobsService.updateStatus(
+      technician._id.toString(),
+      jobId,
+      status,
+      fixxerCode,
+    );
   }
 
   @Post(':jobId/arrival')

@@ -13,6 +13,9 @@ import { NotificationDispatchService } from '../technician-platform/common/notif
 import { VisitsService } from '../visits/visits.service';
 import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
+import { issueFixxerCode } from './fixxer-code';
+
+process.env.FIXXER_CODE_KEY = Buffer.alloc(32, 7).toString('base64');
 
 describe('BookingsService – State Machine', () => {
   jest.setTimeout(30000);
@@ -91,6 +94,15 @@ describe('BookingsService – State Machine', () => {
     });
   }
 
+  async function sealCode(booking: { _id: Types.ObjectId }) {
+    const issued = issueFixxerCode();
+    await bookingModel.findByIdAndUpdate(booking._id, {
+      ...issued.fields,
+      technicianId: new Types.ObjectId(),
+    });
+    return issued.code;
+  }
+
   it('tech can write in IN_PROGRESS', async () => {
     const b = await createBooking();
     await expect(
@@ -100,7 +112,8 @@ describe('BookingsService – State Machine', () => {
 
   it('tech rejected after finalize (locked)', async () => {
     const b = await createBooking();
-    await service.finalizeInvoice(b._id.toString());
+    const code = await sealCode(b);
+    await service.finalizeInvoice(b._id.toString(), code);
     await expect(
       service.updateJobDetails(b._id.toString(), { diagnosis: 'nope' }, 'TECHNICIAN'),
     ).rejects.toThrow('locked');
@@ -108,7 +121,8 @@ describe('BookingsService – State Machine', () => {
 
   it('admin can still write after finalize', async () => {
     const b = await createBooking();
-    await service.finalizeInvoice(b._id.toString());
+    const code = await sealCode(b);
+    await service.finalizeInvoice(b._id.toString(), code);
     await expect(
       service.updateJobDetails(b._id.toString(), { diagnosis: 'admin fix' }, 'ADMIN'),
     ).resolves.toBeDefined();
@@ -116,7 +130,8 @@ describe('BookingsService – State Machine', () => {
 
   it('admin unlock re-enables tech writes', async () => {
     const b = await createBooking();
-    await service.finalizeInvoice(b._id.toString());
+    const code = await sealCode(b);
+    await service.finalizeInvoice(b._id.toString(), code);
 
     await service.unlockSheet(b._id.toString());
 
@@ -130,11 +145,102 @@ describe('BookingsService – State Machine', () => {
 
   it('finalizeInvoice sets sheetLockedAt and isBilled', async () => {
     const b = await createBooking();
-    await service.finalizeInvoice(b._id.toString());
+    const code = await sealCode(b);
+    await service.finalizeInvoice(b._id.toString(), code);
     const doc = await bookingModel.findById(b._id).lean().exec();
     expect(doc!.sheetLockedAt).toBeInstanceOf(Date);
     expect(doc!.sheetLockedBy).toBe('SYSTEM');
     expect(doc!.isBilled).toBe(true);
     expect(doc!.status).toBe('COMPLETED');
+  });
+
+  it('assignment stores an encrypted FIXXER CODE and close requires it', async () => {
+    const userId = new Types.ObjectId();
+    const b = await createBooking({ userId, status: 'CONFIRMED' });
+    const techA = new Types.ObjectId().toString();
+    const techB = new Types.ObjectId().toString();
+
+    await service.assignTechnician(b._id.toString(), techA);
+    const first = await bookingModel.findById(b._id).lean().exec();
+    const list = await service.findAllByUser(userId.toString());
+    expect(list[0].fixxerCode).toMatch(/^\d{6}$/);
+    expect(list[0].fixxerCodeCiphertext).toBeUndefined();
+    expect(first!.fixxerCodeCiphertext).toBeTruthy();
+    expect(first!.fixxerCodeCiphertext).not.toContain(list[0].fixxerCode);
+
+    const adminView = await service.populateBookingDetail(b._id.toString());
+    expect(adminView.fixxerCode).toBeUndefined();
+    expect(adminView.fixxerCodeCiphertext).toBeUndefined();
+
+    await service.assignTechnician(b._id.toString(), techA);
+    const kept = await bookingModel.findById(b._id).lean().exec();
+    expect(kept!.fixxerCodeCiphertext).toBe(first!.fixxerCodeCiphertext);
+
+    await service.assignTechnician(b._id.toString(), techB);
+    const rotated = await bookingModel.findById(b._id).lean().exec();
+    expect(rotated!.fixxerCodeCiphertext).not.toBe(first!.fixxerCodeCiphertext);
+    const after = await service.findAllByUser(userId.toString());
+    const wrong = after[0].fixxerCode.replace(/.$/, (digit: string) => (digit === '0' ? '1' : '0'));
+
+    await expect(
+      service.finalizeInvoice(b._id.toString(), wrong),
+    ).rejects.toThrow('does not match');
+    await service.finalizeInvoice(b._id.toString(), after[0].fixxerCode);
+    const closed = await service.findAllByUser(userId.toString());
+    expect(closed[0].fixxerCode).toBeUndefined();
+    expect(closed[0].status).toBe('COMPLETED');
+  });
+
+  it('rejects finalize and COMPLETED when the code is missing, wrong, or not issued', async () => {
+    const bare = await createBooking();
+    await expect(service.finalizeInvoice(bare._id.toString(), '123456')).rejects.toThrow(
+      'Assign a technician',
+    );
+    expect((await bookingModel.findById(bare._id).lean().exec())!.status).toBe('IN_PROGRESS');
+
+    const issued = await createBooking({ technicianId: new Types.ObjectId() });
+    await expect(service.finalizeInvoice(issued._id.toString(), '123456')).rejects.toThrow(
+      'has not been issued',
+    );
+    await expect(
+      service.updateStatus(issued._id.toString(), 'COMPLETED', undefined, '123456'),
+    ).rejects.toThrow('has not been issued');
+    expect((await bookingModel.findById(issued._id).lean().exec())!.status).toBe('IN_PROGRESS');
+
+    const code = await sealCode(issued);
+    const wrong = code.replace(/.$/, (digit) => (digit === '0' ? '1' : '0'));
+    await expect(
+      service.updateStatus(issued._id.toString(), 'COMPLETED', undefined, wrong),
+    ).rejects.toThrow('does not match');
+    await expect(
+      service.updateStatus(issued._id.toString(), 'COMPLETED', undefined, ''),
+    ).rejects.toThrow('does not match');
+    expect((await bookingModel.findById(issued._id).lean().exec())!.status).toBe('IN_PROGRESS');
+
+    await service.updateStatus(issued._id.toString(), 'COMPLETED', undefined, ` ${code.slice(0, 3)} ${code.slice(3)} `);
+    const doc = await bookingModel.findById(issued._id).lean().exec();
+    expect(doc!.status).toBe('COMPLETED');
+    expect(doc!.fixxerCodeVerifiedAt).toBeInstanceOf(Date);
+    expect(doc!.fixxerCode).toBeUndefined();
+
+    await service.requireFixxerCode(issued._id.toString());
+  });
+
+  it('clears the code when the assignment is removed', async () => {
+    const userId = new Types.ObjectId();
+    const b = await createBooking({ userId, status: 'CONFIRMED' });
+    await service.assignTechnician(b._id.toString(), new Types.ObjectId().toString());
+    expect((await service.findAllByUser(userId.toString()))[0].fixxerCode).toMatch(/^\d{6}$/);
+
+    await service.clearAssignmentCode(b._id.toString());
+    const doc = await bookingModel.findById(b._id).lean().exec();
+    expect(doc!.fixxerCodeCiphertext).toBeUndefined();
+    expect(doc!.fixxerCodeIv).toBeUndefined();
+    expect(doc!.fixxerCodeAuthTag).toBeUndefined();
+    expect(doc!.fixxerCodeVerifiedAt).toBeUndefined();
+    expect((await service.findAllByUser(userId.toString()))[0].fixxerCode).toBeUndefined();
+    const adminView = await service.populateBookingDetail(b._id.toString());
+    expect(adminView.fixxerCodeIv).toBeUndefined();
+    expect(adminView.fixxerCodeAuthTag).toBeUndefined();
   });
 });

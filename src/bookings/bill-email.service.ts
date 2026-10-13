@@ -5,7 +5,7 @@ import axios from 'axios';
 import { Booking, BookingDocument } from './schemas/booking.schema';
 import { AzureEmailService } from '../auth/azure-email.service';
 import { buildInvoicePdf } from './invoice-pdf';
-import { buildBillEmail, buildConfirmationEmail } from './templates/bill-email.template';
+import { buildBillEmail, buildConfirmationEmail, buildAssignmentEmail } from './templates/bill-email.template';
 import { EmailLine, formatInr } from '../mail/email-layout';
 import { partWarrantyNote } from './invoice-pdf';
 
@@ -42,6 +42,34 @@ export class BillEmailService {
       confirmationEmailSentAt: new Date(),
     });
     this.logger.log(`Confirmation emailed to ${email} for booking ${bookingId}`);
+    return { sent: true };
+  }
+
+  async sendAssignment(
+    bookingId: string,
+    fixxerCode: string,
+  ): Promise<{ sent: boolean; reason?: string }> {
+    const booking = await this.loadBooking(bookingId);
+    if (!booking) return { sent: false, reason: 'missing-booking' };
+
+    const email = this.customerEmail(booking);
+    if (!email) {
+      this.logger.warn(`Assignment not emailed for ${bookingId}: customer has no email`);
+      return { sent: false, reason: 'no-email' };
+    }
+
+    const view = this.confirmationView(booking);
+    const message = buildAssignmentEmail({ ...view, fixxerCode });
+    await this.azureEmail.sendMessage({
+      to: email,
+      subject: message.subject,
+      plainText: message.plainText,
+      html: message.html,
+    });
+    await this.bookingModel.findByIdAndUpdate(bookingId, {
+      assignmentEmailSentAt: new Date(),
+    });
+    this.logger.log(`Assignment emailed to ${email} for booking ${bookingId}`);
     return { sent: true };
   }
 

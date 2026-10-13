@@ -14,6 +14,12 @@ import { VisitsService } from '../../visits/visits.service';
 import { WarrantiesService } from '../../warranties/warranties.service';
 import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../common/notification-dispatch.service';
+import { CustomerAppliancesService } from '../../customer-appliances/customer-appliances.service';
+import { ServiceablePincodesService } from '../../serviceable-pincodes/serviceable-pincodes.service';
+import { issueFixxerCode } from '../../bookings/fixxer-code';
+import * as bcrypt from 'bcrypt';
+
+process.env.FIXXER_CODE_KEY = Buffer.alloc(32, 7).toString('base64');
 
 describe('JobCompletionService – No Dual-Source Writes', () => {
   jest.setTimeout(30000);
@@ -58,6 +64,8 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
         { provide: WarrantiesService, useValue: mockWarranties },
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },
+        { provide: CustomerAppliancesService, useValue: { syncFromBooking: jest.fn(), linkBookingByPhone: jest.fn() } },
+        { provide: ServiceablePincodesService, useValue: { isServiceable: jest.fn().mockResolvedValue(true) } },
       ],
     }).compile();
 
@@ -225,5 +233,79 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
         ['LABOUR', 'PARTS'].includes(c[0].type),
       ),
     ).toHaveLength(0);
+  });
+
+  it('verifyOtp records the hash check and does not complete the job', async () => {
+    const booking = await bookingModel.create({
+      userId: new Types.ObjectId(),
+      serviceId: serviceDoc._id,
+      subCategoryId: serviceDoc.subCategories[0]._id,
+      technicianId: new Types.ObjectId(techId),
+      assignmentStatus: 'ACCEPTED',
+      contactPhone: '9999999999',
+      addressData: { zip: '110001', text: 'Test' },
+      status: 'IN_PROGRESS',
+      otpRequired: true,
+    });
+
+    const sent = await completionService.generateOtp(booking._id.toString(), techId);
+    const stored = await bookingModel.findById(booking._id).lean().exec();
+    expect(stored!.completionOtpHash).toBeTruthy();
+    expect(stored!.completionOtpHash).not.toBe(sent.devOtp);
+    expect(stored!.status).toBe('IN_PROGRESS');
+
+    const verified = await completionService.verifyOtp(
+      booking._id.toString(),
+      techId,
+      sent.devOtp!,
+    );
+    expect(verified.completionOtpVerified).toBe(true);
+    expect(verified.status).toBe('IN_PROGRESS');
+    expect(verified.fixxerCodeCiphertext).toBeUndefined();
+    const wrong = sent.devOtp!.replace(/.$/, (digit) => (digit === '0' ? '1' : '0'));
+    await expect(
+      completionService.verifyOtp(booking._id.toString(), techId, wrong),
+    ).rejects.toThrow('Invalid OTP');
+  });
+
+  it('closeJob requires the FIXXER CODE and hides the ciphertext', async () => {
+    const issued = issueFixxerCode();
+    const booking = await bookingModel.create({
+      userId: new Types.ObjectId(),
+      serviceId: serviceDoc._id,
+      subCategoryId: serviceDoc.subCategories[0]._id,
+      technicianId: new Types.ObjectId(techId),
+      assignmentStatus: 'ACCEPTED',
+      contactPhone: '9999999999',
+      addressData: { zip: '110001', text: 'Test' },
+      status: 'PAYMENT_COLLECTED',
+      paymentStatus: 'PAID_CASH',
+      customerSignatureUrl: 'https://example.com/sign.png',
+      ...issued.fields,
+    });
+
+    await expect(
+      completionService.closeJob(booking._id.toString(), techId),
+    ).rejects.toThrow('does not match');
+    const wrong = issued.code.replace(/.$/, (digit) => (digit === '0' ? '1' : '0'));
+    await expect(
+      completionService.closeJob(booking._id.toString(), techId, wrong),
+    ).rejects.toThrow('does not match');
+    expect((await bookingModel.findById(booking._id).lean().exec())!.jobClosed).not.toBe(true);
+
+    const closed = await completionService.closeJob(
+      booking._id.toString(),
+      techId,
+      issued.code,
+    );
+    expect(closed.jobClosed).toBe(true);
+    expect(closed.fixxerCodeCiphertext).toBeUndefined();
+    expect(closed.fixxerCodeIv).toBeUndefined();
+    expect(closed.fixxerCodeAuthTag).toBeUndefined();
+    expect(closed.fixxerCode).toBeUndefined();
+
+    const doc = await bookingModel.findById(booking._id).lean().exec();
+    expect(doc!.fixxerCodeVerifiedAt).toBeInstanceOf(Date);
+    expect(doc!.fixxerCodeCiphertext).not.toBe(issued.code);
   });
 });

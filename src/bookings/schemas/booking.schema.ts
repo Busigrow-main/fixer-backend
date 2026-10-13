@@ -265,6 +265,25 @@ export class Booking {
   @Prop()
   closeEmailSentAt?: Date;
 
+  /** AES-256-GCM payload. The 6-digit FIXXER CODE is never stored in plaintext. */
+  @Prop()
+  fixxerCodeCiphertext?: string;
+
+  @Prop()
+  fixxerCodeIv?: string;
+
+  @Prop()
+  fixxerCodeAuthTag?: string;
+
+  @Prop()
+  fixxerCodeIssuedAt?: Date;
+
+  @Prop()
+  fixxerCodeVerifiedAt?: Date;
+
+  @Prop()
+  assignmentEmailSentAt?: Date;
+
   @Prop({
     type: String,
     enum: [

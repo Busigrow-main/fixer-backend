@@ -145,6 +145,60 @@ export function buildConfirmationEmail(input: ConfirmationMailInput) {
   return { subject, plainText, html };
 }
 
+export function buildAssignmentEmail(
+  input: ConfirmationMailInput & { fixxerCode: string },
+) {
+  const name = input.customerName || 'there';
+  const subject = `Your Fixxer technician and FIXXER CODE for repair ${input.repairCode}`;
+  const techLine = input.technicianName
+    ? `${input.technicianName}${input.technicianPhone ? ` · ${input.technicianPhone}` : ''}${input.technicianSkills ? ` · ${input.technicianSkills}` : ''}`
+    : 'A Fixxer technician is on the way.';
+  const plainText = [
+    `Hello ${name},`,
+    '',
+    `A technician is assigned for your ${input.serviceName} visit.`,
+    `Repair ${input.repairCode}`,
+    input.address ? `Address: ${input.address}` : '',
+    input.schedule ? `When: ${input.schedule}` : '',
+    `Technician: ${techLine}`,
+    '',
+    `FIXXER CODE: ${input.fixxerCode}`,
+    'Give this code only to your Fixxer technician, or to Fixxer support, when the job is finished. The job cannot be closed without it.',
+    '',
+    'Cool Air Refrigeration · MLA Colony, Raja Bazar, Patna 800014',
+    '+91 70047 71388 · busigrowindia@gmail.com',
+  ]
+    .filter((line) => line !== '')
+    .join('\n');
+
+  const html = renderEmail({
+    eyebrow: 'Technician assigned',
+    headline: `${input.technicianName || 'Your technician'} is assigned.`,
+    lede: `Hello ${escapeHtml(name)}. Your <strong style="color:#1A1A1C;">${escapeHtml(input.serviceName)}</strong> visit now has a technician. Keep the FIXXER CODE below and share it only when the job is finished.`,
+    bodyHtml: `${facts({
+      customerName: input.customerName,
+      repairCode: input.repairCode,
+      invoiceNumber: '',
+      serviceName: input.serviceName,
+      address: input.address,
+      schedule: input.schedule,
+      technicianName: input.technicianName,
+      lines: [],
+      total: 0,
+      totalLabel: '',
+    })}
+      <div style="margin-top:8px;padding:18px 20px;background:#FDE7E9;border-radius:16px;text-align:center;">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#C8102E;">FIXXER CODE</div>
+        <div style="margin-top:8px;font-family:Georgia,'Times New Roman',serif;font-size:32px;letter-spacing:0.28em;color:#1A1A1C;">${escapeHtml(input.fixxerCode)}</div>
+      </div>
+      <p style="margin:16px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#64646B;">
+        Give this code only to your Fixxer technician, or to Fixxer support, when the work is done. The bill cannot be closed without it.
+      </p>`,
+  });
+
+  return { subject, plainText, html };
+}
+
 export function buildBillEmail(input: BookingMailInput) {
   const name = input.customerName || 'there';
   const subject = `Your Fixxer bill ${input.invoiceNumber} is ready`;
@@ -229,6 +283,17 @@ export function buildEmailPreviewPage(): string {
     technicianSkills: 'Microwave · Refrigerator',
     notes: 'Turntable not spinning. Please call before arriving.',
   });
+  const assignment = buildAssignmentEmail({
+    customerName: 'Abhas',
+    repairCode: '#18C8FE',
+    serviceName: 'Microwave repair',
+    address: 'Boring Road, Patna 800001',
+    schedule: 'Mon 12 Oct · Afternoon',
+    technicianName: 'Surya',
+    technicianPhone: '+91 90000 11111',
+    technicianSkills: 'Microwave · Refrigerator',
+    fixxerCode: '482193',
+  });
   const closed = buildBillEmail(shared);
 
   return `<!DOCTYPE html>
@@ -251,11 +316,15 @@ export function buildEmailPreviewPage(): string {
 <body>
   <header>
     <h1>Sample <span>emails</span></h1>
-    <p>Confirmation goes out when an admin sets the booking to confirmed. The closing email and the attached service bill go out when the job is closed. A part that carries a warranty is named on both.</p>
+    <p>Confirmation goes out when an admin sets the booking to confirmed. The assignment email carries the technician and the FIXXER CODE. The closing email and the attached service bill go out when the job is closed with that code. A part that carries a warranty is named on the bill.</p>
   </header>
   <section>
     <h2>After confirmation</h2>
     <iframe srcdoc="${escapeHtml(confirmation.html)}"></iframe>
+  </section>
+  <section>
+    <h2>When a technician is assigned</h2>
+    <iframe srcdoc="${escapeHtml(assignment.html)}"></iframe>
   </section>
   <section>
     <h2>After the job is closed</h2>

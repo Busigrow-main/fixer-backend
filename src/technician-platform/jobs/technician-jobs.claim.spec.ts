@@ -61,6 +61,16 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
     const bookingsService: any = {
       findOne: jest.fn(),
       updateStatus: jest.fn(),
+      prepareAssignmentCode: jest.fn().mockReturnValue({
+        code: '482193',
+        fields: {
+          fixxerCodeCiphertext: 'cipher',
+          fixxerCodeIv: 'iv',
+          fixxerCodeAuthTag: 'tag',
+          fixxerCodeIssuedAt: new Date(),
+        },
+      }),
+      deliverAssignmentCode: jest.fn(),
     };
     const techniciansService: any = {
       findOne: jest.fn().mockResolvedValue(tech),
@@ -99,6 +109,9 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
       assignmentStatus: 'ACCEPTED',
       status: 'ASSIGNED',
       addressData: { zip: '400001' },
+      fixxerCodeCiphertext: 'cipher',
+      fixxerCodeIv: 'iv',
+      fixxerCodeAuthTag: 'tag',
       toObject() {
         return this;
       },
@@ -109,7 +122,15 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
 
     const result = await service.claimJob(technicianId, bookingId);
     expect(result.status).toBe('ASSIGNED');
-    expect(bookingModel.findOneAndUpdate).toHaveBeenCalled();
+    expect(result.fixxerCodeCiphertext).toBeUndefined();
+    expect(result.fixxerCodeIv).toBeUndefined();
+    expect(result.fixxerCodeAuthTag).toBeUndefined();
+    expect(result.fixxerCode).toBeUndefined();
+    const update = bookingModel.findOneAndUpdate.mock.calls[0][1];
+    expect(update.$set.fixxerCodeCiphertext).toBe('cipher');
+    expect(update.$set.fixxerCodeVerifiedAt).toBeNull();
+    expect(update.$unset.assignmentEmailSentAt).toBe(1);
+    expect(JSON.stringify(update)).not.toContain('482193');
     expect(jobDispatch.notifyJobTaken).toHaveBeenCalled();
   });
 
@@ -136,5 +157,11 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
 
     await service.rejectJob(technicianId, bookingId, 'Busy today');
     expect(jobDispatch.broadcastJob).toHaveBeenCalledWith(bookingId);
+    const update = bookingModel.findByIdAndUpdate.mock.calls[0][1];
+    expect(update.$unset.fixxerCodeCiphertext).toBe(1);
+    expect(update.$unset.fixxerCodeIv).toBe(1);
+    expect(update.$unset.fixxerCodeAuthTag).toBe(1);
+    expect(update.$unset.fixxerCodeVerifiedAt).toBe(1);
+    expect(update.$set.technicianId).toBeNull();
   });
 });

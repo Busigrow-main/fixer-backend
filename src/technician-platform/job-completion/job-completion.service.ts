@@ -11,6 +11,7 @@ import { BookingsService } from '../../bookings/bookings.service';
 import { EarningsService } from '../earnings/earnings.service';
 import { VisitsService } from '../../visits/visits.service';
 import { resolveTechnicianId } from '../common/technician-id.util';
+import { stripFixxerCodeSecrets } from '../../bookings/fixxer-code';
 import { SELF_PART_PLATFORM_FEE } from '../constants';
 import {
   collectPartsFromVisits,
@@ -70,31 +71,30 @@ export class JobCompletionService {
     const valid = await bcrypt.compare(otp, booking.completionOtpHash);
     if (!valid) throw new BadRequestException('Invalid OTP');
 
-    await this.completeVisitsAndDeductStock(jobId);
-
-    try {
-      await this.bookingsService.registerWarrantiesOnComplete(jobId);
-    } catch (err) {
-      console.error('Part warranty registration failed:', err);
-    }
-
-    return this.bookingModel.findByIdAndUpdate(
-      jobId,
-      {
-        completionOtpVerified: true,
-        completionOtpVerifiedAt: new Date(),
-        status: 'COMPLETED',
-      },
-      { returnDocument: 'after' },
+    return stripFixxerCodeSecrets(
+      (
+        await this.bookingModel.findByIdAndUpdate(
+          jobId,
+          {
+            completionOtpVerified: true,
+            completionOtpVerifiedAt: new Date(),
+          },
+          { returnDocument: 'after' },
+        )
+      )?.toObject?.() ?? null,
     );
   }
 
   async uploadSignature(jobId: string, technicianId: string, signatureUrl: string) {
     await this.getOwnedBooking(jobId, technicianId);
-    return this.bookingModel.findByIdAndUpdate(
-      jobId,
-      { customerSignatureUrl: signatureUrl },
-      { returnDocument: 'after' },
+    return stripFixxerCodeSecrets(
+      (
+        await this.bookingModel.findByIdAndUpdate(
+          jobId,
+          { customerSignatureUrl: signatureUrl },
+          { returnDocument: 'after' },
+        )
+      )?.toObject?.() ?? null,
     );
   }
 
@@ -181,11 +181,12 @@ export class JobCompletionService {
     await this.applySelfPartFees(jobId, technicianId, method);
     await this.completeVisitsAndDeductStock(jobId);
 
-    return updated;
+    return stripFixxerCodeSecrets(updated?.toObject?.() ?? updated);
   }
 
-  async closeJob(jobId: string, technicianId: string) {
+  async closeJob(jobId: string, technicianId: string, fixxerCode?: string) {
     const booking = await this.getOwnedBooking(jobId, technicianId);
+    await this.bookingsService.requireFixxerCode(jobId, fixxerCode);
 
     const verified = booking.completionOtpVerified || !!booking.customerSignatureUrl;
     const paymentDone = ['PAID_CASH', 'PAID_ONLINE'].includes(booking.paymentStatus);
@@ -209,11 +210,12 @@ export class JobCompletionService {
       console.error('Part warranty registration on close failed:', err);
     }
 
-    return this.bookingModel.findByIdAndUpdate(
+    const closed = await this.bookingModel.findByIdAndUpdate(
       jobId,
       { jobClosed: true, jobClosedAt: new Date(), isBilled: true },
       { returnDocument: 'after' },
     );
+    return stripFixxerCodeSecrets(closed?.toObject?.() ?? closed);
   }
 
   /** Debit ₹100 per pending self-sourced spare-part line. */
