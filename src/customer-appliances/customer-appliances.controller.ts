@@ -12,7 +12,13 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CustomerAppliancesService } from './customer-appliances.service';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../common/swagger';
+import { PhoneBodyDto } from '../common/body.dto';
+import { MapSerialDto } from '../technician-platform/dtos/technician-api.dto';
 
+@ApiTags('Customer appliances')
+@ApiBearerAuth(JWT_AUTH)
 @UseGuards(AuthGuard('jwt'))
 @Controller('api/v1')
 export class CustomerAppliancesController {
@@ -22,11 +28,14 @@ export class CustomerAppliancesController {
 
   /** Customer's mapped appliances for their account phone. */
   @Get('user/appliances')
+  @ApiOperation({ summary: 'Mapped appliances for the signed-in customer' })
   async getMyAppliances(@Request() req: any) {
     return this.customerAppliancesService.findForUser(req.user.userId);
   }
 }
 
+@ApiTags('Admin appliance mappings')
+@ApiBearerAuth(JWT_AUTH)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('ADMIN')
 @Controller('api/v1/admin/appliance-mappings')
@@ -44,6 +53,7 @@ export class AdminApplianceMappingsController {
   }
 
   @Get('search')
+  @ApiQuery({ name: 'phone', required: true })
   async search(@Query('phone') phone: string) {
     return this.customerAppliancesService.searchByPhone(phone);
   }
@@ -54,16 +64,8 @@ export class AdminApplianceMappingsController {
   }
 
   @Post('map')
-  async map(
-    @Body()
-    body: {
-      phone: string;
-      serialNumber: string;
-      brand?: string;
-      modelNumber?: string;
-      bookingId?: string;
-    },
-  ) {
+  @ApiOperation({ summary: 'Map a serial number to a customer phone' })
+  async map(@Body() body: MapSerialDto) {
     return this.customerAppliancesService.mapSerialToPhone({
       ...body,
       source: 'ADMIN',
@@ -71,10 +73,11 @@ export class AdminApplianceMappingsController {
   }
 
   @Post(':serial/phones')
+  @ApiOperation({ summary: 'Add another phone to a serial mapping' })
   async addPhone(
     @Param('serial') serial: string,
-    @Body('phone') phone: string,
+    @Body() body: PhoneBodyDto,
   ) {
-    return this.customerAppliancesService.addPhoneToSerial(serial, phone);
+    return this.customerAppliancesService.addPhoneToSerial(serial, body.phone);
   }
 }

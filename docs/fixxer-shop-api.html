@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Fixxer Shop API Documentation</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; color: #222; max-width: 820px; margin: 32px auto; line-height: 1.45; }
+    h1 { font-size: 26px; }
+    h2 { font-size: 18px; margin-top: 32px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+    h3 { font-size: 15px; margin-top: 22px; }
+    h4 { font-size: 13px; margin: 12px 0 6px; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0 14px; }
+    th, td { border: 1px solid #bbb; padding: 6px 8px; text-align: left; vertical-align: top; font-size: 13px; }
+    th { background: #f3f3f3; }
+    pre { font-family: Consolas, "Courier New", monospace; font-size: 12px; background: #f6f6f6; border: 1px solid #ddd; padding: 10px; white-space: pre-wrap; }
+    p, li { font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<h1>Fixxer Shop API Documentation</h1>
+<p>Base URL: <b>http://135.222.40.140/api/v1</b></p>
+<p>All paths below are relative to that base. JSON request and response bodies. Dates are ISO-8601 strings.</p>
+
+<h2>1. Conventions</h2>
+<table>
+  <tr><th>Item</th><th>Rule</th></tr>
+  <tr><td>Auth header</td><td>Authorization: Bearer &lt;access_token&gt;</td></tr>
+  <tr><td>Public routes</td><td>No token. Catalog browse and shop home.</td></tr>
+  <tr><td>Customer routes</td><td>JWT required. Role CUSTOMER for part-help.</td></tr>
+  <tr><td>Admin routes</td><td>JWT required. Role ADMIN.</td></tr>
+  <tr><td>Spare-part catalog price</td><td>Paise. 125000 means Rs 1,250.00</td></tr>
+  <tr><td>Shop home, cart, quote, invoice, appliance price</td><td>Rupees</td></tr>
+  <tr><td>Error body</td><td>statusCode, message, error</td></tr>
+</table>
+
+<h4>Error response</h4>
+<pre>{
+  "statusCode": 400,
+  "message": "Cart is empty",
+  "error": "Bad Request"
+}</pre>
+<p>401 missing or bad token. 403 wrong role. 404 unknown id, SKU, or slug. 409 help request already moved.</p>
+
+<h2>2. Sign in (used before cart, checkout, orders)</h2>
+
+<h3>POST /auth/quick-login</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>Create or load a customer from phone and return a JWT.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "phone": "9876543210",
+  "fullName": "Asha Rao"
+}</pre>
+<h4>Response</h4>
+<pre>{
+  "access_token": "&lt;jwt&gt;"
+}</pre>
+
+<h3>POST /auth/login</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>Phone + password login (admin or existing user).</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "phone": "9999999999",
+  "password": "admin123"
+}</pre>
+<h4>Response</h4>
+<pre>{
+  "access_token": "&lt;jwt&gt;"
+}</pre>
+
+<h3>GET /auth/me</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Header only. No body.</pre>
+<h4>Response</h4>
+<pre>{
+  "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+  "phone": "9876543210",
+  "fullName": "Asha Rao",
+  "email": "asha@example.com",
+  "role": "CUSTOMER"
+}</pre>
+
+<h2>3. Page 1 — Shop hub</h2>
+
+<h3>GET /shop/home</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>Load appliances and spare parts internally and return them together as product cards.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Query (optional):
+limit=8     max 24, default 8 per type
+
+No body.</pre>
+<h4>Response</h4>
+<pre>{
+  "products": [
+    {
+      "productType": "appliance",
+      "id": "665f1a2b3c4d5e6f7a8b9c0d",
+      "slug": "samsung-fridge",
+      "sku": "FR-1",
+      "name": "Samsung 265L Fridge",
+      "image": "https://cdn.example/fridge.jpg",
+      "price": 28990,
+      "originalPrice": 32990,
+      "discount": 12,
+      "rating": 4.5,
+      "reviewCount": 18,
+      "isBestseller": true
+    },
+    {
+      "productType": "part",
+      "id": "665f1a2b3c4d5e6f7a8b9c0e",
+      "slug": "compressor-relay",
+      "sku": "SP-1",
+      "name": "Compressor relay",
+      "image": "https://cdn.example/part.jpg",
+      "price": 1250,
+      "originalPrice": 1500,
+      "discount": 17,
+      "rating": 4.2,
+      "reviewCount": 9,
+      "isBestseller": true
+    }
+  ],
+  "appliances": [ { "...same card shape..." } ],
+  "parts": [ { "...same card shape..." } ]
+}</pre>
+<p>products is appliances then parts. price / originalPrice / discount on this endpoint are rupees and percent. Spare-part catalog APIs still return paise.</p>
+
+<h2>4. Page 2 — Spare parts catalog</h2>
+
+<h3>GET /spare-parts/categories</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>Navigation tree: appliance types, part categories, brands.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>No query. No body.</pre>
+<h4>Response</h4>
+<pre>[
+  {
+    "applianceTypeSlug": "refrigerator",
+    "applianceTypeName": "Refrigerator",
+    "sortOrder": 0,
+    "universalPartsCount": 12,
+    "totalPartsCount": 240,
+    "partCategories": [
+      {
+        "slug": "cooling-compressor",
+        "name": "Cooling &amp; Compressor",
+        "partCount": 40,
+        "brands": [
+          { "brandSlug": "samsung", "brandName": "Samsung", "partCount": 8 }
+        ]
+      }
+    ],
+    "brands": [
+      { "brandSlug": "samsung", "brandName": "Samsung", "partCount": 80 }
+    ]
+  }
+]</pre>
+
+<h3>GET /spare-parts</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>Search and filter spare parts.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Query, all optional:
+q
+applianceType
+brand
+model
+partCategory
+isUniversal=true|false
+isFeatured=true|false
+page=1
+limit=24
+sort=price_asc | price_desc | popular</pre>
+<h4>Response</h4>
+<pre>{
+  "data": [
+    {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0e",
+      "sku": "SP-REF-SAM-001",
+      "slug": "compressor-relay",
+      "name": "Compressor relay",
+      "imageUrls": ["https://cdn.example/part.jpg"],
+      "applianceTypeSlug": "refrigerator",
+      "brandSlug": "samsung",
+      "partCategory": "Cooling &amp; Compressor",
+      "price": 125000,
+      "mrp": 150000,
+      "stock": 4,
+      "isInStock": true,
+      "warrantyMonths": 12,
+      "isFeatured": true,
+      "soldCount": 12,
+      "rating": { "average": 4.2, "count": 9 },
+      "isActive": true
+    }
+  ],
+  "metadata": {
+    "total": 8,
+    "page": 1,
+    "limit": 24,
+    "totalPages": 1
+  }
+}</pre>
+<p>price and mrp are paise.</p>
+
+<h3>GET /spare-parts/suggestions?q=</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Query: q</pre>
+<h4>Response</h4>
+<pre>{
+  "parts": [
+    {
+      "type": "part",
+      "title": "Compressor",
+      "subtitle": "PN: RHGS45",
+      "sku": "SP-001",
+      "price": 76200,
+      "appliance": "refrigerator"
+    }
+  ],
+  "categories": [],
+  "brands": []
+}</pre>
+
+<h2>5. Page 3 — Appliances catalog</h2>
+
+<h3>GET /appliances</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>List appliances by type. Supports ac, refrigerator, washing-machine, microwave.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Query:
+type=refrigerator     also: refrigerators, ac, washing-machine, microwave
+page=1
+limit=12
+sort=price_asc | price_desc | rating_desc | newest
+brand
+minPrice
+maxPrice
+inStock=true</pre>
+<h4>Response</h4>
+<pre>{
+  "status": "success",
+  "total": 18,
+  "page": 1,
+  "perPage": 12,
+  "products": [
+    {
+      "id": "665f1a2b3c4d5e6f7a8b9c0d",
+      "slug": "samsung-fridge",
+      "name": "Samsung 265L Fridge",
+      "brand": "Samsung",
+      "modelNumber": "RT28",
+      "sku": "FR-1",
+      "price": 28990,
+      "originalPrice": 32990,
+      "images": ["https://cdn.example/fridge.jpg"],
+      "inStock": true,
+      "installationIncluded": false,
+      "applianceCategory": "refrigerator",
+      "isBestseller": true,
+      "rating": 4.5,
+      "reviewCount": 18
+    }
+  ]
+}</pre>
+<p>Legacy AC list still works: GET /appliances/ac</p>
+
+<h2>6. Page 4 — Spare part detail</h2>
+
+<h3>GET /spare-parts/:sku</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Path: sku = SP-REF-SAM-001
+No body.</pre>
+<h4>Response</h4>
+<pre>{
+  "_id": "665f1a2b3c4d5e6f7a8b9c0e",
+  "sku": "SP-REF-SAM-001",
+  "slug": "compressor-relay",
+  "name": "Compressor relay",
+  "description": "OEM relay",
+  "imageUrls": ["https://cdn.example/part.jpg"],
+  "applianceTypeSlug": "refrigerator",
+  "brandSlug": "samsung",
+  "partCategory": "Cooling &amp; Compressor",
+  "partNumber": "RHGS45EDSVA",
+  "price": 125000,
+  "mrp": 150000,
+  "stock": 4,
+  "isInStock": true,
+  "warrantyMonths": 12,
+  "isActive": true
+}</pre>
+<p>Use _id as productId when adding to cart. 404 if SKU is missing or inactive.</p>
+
+<h2>7. Page 5 — Appliance detail and installation</h2>
+
+<h3>GET /appliances/:slug</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>Detail for any category: AC, refrigerator, washing machine, microwave.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Path: slug = samsung-fridge
+No body.</pre>
+<h4>Response</h4>
+<pre>{
+  "status": "success",
+  "product": {
+    "id": "665f1a2b3c4d5e6f7a8b9c0d",
+    "slug": "samsung-fridge",
+    "name": "Samsung 265L Fridge",
+    "brand": "Samsung",
+    "modelNumber": "RT28",
+    "sku": "FR-1",
+    "price": 28990,
+    "originalPrice": 32990,
+    "images": ["https://cdn.example/fridge.jpg"],
+    "description": "",
+    "descriptionSections": [],
+    "highlights": [],
+    "whatsInBox": [],
+    "inStock": true,
+    "installationIncluded": false,
+    "productWarrantyYears": 1,
+    "compressorWarrantyYears": 0,
+    "applianceCategory": "refrigerator",
+    "isBestseller": true,
+    "rating": 4.5,
+    "reviewCount": 18
+  }
+}</pre>
+<p>Legacy AC detail still works: GET /appliances/ac/:slug</p>
+
+<h3>GET /installation/options</h3>
+<table>
+  <tr><th>Auth</th><td>Public</td></tr>
+  <tr><th>Purpose</th><td>Installation options and charges for a product and pincode.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Query:
+productId=665f1a2b3c4d5e6f7a8b9c0d
+pincode=800001
+productType=appliance     optional: appliance | part</pre>
+<h4>Response</h4>
+<pre>{
+  "productId": "665f1a2b3c4d5e6f7a8b9c0d",
+  "productType": "appliance",
+  "name": "Samsung 265L Fridge",
+  "pincode": "800001",
+  "serviceable": true,
+  "deliveryCharge": 0,
+  "options": [
+    {
+      "id": "standard",
+      "label": "Standard installation",
+      "charge": 499,
+      "included": false
+    },
+    {
+      "id": "skip",
+      "label": "I will arrange installation",
+      "charge": 0,
+      "included": false
+    }
+  ]
+}</pre>
+<p>If installation is included on the product, options is a single included row with charge 0. Default charges: AC 1500, refrigerator 499, washing-machine 499, microwave 299. Hard spare parts can return professional at 499.</p>
+
+<h2>8. Page 6 — Cart</h2>
+<p>All cart routes need Bearer JWT.</p>
+<p>Cart response shape (shared by GET / add / patch / delete / coupon):</p>
+<pre>{
+  "cartId": "665fcart...",
+  "items": [
+    {
+      "itemId": "665fitem...",
+      "productType": "appliance",
+      "productId": "665f1a2b3c4d5e6f7a8b9c0d",
+      "sku": "FR-1",
+      "slug": "samsung-fridge",
+      "name": "Samsung 265L Fridge",
+      "image": "https://cdn.example/fridge.jpg",
+      "unitPrice": 28990,
+      "originalPrice": 32990,
+      "quantity": 1,
+      "installationOptionId": "standard",
+      "installationCharge": 499,
+      "lineTotal": 28990,
+      "installationTotal": 499
+    }
+  ],
+  "coupons": [
+    { "code": "SHOP10", "title": "Shop 10", "discountText": "10% OFF" }
+  ],
+  "itemsSubtotal": 28990,
+  "installationCharge": 499,
+  "discount": 2899,
+  "total": 26590
+}</pre>
+
+<h3>GET /cart</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Retrieve the signed-in user's cart.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Header only. No body.</pre>
+<h4>Response</h4>
+<pre>Cart object above. Empty cart:
+
+{
+  "cartId": "665fcart...",
+  "items": [],
+  "coupons": [],
+  "itemsSubtotal": 0,
+  "installationCharge": 0,
+  "discount": 0,
+  "total": 0
+}</pre>
+
+<h3>POST /cart/items</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Add an appliance or spare part. Same product + installation option increments quantity.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "productType": "appliance",
+  "productId": "665f1a2b3c4d5e6f7a8b9c0d",
+  "quantity": 1,
+  "installationOptionId": "standard",
+  "pincode": "800001"
+}</pre>
+<p>productType is appliance or part. productId is the catalog Mongo id. quantity defaults to 1. installationOptionId and pincode are optional.</p>
+<h4>Response</h4>
+<pre>Updated cart object.</pre>
+
+<h3>PATCH /cart/items/:itemId</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Update quantity or installation choice.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "quantity": 2,
+  "installationOptionId": "skip"
+}</pre>
+<h4>Response</h4>
+<pre>Updated cart object.</pre>
+
+<h3>DELETE /cart/items/:itemId</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Remove one line.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Path: itemId
+No body.</pre>
+<h4>Response</h4>
+<pre>Updated cart object.</pre>
+
+<h3>DELETE /cart/items</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Clear the cart and coupons.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>No body.</pre>
+<h4>Response</h4>
+<pre>Empty cart object.</pre>
+
+<h3>POST /cart/coupons</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Apply a live shop/all offer coupon.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "code": "SHOP10"
+}</pre>
+<h4>Response</h4>
+<pre>Updated cart object with coupons[] and discount set.
+404 if the code is not a live SHOP or ALL offer.</pre>
+
+<h3>DELETE /cart/coupons/:code</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Remove an applied coupon.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Path: code = SHOP10
+No body.</pre>
+<h4>Response</h4>
+<pre>Updated cart object.</pre>
+
+<h2>9. Page 7 — Checkout and payment</h2>
+
+<h3>POST /checkout/quote</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Validate stock, live prices, delivery, installation and discounts. Does not create an order.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "pincode": "800001"
+}</pre>
+<h4>Response</h4>
+<pre>{
+  "pincode": "800001",
+  "serviceable": true,
+  "items": [
+    {
+      "itemId": "665fitem...",
+      "productType": "appliance",
+      "productId": "665f1a2b3c4d5e6f7a8b9c0d",
+      "slug": "samsung-fridge",
+      "name": "Samsung 265L Fridge",
+      "quantity": 1,
+      "unitPrice": 28990,
+      "originalPrice": 32990,
+      "installationOptionId": "standard",
+      "installationCharge": 499,
+      "lineTotal": 28990,
+      "installationTotal": 499,
+      "inStock": true
+    }
+  ],
+  "coupons": [
+    { "code": "SHOP10", "title": "Shop 10", "discountText": "10% OFF" }
+  ],
+  "itemsSubtotal": 28990,
+  "installationCharge": 499,
+  "deliveryCharge": 0,
+  "discount": 2899,
+  "total": 26590,
+  "issues": []
+}</pre>
+<p>If the pincode is not serviceable, serviceable is false and issues includes "Delivery is not available for this pincode". Quote does not throw for that. Checkout does.</p>
+
+<h3>POST /checkout</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Create order(s) from the cart. COD or ONLINE. Clears the cart on success.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "pincode": "800001",
+  "paymentMethod": "COD",
+  "contactData": {
+    "name": "Asha Rao",
+    "phone": "9876543210",
+    "email": "asha@example.com",
+    "address": "12 MG Road, Patna 800001",
+    "notes": "Call before delivery"
+  }
+}</pre>
+<p>paymentMethod is COD or ONLINE.</p>
+<h4>Response</h4>
+<pre>{
+  "paymentMethod": "COD",
+  "paymentStatus": "UNPAID",
+  "payment": {
+    "method": "COD",
+    "status": "UNPAID"
+  },
+  "totals": {
+    "itemsSubtotal": 28990,
+    "installationCharge": 499,
+    "deliveryCharge": 0,
+    "discount": 2899,
+    "total": 26590
+  },
+  "orders": [
+    {
+      "_id": "665forder...",
+      "orderType": "appliance",
+      "status": "PENDING",
+      "paymentStatus": "UNPAID",
+      "paymentMethod": "COD",
+      "contactData": {
+        "name": "Asha Rao",
+        "phone": "9876543210",
+        "address": "12 MG Road, Patna 800001"
+      },
+      "applianceItem": {
+        "slug": "samsung-fridge",
+        "name": "Samsung 265L Fridge",
+        "price": 28990,
+        "quantity": 1
+      },
+      "invoiceData": {
+        "lineItems": [
+          { "description": "Samsung 265L Fridge", "quantity": 1, "unitPrice": 28990, "amount": 28990 },
+          { "description": "Installation · Samsung 265L Fridge", "quantity": 1, "unitPrice": 499, "amount": 499 }
+        ],
+        "subtotal": 29489,
+        "taxPercent": 0,
+        "taxAmount": 0,
+        "totalAmount": 29489
+      }
+    }
+  ]
+}</pre>
+<p>A mixed cart creates one part order plus one appliance order per appliance. ONLINE currently records paymentMethod ONLINE and leaves paymentStatus UNPAID until a payment gateway is connected. Response payment.status is PENDING for ONLINE.</p>
+
+<h2>10. Page 8 — My orders</h2>
+
+<h3>GET /user/part-orders</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>List the caller's shop orders, newest first.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Header only. No body.</pre>
+<h4>Response</h4>
+<pre>[
+  {
+    "_id": "665forder...",
+    "orderType": "part",
+    "status": "PENDING",
+    "paymentStatus": "UNPAID",
+    "items": [
+      {
+        "partId": { "name": "Compressor relay", "sku": "SP-1", "price": 125000 },
+        "quantity": 1,
+        "warrantyMonthsAtPurchase": 12
+      }
+    ],
+    "contactData": {
+      "name": "Asha Rao",
+      "phone": "9876543210",
+      "address": "12 MG Road, Patna 800001"
+    }
+  }
+]</pre>
+
+<h3>GET /user/part-orders/:id</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT, owner only</td></tr>
+  <tr><th>Purpose</th><td>Customer order detail.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Path: id = 665forder...
+No body.</pre>
+<h4>Response</h4>
+<pre>{
+  "_id": "665forder...",
+  "orderType": "appliance",
+  "status": "PENDING",
+  "paymentStatus": "UNPAID",
+  "paymentMethod": "COD",
+  "contactData": { "name": "Asha Rao", "phone": "9876543210", "address": "12 MG Road, Patna" },
+  "applianceItem": {
+    "slug": "samsung-fridge",
+    "name": "Samsung 265L Fridge",
+    "price": 28990,
+    "quantity": 1
+  },
+  "items": [],
+  "invoiceData": {
+    "lineItems": [
+      { "description": "Samsung 265L Fridge", "quantity": 1, "unitPrice": 28990, "amount": 28990 }
+    ],
+    "subtotal": 28990,
+    "totalAmount": 28990
+  },
+  "courierTracking": null,
+  "createdAt": "2026-10-21T10:00:00.000Z"
+}</pre>
+<p>404 if the order is not the caller's.</p>
+
+<h3>GET /user/part-orders/:id/tracking</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT, owner only</td></tr>
+  <tr><th>Purpose</th><td>Customer tracking details.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Path: id
+No body.</pre>
+<h4>Response</h4>
+<pre>{
+  "orderId": "665forder...",
+  "orderType": "appliance",
+  "status": "DISPATCHED",
+  "paymentStatus": "PAID",
+  "paymentMethod": "COD",
+  "courierTracking": {
+    "courierName": "Delhivery",
+    "trackingNumber": "DL123456789"
+  },
+  "cancelledAt": null,
+  "createdAt": "2026-10-21T10:00:00.000Z",
+  "updatedAt": "2026-10-21T12:00:00.000Z"
+}</pre>
+<p>courierTracking is null until admin saves tracking. Saving tracking sets status to DISPATCHED.</p>
+
+<h3>POST /user/part-orders/:id/cancel</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT, owner only</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "reason": "Ordered the wrong model"
+}</pre>
+<h4>Response</h4>
+<pre>{
+  "status": "CANCELLED",
+  "cancelledBy": "CUSTOMER",
+  "cancellationReason": "Ordered the wrong model",
+  "cancelledAt": "2026-10-21T12:30:00.000Z"
+}</pre>
+<p>Allowed from PENDING or PROCESSING only. Reason required, max 500 characters.</p>
+
+<h2>11. Order status</h2>
+<table>
+  <tr><th>Status</th><th>Meaning</th></tr>
+  <tr><td>PENDING</td><td>Created, not yet processed</td></tr>
+  <tr><td>PROCESSING</td><td>Accepted / marked paid from PENDING</td></tr>
+  <tr><td>DISPATCHED</td><td>Tracking saved</td></tr>
+  <tr><td>DELIVERED</td><td>Complete</td></tr>
+  <tr><td>CANCELLED</td><td>Customer or admin cancel</td></tr>
+  <tr><td>RETURNED</td><td>Returned</td></tr>
+</table>
+<p>paymentStatus: UNPAID | PAID. paymentMethod: COD | ONLINE.</p>
+
+<h2>12. Direct enquiry (no cart, still supported)</h2>
+
+<h3>POST /part-orders</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT</td></tr>
+  <tr><th>Purpose</th><td>Create a spare-part or appliance enquiry without using cart.</td></tr>
+</table>
+<h4>Request — spare part</h4>
+<pre>{
+  "orderType": "part",
+  "contactData": {
+    "name": "Asha Rao",
+    "phone": "9876543210",
+    "address": "12 MG Road, Patna"
+  },
+  "items": [
+    { "partId": "665f1a2b3c4d5e6f7a8b9c0e", "quantity": 1 }
+  ]
+}</pre>
+<h4>Request — appliance</h4>
+<pre>{
+  "orderType": "appliance",
+  "contactData": {
+    "name": "Asha Rao",
+    "phone": "9876543210",
+    "address": "12 MG Road, Patna"
+  },
+  "applianceItem": {
+    "applianceId": "665f1a2b3c4d5e6f7a8b9c0d",
+    "slug": "samsung-fridge",
+    "name": "Samsung 265L Fridge",
+    "brand": "Samsung",
+    "modelNumber": "RT28",
+    "price": 28990,
+    "quantity": 1
+  }
+}</pre>
+<h4>Response</h4>
+<pre>{
+  "_id": "665forder...",
+  "orderType": "part",
+  "status": "PENDING",
+  "paymentStatus": "UNPAID",
+  "items": [
+    { "partId": "665f1a2b3c4d5e6f7a8b9c0e", "quantity": 1, "warrantyMonthsAtPurchase": 12 }
+  ]
+}</pre>
+
+<h2>13. Part help (part not in catalog)</h2>
+
+<h3>POST /shop/part-help</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT, role CUSTOMER</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "applianceType": "Refrigerator",
+  "applianceBrand": "Samsung",
+  "applianceModel": "RT28",
+  "partDescription": "Door gasket torn on the freezer",
+  "quantity": 1,
+  "contactData": {
+    "name": "Asha Rao",
+    "phone": "9876543210",
+    "address": "12 MG Road, Patna"
+  }
+}</pre>
+<h4>Response</h4>
+<pre>{
+  "_id": "665fhelp...",
+  "status": "PENDING",
+  "quantity": 1,
+  "applianceType": "Refrigerator",
+  "partDescription": "Door gasket torn on the freezer"
+}</pre>
+
+<h3>PUT /admin/shop-part-help/:id/quote</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT, role ADMIN</td></tr>
+</table>
+<h4>Request</h4>
+<pre>{
+  "isAvailable": true,
+  "suggestedSparePartId": "665f1a2b3c4d5e6f7a8b9c0e",
+  "quotedPrice": 850,
+  "adminResponse": "Gasket is in stock."
+}</pre>
+<h4>Response</h4>
+<pre>{
+  "_id": "665fhelp...",
+  "status": "QUOTED",
+  "isAvailable": true,
+  "quotedPrice": 850,
+  "adminResponse": "Gasket is in stock."
+}</pre>
+<p>quotedPrice is rupees.</p>
+
+<h3>POST /user/part-help/:id/accept</h3>
+<table>
+  <tr><th>Auth</th><td>Bearer JWT, role CUSTOMER</td></tr>
+  <tr><th>Purpose</th><td>Creates a part order from the quote. Help request becomes CONVERTED.</td></tr>
+</table>
+<h4>Request</h4>
+<pre>Path: id
+No body.</pre>
+<h4>Response</h4>
+<pre>PartOrder document (not the help request).</pre>
+
+<p>Customer also has GET /user/part-help, GET /user/part-help/:id, POST /user/part-help/:id/decline, POST /user/part-help/:id/cancel.</p>
+<p>Help statuses: PENDING, QUOTED, ACCEPTED, DECLINED, CANCELLED, CONVERTED.</p>
+
+<h2>14. Admin order ops</h2>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Body / notes</th></tr>
+  <tr><td>GET</td><td>/admin/part-orders</td><td>Query page, limit, status, orderType, cancelledBy</td></tr>
+  <tr><td>GET</td><td>/admin/part-orders/:id</td><td>One order</td></tr>
+  <tr><td>PUT</td><td>/admin/part-orders/:id/bill</td><td>{ "lineItems": [{ "description", "quantity", "unitPrice" }], "taxPercent": 0, "notes": "" }</td></tr>
+  <tr><td>PUT</td><td>/admin/part-orders/:id/mark-paid</td><td>No body. Sets PAID, may move PENDING to PROCESSING</td></tr>
+  <tr><td>PUT</td><td>/admin/part-orders/:id/status</td><td>{ "status": "PROCESSING", "reason": "..." } reason required for CANCELLED</td></tr>
+  <tr><td>PUT</td><td>/admin/part-orders/:id/tracking</td><td>{ "courierName": "Delhivery", "trackingNumber": "DL123" } sets DISPATCHED</td></tr>
+</table>
+
+<h2>15. End-to-end add flow</h2>
+<p>Browse shop home or catalog (public) → sign in with quick-login if needed → add to cart → GET installation/options for pincode → PATCH cart item with installationOptionId → POST cart/coupons → POST checkout/quote → POST checkout → GET user/part-orders/:id and tracking.</p>
+<p>Alternate: POST /part-orders enquiry, or POST /shop/part-help then admin quote then customer accept.</p>
+
+</body>
+</html>

@@ -1,11 +1,14 @@
 import { Controller, Get, Header, Res } from '@nestjs/common';
+import { ApiProduces, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { buildEmailPreviewPage } from './templates/bill-email.template';
 import { buildInvoicePdf } from './invoice-pdf';
 
+@ApiTags('Internal')
 @Controller('api/v1/email-preview')
 export class EmailPreviewController {
   @Get('bill')
+  @ApiProduces('application/pdf')
   async bill(@Res() res: Response) {
     const pdf = await buildInvoicePdf({
       invoiceNumber: 'FX-18C8FE',

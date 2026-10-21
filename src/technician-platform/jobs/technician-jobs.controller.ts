@@ -16,7 +16,20 @@ import { JobSheetService } from '../job-sheet/job-sheet.service';
 import { TechnicianGuard } from '../common/technician.guard';
 import { RequireActiveTechnician } from '../common/require-active.decorator';
 import { CurrentTechnician } from '../common/decorators';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../../common/swagger';
+import {
+  ArrivalDto,
+  JobStatusDto,
+  OtpBodyDto,
+  PaymentMethodDto,
+  ReasonDto,
+  SignatureUrlDto,
+} from '../../common/body.dto';
+import { JobCompletionBodyDto } from '../dtos/technician-api.dto';
 
+@ApiTags('Technician jobs')
+@ApiBearerAuth(JWT_AUTH)
 @Controller('v1/jobs')
 @UseGuards(AuthGuard('jwt'), TechnicianGuard)
 @RequireActiveTechnician()
@@ -28,6 +41,7 @@ export class TechnicianJobsController {
   ) {}
 
   @Get()
+  @ApiQuery({ name: 'filter', required: false })
   list(
     @CurrentTechnician() technician: any,
     @Query('filter') filter?: string,
@@ -113,34 +127,36 @@ export class TechnicianJobsController {
   }
 
   @Post(':jobId/reject')
+  @ApiOperation({ summary: 'Reject an assigned job' })
   reject(
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
-    @Body('reason') reason: string,
+    @Body() body: ReasonDto,
   ) {
-    return this.jobsService.rejectJob(technician._id.toString(), jobId, reason);
+    return this.jobsService.rejectJob(technician._id.toString(), jobId, body.reason);
   }
 
   @Post(':jobId/status')
+  @ApiOperation({ summary: 'Update job status' })
   updateStatus(
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
-    @Body('status') status: string,
-    @Body('fixxerCode') fixxerCode?: string,
+    @Body() body: JobStatusDto,
   ) {
     return this.jobsService.updateStatus(
       technician._id.toString(),
       jobId,
-      status,
-      fixxerCode,
+      body.status,
+      body.fixxerCode,
     );
   }
 
   @Post(':jobId/arrival')
+  @ApiOperation({ summary: 'Mark technician arrival with GPS' })
   arrival(
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
-    @Body() body: { lat: number; lng: number },
+    @Body() body: ArrivalDto,
   ) {
     return this.jobsService.markArrival(
       technician._id.toString(),
@@ -159,21 +175,21 @@ export class TechnicianJobsController {
   verifyOtp(
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
-    @Body('otp') otp: string,
+    @Body() body: OtpBodyDto,
   ) {
-    return this.completionService.verifyOtp(jobId, technician._id.toString(), otp);
+    return this.completionService.verifyOtp(jobId, technician._id.toString(), body.otp);
   }
 
   @Post(':jobId/customer-signature')
   signature(
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
-    @Body('signatureUrl') signatureUrl: string,
+    @Body() body: SignatureUrlDto,
   ) {
     return this.completionService.uploadSignature(
       jobId,
       technician._id.toString(),
-      signatureUrl,
+      body.signatureUrl,
     );
   }
 
@@ -181,18 +197,23 @@ export class TechnicianJobsController {
   completion(
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
-    @Body() body: { labourCharge: number; partsCharge: number; remarks: string; images: string[] },
+    @Body() body: JobCompletionBodyDto,
   ) {
-    return this.completionService.submitCompletion(jobId, technician._id.toString(), body);
+    return this.completionService.submitCompletion(jobId, technician._id.toString(), {
+      labourCharge: body.labourCharge,
+      partsCharge: body.partsCharge,
+      remarks: body.remarks || '',
+      images: body.images || [],
+    });
   }
 
   @Post(':jobId/payment')
   payment(
     @CurrentTechnician() technician: any,
     @Param('jobId') jobId: string,
-    @Body('method') method: 'CASH' | 'UPI' | 'CARD',
+    @Body() body: PaymentMethodDto,
   ) {
-    return this.completionService.recordPayment(jobId, technician._id.toString(), method);
+    return this.completionService.recordPayment(jobId, technician._id.toString(), body.method);
   }
 
   @Post(':jobId/close')

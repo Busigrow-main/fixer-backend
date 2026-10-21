@@ -18,7 +18,11 @@ import { CreateShopPartHelpDto } from './dtos/create-shop-part-help.dto';
 import { QuoteShopPartHelpDto } from './dtos/quote-shop-part-help.dto';
 import { ShopPartHelpQueryDto } from './dtos/shop-part-help-query.dto';
 import { ShopPartHelpService } from './shop-part-help.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../common/swagger';
 
+@ApiTags('Part help')
+@ApiBearerAuth(JWT_AUTH)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('CUSTOMER')
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
@@ -27,6 +31,7 @@ export class ShopPartHelpController {
   constructor(private readonly shopPartHelpService: ShopPartHelpService) {}
 
   @Post('shop/part-help')
+  @ApiOperation({ summary: 'Request help for a part not in catalog' })
   create(@Request() req: any, @Body() dto: CreateShopPartHelpDto) {
     return this.shopPartHelpService.create(dto, req.user.userId);
   }
@@ -77,6 +82,7 @@ export class ShopPartHelpController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
   @Put('admin/shop-part-help/:id/quote')
+  @ApiOperation({ summary: 'Admin quote a part-help request' })
   quote(@Param('id') id: string, @Body() dto: QuoteShopPartHelpDto) {
     return this.shopPartHelpService.quote(id, dto);
   }

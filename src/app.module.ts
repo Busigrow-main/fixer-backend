@@ -19,6 +19,7 @@ import { OffersModule } from './offers/offers.module';
 import { ServiceablePincodesModule } from './serviceable-pincodes/serviceable-pincodes.module';
 import { LeadsModule } from './leads/leads.module';
 import { ShopPartHelpModule } from './shop-part-help/shop-part-help.module';
+import { ShopModule } from './shop/shop.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ShopPartHelpModule } from './shop-part-help/shop-part-help.module';
     ServiceablePincodesModule,
     LeadsModule,
     ShopPartHelpModule,
+    ShopModule,
   ],
   controllers: [AppController],
   providers: [AppService],

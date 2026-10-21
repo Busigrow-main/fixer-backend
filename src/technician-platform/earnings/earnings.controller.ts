@@ -4,7 +4,11 @@ import { EarningsService } from './earnings.service';
 import { TechnicianGuard } from '../common/technician.guard';
 import { RequireActiveTechnician } from '../common/require-active.decorator';
 import { CurrentTechnician } from '../common/decorators';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../../common/swagger';
 
+@ApiTags('Technician earnings')
+@ApiBearerAuth(JWT_AUTH)
 @Controller('v1/earnings')
 @UseGuards(AuthGuard('jwt'), TechnicianGuard)
 @RequireActiveTechnician()
@@ -12,6 +16,7 @@ export class EarningsController {
   constructor(private readonly earningsService: EarningsService) {}
 
   @Get()
+  @ApiQuery({ name: 'period', required: false, enum: ['daily', 'weekly', 'monthly'] })
   summary(
     @CurrentTechnician() technician: any,
     @Query('period') period?: 'daily' | 'weekly' | 'monthly',

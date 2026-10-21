@@ -17,7 +17,11 @@ import { TechniciansService } from './technicians.service';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RejectApplicationDto } from '../technician-platform/dtos/reject-application.dto';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../common/swagger';
 
+@ApiTags('Admin technicians')
+@ApiBearerAuth(JWT_AUTH)
 @Controller('api/v1/admin/technicians')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('ADMIN')

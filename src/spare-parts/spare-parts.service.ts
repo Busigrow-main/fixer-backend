@@ -524,4 +524,14 @@ export class SparePartsService {
   async exportAll(): Promise<SparePartDocument[]> {
     return this.sparePartModel.find().lean().exec();
   }
+
+  async listForShop(limit = 8) {
+    const safeLimit = Math.min(24, Math.max(1, limit));
+    return this.sparePartModel
+      .find({ isActive: true })
+      .sort({ isFeatured: -1, soldCount: -1, createdAt: -1 })
+      .limit(safeLimit)
+      .lean()
+      .exec();
+  }
 }

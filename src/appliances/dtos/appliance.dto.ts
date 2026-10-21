@@ -198,6 +198,18 @@ export class FilterApplianceDto {
   @IsOptional() @IsNumber()  perPage?: number;
 }
 
+export class CatalogApplianceQueryDto {
+  @IsOptional() @IsString() type?: string;
+  @IsOptional() @IsString() brand?: string;
+  @IsOptional() @IsEnum(['price_asc', 'price_desc', 'rating_desc', 'newest']) sort?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() page?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() limit?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() perPage?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() minPrice?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() maxPrice?: number;
+  @IsOptional() @IsBoolean() inStock?: boolean;
+}
+
 // ── Response ────────────────────────────────────────────────────
 export class ApplianceResponseDto {
   status: string;

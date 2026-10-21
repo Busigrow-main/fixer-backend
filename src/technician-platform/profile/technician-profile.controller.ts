@@ -3,7 +3,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { TechnicianProfileService } from './technician-profile.service';
 import { TechnicianGuard } from '../common/technician.guard';
 import { CurrentTechnician } from '../common/decorators';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../../common/swagger';
+import { AvailabilityDto, PhotoUrlDto } from '../../common/body.dto';
 
+@ApiTags('Technician profile')
+@ApiBearerAuth(JWT_AUTH)
 @Controller('v1/profile')
 @UseGuards(AuthGuard('jwt'), TechnicianGuard)
 export class TechnicianProfileController {
@@ -22,16 +27,16 @@ export class TechnicianProfileController {
   @Post('profile-picture')
   profilePicture(
     @CurrentTechnician() technician: any,
-    @Body('photoUrl') photoUrl: string,
+    @Body() body: PhotoUrlDto,
   ) {
-    return this.profileService.updateProfilePicture(technician._id.toString(), photoUrl);
+    return this.profileService.updateProfilePicture(technician._id.toString(), body.photoUrl);
   }
 
   @Post('availability')
   availability(
     @CurrentTechnician() technician: any,
-    @Body('status') status: 'AVAILABLE' | 'UNAVAILABLE' | 'ON_JOB',
+    @Body() body: AvailabilityDto,
   ) {
-    return this.profileService.updateAvailability(technician._id.toString(), status);
+    return this.profileService.updateAvailability(technician._id.toString(), body.status);
   }
 }

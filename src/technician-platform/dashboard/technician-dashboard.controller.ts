@@ -4,7 +4,11 @@ import { TechnicianDashboardService } from './technician-dashboard.service';
 import { TechnicianGuard } from '../common/technician.guard';
 import { RequireActiveTechnician } from '../common/require-active.decorator';
 import { CurrentTechnician } from '../common/decorators';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../../common/swagger';
 
+@ApiTags('Technician dashboard')
+@ApiBearerAuth(JWT_AUTH)
 @Controller('v1/dashboard')
 @UseGuards(AuthGuard('jwt'), TechnicianGuard)
 @RequireActiveTechnician()

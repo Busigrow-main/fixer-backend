@@ -90,6 +90,30 @@ export class OffersService {
     };
   }
 
+  async findLiveShopCoupon(code: string) {
+    const couponCode = String(code || '').trim().toUpperCase();
+    if (!couponCode) {
+      throw new BadRequestException('Coupon code is required');
+    }
+    const now = new Date();
+    const offer = await this.offerModel
+      .findOne({
+        couponCode,
+        isActive: true,
+        audience: { $in: ['ALL', 'SHOP'] },
+        $and: [
+          { $or: [{ startsAt: null }, { startsAt: { $lte: now } }] },
+          { $or: [{ endsAt: null }, { endsAt: { $gt: now } }] },
+        ],
+      })
+      .lean()
+      .exec();
+    if (!offer) {
+      throw new NotFoundException('Coupon is not valid');
+    }
+    return offer;
+  }
+
   async findLive() {
     const now = new Date();
     return this.offerModel

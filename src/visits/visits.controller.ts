@@ -1,11 +1,14 @@
 import { Controller, Get, Post, Body, Put, Param } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { VisitsService } from './visits.service';
 
+@ApiTags('Admin visits')
 @Controller('api/v1/admin/visits')
 export class VisitsController {
   constructor(private readonly visitsService: VisitsService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a visit' })
   create(@Body() createData: any) {
     return this.visitsService.create(createData);
   }

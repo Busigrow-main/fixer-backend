@@ -26,12 +26,32 @@ import { UpdateOrderBillDto } from '../part-orders/dtos/update-order-bill.dto';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
 import { CreateServiceablePincodeDto } from '../serviceable-pincodes/dto/create-serviceable-pincode.dto';
 import { UpdateServiceablePincodeDto } from '../serviceable-pincodes/dto/update-serviceable-pincode.dto';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
+import { JWT_AUTH } from '../common/swagger';
+import {
+  AssignTechnicianDto,
+  BookingStatusDto,
+  FixxerCodeDto,
+  NoteDto,
+  RoleBodyDto,
+  StatusReasonDto,
+  TrackingDto,
+} from '../common/body.dto';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const csv = require('csv-parser');
 import * as xlsx from 'xlsx';
 import { Readable } from 'stream';
 
+@ApiTags('Admin')
+@ApiBearerAuth(JWT_AUTH)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('ADMIN')
 @Controller('api/v1/admin')
@@ -69,17 +89,18 @@ export class AdminController {
   }
 
   @Put('users/:id/role')
+  @ApiOperation({ summary: 'Set a user role to CUSTOMER or ADMIN' })
   async updateUserRole(
     @Param('id') id: string,
-    @Body('role') role: string,
+    @Body() body: RoleBodyDto,
   ) {
-    if (!['CUSTOMER', 'ADMIN'].includes(role)) {
+    if (!['CUSTOMER', 'ADMIN'].includes(body.role)) {
       throw new BadRequestException(
         'Invalid role. Must be CUSTOMER or ADMIN',
       );
     }
 
-    return this.adminService.updateUserRole(id, role);
+    return this.adminService.updateUserRole(id, body.role);
   }
 
   // ─── Bookings (paginated) ─────────────────────────────────
@@ -115,6 +136,8 @@ export class AdminController {
 
   // ─── Bookings Export ──────────────────────────────────────
   @Get('bookings/export')
+  @ApiProduces('text/csv')
+  @ApiOperation({ summary: 'Export bookings as CSV' })
   async exportBookings(@Res() res: Response) {
     const { data: bookings } =
       await this.bookingsService.findAllForAdmin(1, 100000);
@@ -153,37 +176,38 @@ export class AdminController {
   }
 
   @Put('bookings/:id/status')
+  @ApiOperation({ summary: 'Update booking status' })
   async updateBookingStatus(
     @Param('id') id: string,
-    @Body('status') status: string,
-    @Body('reason') reason?: string,
-    @Body('fixxerCode') fixxerCode?: string,
+    @Body() body: BookingStatusDto,
   ) {
     return this.bookingsService.updateStatus(
       id,
-      status,
-      reason,
-      fixxerCode,
+      body.status,
+      body.reason,
+      body.fixxerCode,
     );
   }
 
   @Put('bookings/:id/assign')
+  @ApiOperation({ summary: 'Assign a technician to a booking' })
   async assignTechnician(
     @Param('id') id: string,
-    @Body('technicianId') technicianId: string,
+    @Body() body: AssignTechnicianDto,
   ) {
     return this.bookingsService.assignTechnician(
       id,
-      technicianId,
+      body.technicianId,
     );
   }
 
   @Post('bookings/:id/notes')
+  @ApiOperation({ summary: 'Add an admin note to a booking' })
   async addBookingNote(
     @Param('id') id: string,
-    @Body('note') note: string,
+    @Body() body: NoteDto,
   ) {
-    return this.bookingsService.addAdminNote(id, note);
+    return this.bookingsService.addAdminNote(id, body.note);
   }
 
   @Put('bookings/:id/job-details')
@@ -231,11 +255,12 @@ export class AdminController {
   }
 
   @Put('bookings/:id/finalize-invoice')
+  @ApiOperation({ summary: 'Finalize a booking invoice' })
   async finalizeInvoice(
     @Param('id') id: string,
-    @Body('fixxerCode') fixxerCode?: string,
+    @Body() body: FixxerCodeDto,
   ) {
-    return this.bookingsService.finalizeInvoice(id, fixxerCode);
+    return this.bookingsService.finalizeInvoice(id, body?.fixxerCode);
   }
 
   @Get('bookings/:id/warranties')
@@ -320,26 +345,24 @@ export class AdminController {
   }
 
   @Put('part-orders/:id/status')
+  @ApiOperation({ summary: 'Update shop order status' })
   async updateOrderStatus(
     @Param('id') id: string,
-    @Body('status') status: string,
-    @Body('reason') reason?: string,
+    @Body() body: StatusReasonDto,
   ) {
     return this.partOrdersService.updateStatus(
       id,
-      status,
-      reason,
+      body.status,
+      body.reason,
     );
   }
 
   @Put('part-orders/:id/tracking')
+  @ApiOperation({ summary: 'Attach courier tracking (sets DISPATCHED)' })
   async attachTracking(
     @Param('id') id: string,
     @Body()
-    trackingData: {
-      courierName: string;
-      trackingNumber: string;
-    },
+    trackingData: TrackingDto,
   ) {
     return this.partOrdersService.attachTracking(
       id,
@@ -349,6 +372,16 @@ export class AdminController {
 
   // ─── Spare Parts Bulk Upload ──────────────────────────────
   @Post('spare-parts/bulk-upload')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Bulk upload spare parts from CSV or XLSX' })
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 50 * 1024 * 1024 },
@@ -434,6 +467,8 @@ export class AdminController {
 
   // ─── Spare Parts Export ───────────────────────────────────
   @Get('spare-parts/export')
+  @ApiProduces('text/csv')
+  @ApiOperation({ summary: 'Export spare parts as CSV' })
   async exportSpareParts(@Res() res: Response) {
     const parts =
       await this.sparePartsService.exportAll();
@@ -492,6 +527,8 @@ export class AdminController {
 
   // ─── Template Downloads ───────────────────────────────────
   @Get('spare-parts/template')
+  @ApiProduces('text/csv')
+  @ApiOperation({ summary: 'Download spare-parts CSV template' })
   async downloadTemplate(@Res() res: Response) {
     const lines = [
       'partNumber,name,category,subCategory,price,stock,manufacturer,seller,description,warranty,delivery eta,highlights,compatible models,supports service,image',

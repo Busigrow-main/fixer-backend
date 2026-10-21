@@ -10,6 +10,8 @@ import { Appliance, ApplianceDocument } from '../appliances/schemas/appliance.sc
 export interface CreatePartOrderOptions {
   sourceHelpRequestId?: string;
   acceptedQuote?: { description: string; quantity: number; unitPrice: number };
+  paymentMethod?: 'COD' | 'ONLINE';
+  invoiceLines?: { description: string; quantity: number; unitPrice: number }[];
 }
 
 function computeInvoiceTotals(
@@ -112,6 +114,43 @@ export class PartOrdersService {
     return order;
   }
 
+  async findOneForUser(id: string, userId: string): Promise<PartOrder> {
+    const ownerId = Types.ObjectId.isValid(userId)
+      ? new Types.ObjectId(userId)
+      : userId;
+    const order = await this.partOrderModel
+      .findOne({
+        _id: id,
+        userId: Types.ObjectId.isValid(userId)
+          ? { $in: [ownerId, userId] }
+          : userId,
+      })
+      .populate('items.partId')
+      .exec();
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return order;
+  }
+
+  async findTrackingForUser(id: string, userId: string) {
+    const order = await this.findOneForUser(id, userId);
+    const doc = order as any;
+    return {
+      orderId: String(doc._id),
+      orderType: doc.orderType,
+      status: doc.status,
+      paymentStatus: doc.paymentStatus,
+      paymentMethod: doc.paymentMethod ?? null,
+      courierTracking: doc.courierTracking ?? null,
+      cancelledAt: doc.cancelledAt ?? null,
+      createdAt: doc.createdAt ?? null,
+      updatedAt: doc.updatedAt ?? null,
+    };
+  }
+
   async findBySourceHelpRequestId(sourceHelpRequestId: string): Promise<PartOrder | null> {
     if (!Types.ObjectId.isValid(sourceHelpRequestId)) return null;
     return this.partOrderModel
@@ -158,6 +197,8 @@ export class PartOrdersService {
         userId: Types.ObjectId.isValid(userId)
           ? new Types.ObjectId(userId)
           : userId,
+        paymentMethod: options.paymentMethod,
+        invoiceData: this.invoiceFromOptions(options),
       });
 
       return createdOrder.save();
@@ -190,20 +231,7 @@ export class PartOrdersService {
       };
     });
 
-    const invoiceData = options.acceptedQuote
-      ? (() => {
-          const line = options.acceptedQuote!;
-          const totals = computeInvoiceTotals([{ quantity: line.quantity, unitPrice: line.unitPrice }]);
-          return {
-            lineItems: [{ ...totals.lineItems[0], description: line.description }],
-            subtotal: totals.subtotal,
-            taxPercent: 0,
-            taxAmount: 0,
-            totalAmount: totals.totalAmount,
-            generatedAt: new Date(),
-          };
-        })()
-      : undefined;
+    const invoiceData = this.invoiceFromOptions(options);
 
     const createdOrder = new this.partOrderModel({
       orderType: 'part',
@@ -215,6 +243,7 @@ export class PartOrdersService {
       sourceHelpRequestId: options.sourceHelpRequestId
         ? new Types.ObjectId(options.sourceHelpRequestId)
         : undefined,
+      paymentMethod: options.paymentMethod,
       invoiceData,
     });
 
@@ -295,6 +324,35 @@ export class PartOrdersService {
     }
 
     return updatedOrder;
+  }
+
+  private invoiceFromOptions(options: CreatePartOrderOptions) {
+    const lines = options.invoiceLines?.length
+      ? options.invoiceLines
+      : options.acceptedQuote
+        ? [
+            {
+              description: options.acceptedQuote.description,
+              quantity: options.acceptedQuote.quantity,
+              unitPrice: options.acceptedQuote.unitPrice,
+            },
+          ]
+        : [];
+    if (!lines.length) return undefined;
+    const totals = computeInvoiceTotals(
+      lines.map((line) => ({ quantity: line.quantity, unitPrice: line.unitPrice })),
+    );
+    return {
+      lineItems: totals.lineItems.map((line, index) => ({
+        ...line,
+        description: lines[index].description,
+      })),
+      subtotal: totals.subtotal,
+      taxPercent: 0,
+      taxAmount: 0,
+      totalAmount: totals.totalAmount,
+      generatedAt: new Date(),
+    };
   }
 
   buildDefaultBillLines(

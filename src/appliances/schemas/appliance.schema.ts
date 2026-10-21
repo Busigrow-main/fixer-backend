@@ -124,22 +124,21 @@ export class Appliance {
   @Prop({ required: true })
   nlcPrice: number; // net landed cost (raw, for reference)
 
-  // ── Core Attributes ───────────────────────────────────────────
-  @Prop({ required: true, index: true })
-  capacityTon: number;
+  // ── Core Attributes (AC-specific fields are optional for other categories)
+  @Prop({ index: true })
+  capacityTon?: number;
 
-  @Prop({ required: true, index: true })
-  starRating: number; // 1–5 BEE
+  @Prop({ index: true })
+  starRating?: number; // 1–5 BEE, AC catalog
 
   @Prop({
-    required: true,
     enum: ['split', 'window', 'cassette', 'portable'],
     index: true,
   })
-  acType: string;
+  acType?: string;
 
-  @Prop({ required: true })
-  isInverter: boolean;
+  @Prop()
+  isInverter?: boolean;
 
   @Prop()
   roomSizeRecommendation: string; // e.g. "120–180 sq. ft."
@@ -192,7 +191,24 @@ export class Appliance {
   productWarrantyYears: number;
 
   @Prop({ required: true, index: true })
-  applianceCategory: string; // "ac"
+  applianceCategory: string; // ac | refrigerator | washing-machine | microwave
+
+  @Prop({ default: 0, min: 0 })
+  soldCount: number;
+
+  @Prop({ default: false, index: true })
+  isBestseller: boolean;
+
+  @Prop({
+    type: {
+      average: { type: Number, default: 0 },
+      count: { type: Number, default: 0 },
+    },
+  })
+  customerRating?: {
+    average: number;
+    count: number;
+  };
 
   @Prop({ default: true, index: true })
   isActive: boolean;

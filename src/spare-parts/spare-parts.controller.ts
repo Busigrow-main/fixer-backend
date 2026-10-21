@@ -1,9 +1,13 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SparePartsService } from './spare-parts.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { JWT_AUTH } from '../common/swagger';
+import { CreateSparePartDto, SparePartsQueryDto } from './dtos/spare-parts.dto';
 
+@ApiTags('Spare parts')
 @Controller('api/v1/spare-parts')
 export class SparePartsController {
   constructor(private readonly sparePartsService: SparePartsService) {}
@@ -70,7 +74,8 @@ export class SparePartsController {
 
   /** GET / — search/filter parts (supports ?q=, ?applianceType=, etc.) */
   @Get()
-  async findAll(@Query() query: any) {
+  @ApiOperation({ summary: 'Search and filter spare parts (price in paise)' })
+  async findAll(@Query() query: SparePartsQueryDto) {
     return this.sparePartsService.searchParts(query);
   }
 
@@ -92,28 +97,36 @@ export class SparePartsController {
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
+  @ApiBearerAuth(JWT_AUTH)
   @Post()
-  async create(@Body() createSparePartDto: any) {
+  @ApiOperation({ summary: 'Create a spare part (admin)' })
+  async create(@Body() createSparePartDto: CreateSparePartDto) {
     return this.sparePartsService.createPart(createSparePartDto);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
+  @ApiBearerAuth(JWT_AUTH)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() updateSparePartDto: any) {
+  @ApiOperation({ summary: 'Update a spare part (admin)' })
+  async update(@Param('id') id: string, @Body() updateSparePartDto: CreateSparePartDto) {
     return this.sparePartsService.updatePart(id, updateSparePartDto);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
+  @ApiBearerAuth(JWT_AUTH)
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a spare part (admin)' })
   async delete(@Param('id') id: string) {
     return this.sparePartsService.deletePart(id);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
+  @ApiBearerAuth(JWT_AUTH)
   @Post('refresh-tree')
+  @ApiOperation({ summary: 'Rebuild spare-part category tree (admin)' })
   async refreshTree() {
     await this.sparePartsService.refreshCategoryTree();
     return { success: true };
@@ -121,7 +134,9 @@ export class SparePartsController {
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
+  @ApiBearerAuth(JWT_AUTH)
   @Post('sync-search')
+  @ApiOperation({ summary: 'Sync spare parts to Elasticsearch (admin)' })
   async syncSearch() {
     const result = await this.sparePartsService.syncToElasticsearch();
     return { success: true, ...result };

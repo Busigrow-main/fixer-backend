@@ -13,18 +13,26 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OffersService } from './offers.service';
+import { JWT_AUTH } from '../common/swagger';
+import { ActiveBodyDto } from '../common/body.dto';
+import { CreateOfferDto } from './dtos/offer.dto';
 
+@ApiTags('Offers')
 @Controller('api/v1/offers')
 export class OffersController {
   constructor(private readonly offersService: OffersService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Live public offers' })
   async liveOffers() {
     return this.offersService.findLive();
   }
 }
 
+@ApiTags('Admin offers')
+@ApiBearerAuth(JWT_AUTH)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('ADMIN')
 @Controller('api/v1/admin/offers')
@@ -40,21 +48,24 @@ export class AdminOffersController {
   }
 
   @Post()
-  async create(@Body() body: any) {
-    return this.offersService.create(body);
+  @ApiOperation({ summary: 'Create an offer' })
+  async create(@Body() body: CreateOfferDto) {
+    return this.offersService.create(body as any);
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
-    return this.offersService.update(id, body);
+  @ApiOperation({ summary: 'Update an offer' })
+  async update(@Param('id') id: string, @Body() body: CreateOfferDto) {
+    return this.offersService.update(id, body as any);
   }
 
   @Patch(':id/active')
+  @ApiOperation({ summary: 'Activate or deactivate an offer' })
   async setActive(
     @Param('id') id: string,
-    @Body('isActive') isActive: boolean,
+    @Body() body: ActiveBodyDto,
   ) {
-    return this.offersService.setActive(id, Boolean(isActive));
+    return this.offersService.setActive(id, Boolean(body.isActive));
   }
 
   @Delete(':id')

@@ -190,6 +190,12 @@ export class PartOrder {
   })
   paymentStatus: 'UNPAID' | 'PAID';
 
+  @Prop({
+    type: String,
+    enum: ['COD', 'ONLINE'],
+  })
+  paymentMethod?: 'COD' | 'ONLINE';
+
   @Prop({ default: false })
   isBilled: boolean;
 }

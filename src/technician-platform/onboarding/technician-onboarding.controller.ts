@@ -10,26 +10,37 @@ import { AuthGuard } from '@nestjs/passport';
 import { TechnicianOnboardingService } from './technician-onboarding.service';
 import { TechnicianGuard } from '../common/technician.guard';
 import { CurrentTechnician } from '../common/decorators';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { JWT_AUTH } from '../../common/swagger';
+import {
+  PincodeBodyDto,
+  ServiceCategoriesDto,
+} from '../../common/body.dto';
+import { OnboardingEventDto } from '../dtos/technician-api.dto';
 
+@ApiTags('Technician onboarding')
 @Controller('v1/onboarding')
 export class TechnicianOnboardingController {
   constructor(private readonly onboardingService: TechnicianOnboardingService) {}
 
   @UseGuards(AuthGuard('jwt'), TechnicianGuard)
+  @ApiBearerAuth(JWT_AUTH)
   @Get('status')
   status(@CurrentTechnician() technician: any) {
     return this.onboardingService.getStatus(technician);
   }
 
   @UseGuards(AuthGuard('jwt'), TechnicianGuard)
+  @ApiBearerAuth(JWT_AUTH)
   @Get('progress')
   progress(@CurrentTechnician() technician: any) {
     return this.onboardingService.getProgress(technician);
   }
 
   @Post('check-pincode')
-  checkPincode(@Body('pincode') pincode: string) {
-    return this.onboardingService.checkPincode(pincode);
+  @ApiOperation({ summary: 'Check if a pincode is allowed for technicians' })
+  checkPincode(@Body() body: PincodeBodyDto) {
+    return this.onboardingService.checkPincode(body.pincode);
   }
 
   @Get('allowed-pincodes')
@@ -38,24 +49,27 @@ export class TechnicianOnboardingController {
   }
 
   @UseGuards(AuthGuard('jwt'), TechnicianGuard)
+  @ApiBearerAuth(JWT_AUTH)
   @Post('profile')
   saveProfile(@CurrentTechnician() technician: any, @Body() body: any) {
     return this.onboardingService.saveProfile(technician._id.toString(), body);
   }
 
   @UseGuards(AuthGuard('jwt'), TechnicianGuard)
+  @ApiBearerAuth(JWT_AUTH)
   @Post('service-categories')
   serviceCategories(
     @CurrentTechnician() technician: any,
-    @Body('categories') categories: string[],
+    @Body() body: ServiceCategoriesDto,
   ) {
     return this.onboardingService.updateServiceCategories(
       technician._id.toString(),
-      categories,
+      body.categories,
     );
   }
 
   @UseGuards(AuthGuard('jwt'), TechnicianGuard)
+  @ApiBearerAuth(JWT_AUTH)
   @Post('pay-joining-fee')
   payJoiningFee(@CurrentTechnician() technician: any) {
     return this.onboardingService.createJoiningFeeOrder(technician._id.toString());
@@ -67,10 +81,11 @@ export class TechnicianOnboardingController {
   }
 
   @UseGuards(AuthGuard('jwt'), TechnicianGuard)
+  @ApiBearerAuth(JWT_AUTH)
   @Post('events')
   logEvent(
     @CurrentTechnician() technician: any,
-    @Body() body: { event: string; step?: number; metadata?: Record<string, unknown> },
+    @Body() body: OnboardingEventDto,
   ) {
     return this.onboardingService.logEvent(
       technician._id.toString(),

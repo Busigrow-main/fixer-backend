@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Appliance, ApplianceDocument } from './schemas/appliance.schema';
+import { assertApplianceCategory } from './appliance-types';
 import {
   CreateApplianceDto, UpdateApplianceDto,
   FilterApplianceDto, ApplianceResponseDto,
+  CatalogApplianceQueryDto,
 } from './dtos/appliance.dto';
 
 @Injectable()
@@ -13,6 +15,78 @@ export class AppliancesService {
     @InjectModel(Appliance.name)
     private applianceModel: Model<ApplianceDocument>,
   ) {}
+
+  async findCatalog(filters: CatalogApplianceQueryDto): Promise<ApplianceResponseDto> {
+    let category: string | undefined;
+    try {
+      category = assertApplianceCategory(filters.type);
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+
+    const page = Math.max(1, Number(filters.page) || 1);
+    const perPage = Math.min(48, Math.max(1, Number(filters.limit ?? filters.perPage) || 12));
+    const query: any = { isActive: true };
+    if (category) query.applianceCategory = category;
+    if (filters.brand) query.brand = { $regex: filters.brand, $options: 'i' };
+    if (filters.inStock !== undefined) {
+      query.inStock =
+        filters.inStock === true || String(filters.inStock) === 'true';
+    }
+    if (filters.minPrice || filters.maxPrice) {
+      query.price = {};
+      if (filters.minPrice) query.price.$gte = Number(filters.minPrice);
+      if (filters.maxPrice) query.price.$lte = Number(filters.maxPrice);
+    }
+
+    let sortOptions: any = { createdAt: -1 };
+    switch (filters.sort) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'rating_desc':
+        sortOptions = { 'customerRating.average': -1, starRating: -1 };
+        break;
+      default:
+        sortOptions = { createdAt: -1 };
+    }
+
+    const skip = (page - 1) * perPage;
+    const [products, total] = await Promise.all([
+      this.applianceModel.find(query).sort(sortOptions).skip(skip).limit(perPage).lean().exec(),
+      this.applianceModel.countDocuments(query),
+    ]);
+
+    return {
+      status: 'success',
+      total,
+      page,
+      perPage,
+      products: products.map((p) => this.formatProduct(p)),
+    };
+  }
+
+  async listForShop(limit = 8) {
+    const safeLimit = Math.min(24, Math.max(1, limit));
+    return this.applianceModel
+      .find({ isActive: true })
+      .sort({ isBestseller: -1, soldCount: -1, createdAt: -1 })
+      .limit(safeLimit)
+      .lean()
+      .exec();
+  }
+
+  async findById(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException('Product not found');
+    }
+    const product = await this.applianceModel.findOne({ _id: id, isActive: true }).lean().exec();
+    if (!product) throw new NotFoundException('Product not found');
+    return product;
+  }
 
   async findAll(filters: FilterApplianceDto): Promise<ApplianceResponseDto> {
     const {
@@ -118,6 +192,11 @@ export class AppliancesService {
       installationIncluded: p.installationIncluded,
       compressorWarrantyYears: p.compressorWarrantyYears,
       productWarrantyYears:    p.productWarrantyYears,
+      applianceCategory: p.applianceCategory,
+      soldCount:        p.soldCount ?? 0,
+      isBestseller:     Boolean(p.isBestseller),
+      rating:           p.customerRating?.average ?? 0,
+      reviewCount:      p.customerRating?.count ?? 0,
       createdAt:        p.createdAt,
       updatedAt:        p.updatedAt,
     };
