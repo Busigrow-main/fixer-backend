@@ -27,9 +27,11 @@ export function discountPercent(price: number, originalPrice?: number): number {
 
 export type ShopCard = {
   productType: ShopProductType;
+  applianceCategory?: string;
   id: string;
   slug: string;
   sku?: string;
+  brand?: string;
   name: string;
   image: string | null;
   price: number;
@@ -38,6 +40,9 @@ export type ShopCard = {
   rating: number;
   reviewCount: number;
   isBestseller: boolean;
+  isInStock?: boolean;
+  stock?: number;
+  warrantyMonths?: number;
 };
 
 export function applianceToShopCard(product: any): ShopCard {
@@ -46,9 +51,11 @@ export function applianceToShopCard(product: any): ShopCard {
     product.originalPrice != null ? money(product.originalPrice) : null;
   return {
     productType: 'appliance',
+    applianceCategory: product.applianceCategory,
     id: String(product._id ?? product.id),
     slug: product.slug,
     sku: product.sku,
+    brand: product.brand,
     name: product.name,
     image: product.images?.[0] || null,
     price,
@@ -57,6 +64,11 @@ export function applianceToShopCard(product: any): ShopCard {
     rating: Number(product.customerRating?.average ?? product.rating ?? 0),
     reviewCount: Number(product.customerRating?.count ?? product.reviewCount ?? 0),
     isBestseller: Boolean(product.isBestseller),
+    isInStock: typeof product.inStock === 'boolean' ? product.inStock : undefined,
+    warrantyMonths:
+      Number(product.productWarrantyYears) > 0
+        ? Number(product.productWarrantyYears) * 12
+        : undefined,
   };
 }
 
@@ -76,6 +88,10 @@ export function partToShopCard(part: any): ShopCard {
     rating: Number(part.rating?.average ?? 0),
     reviewCount: Number(part.rating?.count ?? 0),
     isBestseller: Boolean(part.isFeatured) || Number(part.soldCount || 0) >= 10,
+    isInStock: typeof part.isInStock === 'boolean' ? part.isInStock : undefined,
+    stock: typeof part.stock === 'number' ? part.stock : undefined,
+    warrantyMonths:
+      Number(part.warrantyMonths) > 0 ? Number(part.warrantyMonths) : undefined,
   };
 }
 

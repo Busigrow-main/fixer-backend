@@ -64,13 +64,20 @@ describe('Fixxer shop APIs', () => {
           provide: SparePartsService,
           useFactory: (model: Model<SparePartDocument>) => ({
             findById: (id: string) => model.findById(id).exec(),
-            listForShop: (limit = 8) =>
-              model
-                .find({ isActive: true })
-                .sort({ isFeatured: -1, soldCount: -1, createdAt: -1 })
-                .limit(limit)
-                .lean()
-                .exec(),
+            listForShop: async (limit = 8, page = 1) => {
+              const filter = { isActive: true };
+              const [items, total] = await Promise.all([
+                model
+                  .find(filter)
+                  .sort({ isFeatured: -1, soldCount: -1, createdAt: -1 })
+                  .skip((page - 1) * limit)
+                  .limit(limit)
+                  .lean()
+                  .exec(),
+                model.countDocuments(filter).exec(),
+              ]);
+              return { items, total };
+            },
           }),
           inject: [getModelToken(SparePart.name)],
         },
@@ -121,6 +128,7 @@ describe('Fixxer shop APIs', () => {
       images: ['https://img.example/fridge.jpg'],
       applianceCategory: 'refrigerator',
       inStock: true,
+      productWarrantyYears: 1,
       isActive: true,
       isBestseller: true,
       customerRating: { average: 4.5, count: 18 },
@@ -155,6 +163,7 @@ describe('Fixxer shop APIs', () => {
       mrp: 150000,
       stock: 4,
       isInStock: true,
+      warrantyMonths: 6,
       isActive: true,
       isFeatured: true,
       soldCount: 12,
@@ -184,9 +193,20 @@ describe('Fixxer shop APIs', () => {
     expect(home.products.length).toBe(3);
     expect(home.appliances).toHaveLength(2);
     expect(home.parts).toHaveLength(1);
+    expect(home.pagination).toMatchObject({
+      page: 1,
+      applianceTotal: 2,
+      partTotal: 1,
+      hasMore: false,
+    });
+    expect(home.applianceCategories).toEqual([
+      { slug: 'ac', productCount: 1 },
+      { slug: 'refrigerator', productCount: 1 },
+    ]);
     const fridgeCard = home.products.find((card) => card.slug === 'samsung-fridge');
     expect(fridgeCard).toMatchObject({
       productType: 'appliance',
+      applianceCategory: 'refrigerator',
       name: 'Samsung 265L Fridge',
       price: 28990,
       originalPrice: 32990,
@@ -195,6 +215,9 @@ describe('Fixxer shop APIs', () => {
       reviewCount: 18,
       isBestseller: true,
       image: 'https://img.example/fridge.jpg',
+      brand: 'Samsung',
+      isInStock: true,
+      warrantyMonths: 12,
     });
     expect(home.parts[0]).toMatchObject({
       productType: 'part',
@@ -203,6 +226,9 @@ describe('Fixxer shop APIs', () => {
       originalPrice: 1500,
       discount: 17,
       isBestseller: true,
+      isInStock: true,
+      stock: 4,
+      warrantyMonths: 6,
     });
   });
 

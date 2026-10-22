@@ -69,14 +69,30 @@ export class AppliancesService {
     };
   }
 
-  async listForShop(limit = 8) {
+  async listForShop(limit = 8, page = 1) {
     const safeLimit = Math.min(24, Math.max(1, limit));
-    return this.applianceModel
-      .find({ isActive: true })
-      .sort({ isBestseller: -1, soldCount: -1, createdAt: -1 })
-      .limit(safeLimit)
-      .lean()
-      .exec();
+    const safePage = Math.max(1, page);
+    const filter = { isActive: true };
+    const [items, total] = await Promise.all([
+      this.applianceModel
+        .find(filter)
+        .sort({ isBestseller: -1, soldCount: -1, createdAt: -1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .lean()
+        .exec(),
+      this.applianceModel.countDocuments(filter).exec(),
+    ]);
+    return { items, total };
+  }
+
+  async listShopCategories() {
+    return this.applianceModel.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$applianceCategory', productCount: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, slug: '$_id', productCount: 1 } },
+    ]).exec();
   }
 
   async findById(id: string) {

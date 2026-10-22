@@ -525,13 +525,20 @@ export class SparePartsService {
     return this.sparePartModel.find().lean().exec();
   }
 
-  async listForShop(limit = 8) {
+  async listForShop(limit = 8, page = 1) {
     const safeLimit = Math.min(24, Math.max(1, limit));
-    return this.sparePartModel
-      .find({ isActive: true })
-      .sort({ isFeatured: -1, soldCount: -1, createdAt: -1 })
-      .limit(safeLimit)
-      .lean()
-      .exec();
+    const safePage = Math.max(1, page);
+    const filter = { isActive: true };
+    const [items, total] = await Promise.all([
+      this.sparePartModel
+        .find(filter)
+        .sort({ isFeatured: -1, soldCount: -1, createdAt: -1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .lean()
+        .exec(),
+      this.sparePartModel.countDocuments(filter).exec(),
+    ]);
+    return { items, total };
   }
 }
