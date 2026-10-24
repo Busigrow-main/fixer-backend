@@ -9,6 +9,7 @@ import { Model, Types } from 'mongoose';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { PartOrdersService } from '../part-orders/part-orders.service';
 import { CreatePartOrderDto } from '../part-orders/dtos/create-part-order.dto';
+import { USER_PUBLIC_POPULATE } from '../users/user-populate';
 import { CreateShopPartHelpDto } from './dtos/create-shop-part-help.dto';
 import { QuoteShopPartHelpDto } from './dtos/quote-shop-part-help.dto';
 import {
@@ -64,7 +65,12 @@ export class ShopPartHelpService {
     const [data, total] = await Promise.all([
       this.helpRequestModel
         .find(filter)
-        .populate('userId requestedSparePartId suggestedSparePartId convertedPartOrderId')
+        .populate([
+          USER_PUBLIC_POPULATE,
+          { path: 'requestedSparePartId' },
+          { path: 'suggestedSparePartId' },
+          { path: 'convertedPartOrderId' },
+        ])
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -76,7 +82,11 @@ export class ShopPartHelpService {
 
   async findOneForAdmin(id: string) {
     const request = await this.findRequest(id);
-    return request.populate('userId suggestedSparePartId convertedPartOrderId');
+    return request.populate([
+      USER_PUBLIC_POPULATE,
+      { path: 'suggestedSparePartId' },
+      { path: 'convertedPartOrderId' },
+    ]);
   }
 
   async quote(id: string, dto: QuoteShopPartHelpDto) {

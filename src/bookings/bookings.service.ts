@@ -1611,6 +1611,7 @@ export class BookingsService {
 
   async claimWarranty(
     id: string,
+    userId: string,
   ): Promise<any> {
     const originalBooking =
       await this.bookingModel
@@ -1618,6 +1619,12 @@ export class BookingsService {
         .exec();
 
     if (!originalBooking) {
+      throw new NotFoundException(
+        'Booking not found',
+      );
+    }
+
+    if (String(originalBooking.userId) !== String(userId)) {
       throw new NotFoundException(
         'Booking not found',
       );

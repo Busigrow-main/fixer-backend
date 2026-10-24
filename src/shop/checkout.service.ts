@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreatePartOrderDto } from '../part-orders/dtos/create-part-order.dto';
 import { PartOrdersService } from '../part-orders/part-orders.service';
+import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
 import { CartService } from './cart.service';
 import { CreateCheckoutDto } from './dtos/checkout.dto';
@@ -14,10 +15,13 @@ import {
 
 @Injectable()
 export class CheckoutService {
+  private readonly checkoutLocks = new Map<string, Promise<unknown>>();
+
   constructor(
     private readonly cartService: CartService,
     private readonly installationService: InstallationService,
     private readonly partOrdersService: PartOrdersService,
+    private readonly sparePartsService: SparePartsService,
     private readonly serviceablePincodesService: ServiceablePincodesService,
   ) {}
 
@@ -26,7 +30,57 @@ export class CheckoutService {
   }
 
   async checkout(userId: string, dto: CreateCheckoutDto) {
+    return this.withUserLock(userId, () => this.checkoutLocked(userId, dto));
+  }
+
+  private async withUserLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.checkoutLocks.get(userId) ?? Promise.resolve();
+    const run = previous.catch(() => undefined).then(fn);
+    this.checkoutLocks.set(
+      userId,
+      run.then(() => undefined).catch(() => undefined),
+    );
+    return run;
+  }
+
+  private async checkoutLocked(userId: string, dto: CreateCheckoutDto) {
     const quote = await this.buildQuote(userId, dto.pincode, true);
+    const claimed = await this.cartService.claimForCheckout(userId);
+    if (!claimed) {
+      throw new BadRequestException('Cart is empty');
+    }
+
+    const decremented: { id: string; quantity: number }[] = [];
+    try {
+      for (const item of quote.items) {
+        if (item.productType !== 'part') continue;
+        const reserved = await this.sparePartsService.tryDecrementStock(
+          item.productId,
+          item.quantity,
+        );
+        if (!reserved) {
+          throw new BadRequestException(`${item.name} is out of stock`);
+        }
+        if (reserved !== 'unlimited') {
+          decremented.push({ id: item.productId, quantity: item.quantity });
+        }
+      }
+
+      return await this.createOrders(userId, dto, quote);
+    } catch (err) {
+      for (const row of decremented) {
+        await this.sparePartsService.restoreStock(row.id, row.quantity);
+      }
+      await this.cartService.restoreClaimed(userId, claimed);
+      throw err;
+    }
+  }
+
+  private async createOrders(
+    userId: string,
+    dto: CreateCheckoutDto,
+    quote: Awaited<ReturnType<CheckoutService['buildQuote']>>,
+  ) {
     const contactData = {
       ...dto.contactData,
       notes: [dto.contactData.notes, dto.notes, `Pincode ${dto.pincode}`]
@@ -124,8 +178,6 @@ export class CheckoutService {
       orders.push(order);
     }
 
-    await this.cartService.clear(userId);
-
     return {
       paymentMethod: dto.paymentMethod,
       paymentStatus: 'UNPAID',
@@ -179,6 +231,7 @@ export class CheckoutService {
       if (!stockOk) {
         issues.push(`${product.doc.name} is out of stock`);
       }
+      const billedQuantity = this.billedQuantity(product, item.quantity);
       const installation = this.installationService.resolveOption(
         product,
         item.installationOptionId,
@@ -190,12 +243,13 @@ export class CheckoutService {
         slug: product.doc.slug,
         name: product.doc.name,
         quantity: item.quantity,
+        billedQuantity,
         unitPrice: livePrice,
         originalPrice: item.originalPrice ?? null,
         installationOptionId: installation.id,
         installationCharge: installation.charge,
-        lineTotal: money(livePrice * item.quantity),
-        installationTotal: money(installation.charge * item.quantity),
+        lineTotal: money(livePrice * billedQuantity),
+        installationTotal: money(installation.charge * billedQuantity),
         inStock: stockOk,
       });
     }
@@ -237,6 +291,17 @@ export class CheckoutService {
       ),
       issues,
     };
+  }
+
+  private billedQuantity(
+    product: { productType: 'part' | 'appliance'; doc: any },
+    quantity: number,
+  ) {
+    if (product.productType !== 'part') return quantity;
+    const stock = Number(product.doc.stock);
+    if (stock > 0 && stock < quantity) return stock;
+    if (!this.stockOk(product, quantity)) return 0;
+    return quantity;
   }
 
   private stockOk(

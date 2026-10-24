@@ -8,7 +8,7 @@ export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async findOneByPhone(phone: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ phone }).exec();
+    return this.userModel.findOne({ phone }).select('+passwordHash').exec();
   }
 
   async findOneByEmail(email: string): Promise<UserDocument | null> {

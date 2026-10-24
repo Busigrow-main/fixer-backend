@@ -64,6 +64,24 @@ describe('Fixxer shop APIs', () => {
           provide: SparePartsService,
           useFactory: (model: Model<SparePartDocument>) => ({
             findById: (id: string) => model.findById(id).exec(),
+            tryDecrementStock: async (id: string, quantity: number) => {
+              const updated = await model
+                .findOneAndUpdate(
+                  { _id: id, stock: { $gte: quantity } },
+                  { $inc: { stock: -quantity, soldCount: quantity } },
+                  { returnDocument: 'after' },
+                )
+                .exec();
+              return updated ? true : false;
+            },
+            restoreStock: async (id: string, quantity: number) => {
+              await model
+                .updateOne(
+                  { _id: id },
+                  { $inc: { stock: quantity, soldCount: -quantity }, $set: { isInStock: true } },
+                )
+                .exec();
+            },
             listForShop: async (limit = 8, page = 1) => {
               const filter = { isActive: true };
               const [items, total] = await Promise.all([
@@ -334,5 +352,63 @@ describe('Fixxer shop APIs', () => {
     const tracking = await partOrdersService.findTrackingForUser(orderId, userId);
     expect(tracking.status).toBe('PENDING');
     expect(tracking.courierTracking).toBeNull();
+  });
+
+  it('rejects cart quantity above stock and does not quote the oversold total', async () => {
+    await expect(
+      cartService.addItem(userId, {
+        productType: 'part',
+        productId: String(part._id),
+        quantity: 5,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const added = await cartService.addItem(userId, {
+      productType: 'part',
+      productId: String(part._id),
+      quantity: 1,
+    });
+    await expect(
+      cartService.updateItem(userId, added.items[0].itemId, { quantity: 9 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const cartModel = module.get(getModelToken(ShopCart.name));
+    await cartModel.updateOne(
+      { userId: new Types.ObjectId(userId) },
+      { $set: { 'items.0.quantity': 99 } },
+    );
+    const quote = await checkoutService.quote(userId, '800001');
+    expect(quote.issues[0]).toMatch(/out of stock/i);
+    expect(quote.items[0].billedQuantity).toBe(4);
+    expect(quote.itemsSubtotal).toBe(5000);
+  });
+
+  it('serializes parallel checkout and decrements spare-part stock', async () => {
+    await cartService.addItem(userId, {
+      productType: 'part',
+      productId: String(part._id),
+      quantity: 1,
+    });
+
+    const contact = {
+      pincode: '800001' as const,
+      paymentMethod: 'COD' as const,
+      contactData: { name: 'Asha', phone: '9876543210', address: 'Patna' },
+    };
+    const results = await Promise.allSettled([
+      checkoutService.checkout(userId, contact),
+      checkoutService.checkout(userId, contact),
+    ]);
+
+    const fulfilled = results.filter((row) => row.status === 'fulfilled');
+    const rejected = results.filter((row) => row.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+
+    const refreshed = await sparePartModel.findById(part._id).exec();
+    expect(refreshed?.stock).toBe(3);
+
+    const orders = await partOrdersService.findAllByUser(userId);
+    expect(orders).toHaveLength(1);
   });
 });

@@ -14,6 +14,8 @@ import {
   EmailOtpSession,
   EmailOtpSessionSchema,
 } from './schemas/email-otp-session.schema';
+import { jwtSecret } from '../common/jwt-secret';
+import { QuickLoginRateLimitGuard } from './guards/quick-login-rate-limit.guard';
 
 @Module({
   imports: [
@@ -23,7 +25,7 @@ import {
       { name: EmailOtpSession.name, schema: EmailOtpSessionSchema },
     ]),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'fallback_secret_key',
+      secret: jwtSecret(),
       signOptions: { expiresIn: '7d' },
     }),
   ],
@@ -32,6 +34,7 @@ import {
     LocalStrategy,
     JwtStrategy,
     RolesGuard,
+    QuickLoginRateLimitGuard,
     EmailOtpService,
     AzureEmailService,
   ],

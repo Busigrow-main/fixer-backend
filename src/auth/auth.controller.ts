@@ -1,5 +1,6 @@
 import { Controller, Request, Post, UseGuards, Body, Get } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { QuickLoginRateLimitGuard } from './guards/quick-login-rate-limit.guard';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -38,6 +39,7 @@ export class AuthController {
 
   /** Phone-only customer sign-in (creates account if needed). */
   @Post('quick-login')
+  @UseGuards(QuickLoginRateLimitGuard)
   @ApiOperation({ summary: 'Phone-only customer sign-in (creates account if needed)' })
   @ApiOkResponse({ type: AuthTokenResponseDto })
   async quickLogin(@Body() body: QuickLoginDto) {
