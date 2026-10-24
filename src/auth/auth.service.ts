@@ -99,7 +99,7 @@ export class AuthService {
     if (!user) {
       const salt = await bcrypt.genSalt();
       const passwordHash = await bcrypt.hash(this.defaultCustomerPassword(), salt);
-      user = await this.usersService.create({
+      user = await this.usersService.createOrFindByPhone({
         phone: normalized,
         passwordHash,
         fullName: fullName?.trim() || undefined,
@@ -169,7 +169,7 @@ export class AuthService {
           this.defaultCustomerPassword(),
           salt,
         );
-        user = await this.usersService.create({
+        user = await this.usersService.createOrFindByPhone({
           phone,
           email: normalized,
           passwordHash,
