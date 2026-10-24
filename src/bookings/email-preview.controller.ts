@@ -1,10 +1,17 @@
-import { Controller, Get, Header, Res } from '@nestjs/common';
-import { ApiProduces, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Header, Res, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth, ApiProduces, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { JWT_AUTH } from '../common/swagger';
 import { buildEmailPreviewPage } from './templates/bill-email.template';
 import { buildInvoicePdf } from './invoice-pdf';
 
 @ApiTags('Internal')
+@ApiBearerAuth(JWT_AUTH)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles('ADMIN')
 @Controller('api/v1/email-preview')
 export class EmailPreviewController {
   @Get('bill')

@@ -5,6 +5,7 @@ import {
   IsMongoId,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -20,6 +21,7 @@ export class AddCartItemDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(99)
   quantity?: number;
 
   @IsOptional()
@@ -38,6 +40,7 @@ export class UpdateCartItemDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(99)
   quantity?: number;
 
   @IsOptional()

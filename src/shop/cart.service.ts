@@ -52,6 +52,7 @@ export class CartService {
     );
 
     if (existing) {
+      this.assertPurchasable(product, existing.quantity + quantity);
       existing.quantity += quantity;
       existing.unitPrice = snapshot.unitPrice;
       existing.originalPrice = snapshot.originalPrice;
@@ -74,7 +75,14 @@ export class CartService {
     const item = cart.items.id(itemId);
     if (!item) throw new NotFoundException('Cart item not found');
 
-    if (dto.quantity != null) item.quantity = dto.quantity;
+    if (dto.quantity != null) {
+      const product = await this.installationService.loadProduct(
+        String(item.productId),
+        item.productType,
+      );
+      this.assertPurchasable(product, dto.quantity);
+      item.quantity = dto.quantity;
+    }
 
     if (dto.installationOptionId) {
       const product = await this.installationService.loadProduct(
@@ -144,9 +152,42 @@ export class CartService {
 
   async getOrCreate(userId: string) {
     const owner = new Types.ObjectId(userId);
-    const existing = await this.cartModel.findOne({ userId: owner }).exec();
-    if (existing) return existing;
-    return this.cartModel.create({ userId: owner, items: [], coupons: [] });
+    try {
+      return await this.cartModel
+        .findOneAndUpdate(
+          { userId: owner },
+          { $setOnInsert: { userId: owner, items: [], coupons: [] } },
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+        )
+        .exec();
+    } catch (err: any) {
+      if (err?.code === 11000) {
+        const raced = await this.cartModel.findOne({ userId: owner }).exec();
+        if (raced) return raced;
+      }
+      throw err;
+    }
+  }
+
+  async claimForCheckout(userId: string) {
+    const owner = new Types.ObjectId(userId);
+    return this.cartModel
+      .findOneAndUpdate(
+        { userId: owner, 'items.0': { $exists: true } },
+        { $set: { items: [], coupons: [] } },
+        { returnDocument: 'before' },
+      )
+      .exec();
+  }
+
+  async restoreClaimed(userId: string, cart: ShopCartDocument) {
+    const snapshot = cart.toObject();
+    await this.cartModel
+      .updateOne(
+        { userId: new Types.ObjectId(userId) },
+        { $set: { items: snapshot.items, coupons: snapshot.coupons } },
+      )
+      .exec();
   }
 
   present(cart: ShopCartDocument) {
