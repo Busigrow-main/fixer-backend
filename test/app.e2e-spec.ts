@@ -1,4 +1,4 @@
-process.env.JWT_SECRET ||= 'test-jwt-secret';
+process.env.JWT_SECRET ||= 'test-jwt-secret-must-be-32-chars!!';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';

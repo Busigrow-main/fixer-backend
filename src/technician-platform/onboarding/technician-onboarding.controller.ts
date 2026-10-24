@@ -2,8 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Post,
-  Put,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -17,6 +18,7 @@ import {
   ServiceCategoriesDto,
 } from '../../common/body.dto';
 import { OnboardingEventDto } from '../dtos/technician-api.dto';
+import { webhookSecretMatches } from '../../common/webhook-secret';
 
 @ApiTags('Technician onboarding')
 @Controller('v1/onboarding')
@@ -76,7 +78,13 @@ export class TechnicianOnboardingController {
   }
 
   @Post('payment/webhook')
-  paymentWebhook(@Body() payload: any) {
+  paymentWebhook(
+    @Headers('x-payment-webhook-secret') secret: string,
+    @Body() payload: any,
+  ) {
+    if (!webhookSecretMatches(secret)) {
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
     return this.onboardingService.handlePaymentWebhook(payload);
   }
 

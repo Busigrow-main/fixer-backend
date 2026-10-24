@@ -30,17 +30,24 @@ export class CheckoutService {
   }
 
   async checkout(userId: string, dto: CreateCheckoutDto) {
+    if (dto.paymentMethod !== 'COD') {
+      throw new BadRequestException('Cash on delivery is the only payment method');
+    }
     return this.withUserLock(userId, () => this.checkoutLocked(userId, dto));
   }
 
   private async withUserLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {
     const previous = this.checkoutLocks.get(userId) ?? Promise.resolve();
     const run = previous.catch(() => undefined).then(fn);
-    this.checkoutLocks.set(
-      userId,
-      run.then(() => undefined).catch(() => undefined),
-    );
-    return run;
+    const tail = run.then(() => undefined).catch(() => undefined);
+    this.checkoutLocks.set(userId, tail);
+    try {
+      return await run;
+    } finally {
+      if (this.checkoutLocks.get(userId) === tail) {
+        this.checkoutLocks.delete(userId);
+      }
+    }
   }
 
   private async checkoutLocked(userId: string, dto: CreateCheckoutDto) {
@@ -51,6 +58,7 @@ export class CheckoutService {
     }
 
     const decremented: { id: string; quantity: number }[] = [];
+    const createdIds: string[] = [];
     try {
       for (const item of quote.items) {
         if (item.productType !== 'part') continue;
@@ -66,8 +74,11 @@ export class CheckoutService {
         }
       }
 
-      return await this.createOrders(userId, dto, quote);
+      return await this.createOrders(userId, dto, quote, createdIds);
     } catch (err) {
+      for (const id of createdIds) {
+        await this.partOrdersService.abortIfUnpaid(id);
+      }
       for (const row of decremented) {
         await this.sparePartsService.restoreStock(row.id, row.quantity);
       }
@@ -80,6 +91,7 @@ export class CheckoutService {
     userId: string,
     dto: CreateCheckoutDto,
     quote: Awaited<ReturnType<CheckoutService['buildQuote']>>,
+    createdIds: string[],
   ) {
     const contactData = {
       ...dto.contactData,
@@ -107,7 +119,9 @@ export class CheckoutService {
         } as CreatePartOrderDto,
         userId,
         {
-          paymentMethod: dto.paymentMethod,
+          paymentMethod: 'COD',
+          stockAlreadyReserved: true,
+          discount: quote.discount,
           invoiceLines: [
             ...partLines.map((item) => ({
               description: item.name,
@@ -131,6 +145,7 @@ export class CheckoutService {
           ],
         },
       );
+      createdIds.push(String((order as any)._id));
       orders.push(order);
     }
 
@@ -164,7 +179,9 @@ export class CheckoutService {
         } as CreatePartOrderDto,
         userId,
         {
-          paymentMethod: dto.paymentMethod,
+          paymentMethod: 'COD',
+          stockAlreadyReserved: true,
+          discount: !partLines.length ? quote.discount : 0,
           invoiceLines: [
             {
               description: item.name,
@@ -175,20 +192,14 @@ export class CheckoutService {
           ],
         },
       );
+      createdIds.push(String((order as any)._id));
       orders.push(order);
     }
 
     return {
-      paymentMethod: dto.paymentMethod,
+      paymentMethod: 'COD',
       paymentStatus: 'UNPAID',
-      payment:
-        dto.paymentMethod === 'ONLINE'
-          ? {
-              method: 'ONLINE',
-              status: 'PENDING',
-              message: 'Online payment will be confirmed after the payment step.',
-            }
-          : { method: 'COD', status: 'UNPAID' },
+      payment: { method: 'COD', status: 'UNPAID' },
       totals: {
         itemsSubtotal: quote.itemsSubtotal,
         installationCharge: quote.installationCharge,
@@ -310,7 +321,7 @@ export class CheckoutService {
   ) {
     if (product.productType === 'part') {
       if (!product.doc.isActive || product.doc.isInStock === false) return false;
-      if (Number(product.doc.stock) > 0 && Number(product.doc.stock) < quantity) {
+      if (product.doc.stock != null && Number(product.doc.stock) < quantity) {
         return false;
       }
       return true;

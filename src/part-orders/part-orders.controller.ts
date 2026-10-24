@@ -4,6 +4,8 @@ import {
   Post,
   Body,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
   Request,
   Param,
 } from '@nestjs/common';
@@ -20,6 +22,7 @@ import { ReasonDto } from '../common/body.dto';
 @ApiTags('Orders')
 @ApiBearerAuth(JWT_AUTH)
 @UseGuards(AuthGuard('jwt'))
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
 @Controller('api/v1')
 export class PartOrdersController {
   constructor(

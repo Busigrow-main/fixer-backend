@@ -23,8 +23,8 @@ export class CreateCheckoutDto {
   @Matches(/^\d{6}$/)
   pincode: string;
 
-  @IsEnum(['COD', 'ONLINE'])
-  paymentMethod: 'COD' | 'ONLINE';
+  @IsEnum(['COD'])
+  paymentMethod: 'COD';
 
   @ValidateNested()
   @Type(() => ContactDataDto)

@@ -74,7 +74,7 @@ describe('ShopPartHelpService', () => {
       sku: `SP-${new Types.ObjectId().toString().slice(-6)}`,
       slug: `part-${new Types.ObjectId().toString().slice(-6)}`,
       name: 'Compressor relay', applianceTypeSlug: 'refrigerator',
-      price: 12300, warrantyMonths: 12, isActive: true,
+      price: 12300, warrantyMonths: 12, isActive: true, stock: 20, isInStock: true,
     });
     await userModel.create([
       { _id: userId, phone: '9876543210', passwordHash: 'hash' },

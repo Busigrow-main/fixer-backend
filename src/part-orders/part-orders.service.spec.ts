@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { getModelToken, MongooseModule } from '@nestjs/mongoose';
@@ -53,7 +54,7 @@ describe('PartOrdersService Shop compatibility', () => {
   it('creates a part order with catalog warranty and ignores a client warranty value', async () => {
     const part = await sparePartModel.create({
       sku: 'SP-TEST-1', slug: 'part-test-1', name: 'Test part',
-      applianceTypeSlug: 'refrigerator', price: 125000, warrantyMonths: 12,
+      applianceTypeSlug: 'refrigerator', price: 125000, warrantyMonths: 12, stock: 10, isInStock: true,
     });
     const order = await service.create({
       orderType: 'part', contactData,
@@ -88,7 +89,7 @@ describe('PartOrdersService Shop compatibility', () => {
     const userId = new Types.ObjectId();
     const part = await sparePartModel.create({
       sku: 'SP-TEST-2', slug: 'part-test-2', name: 'Test part 2',
-      applianceTypeSlug: 'refrigerator', price: 5000,
+      applianceTypeSlug: 'refrigerator', price: 5000, stock: 10, isInStock: true,
     });
     const historical = await partOrderModel.create({
       userId, orderType: 'part', contactData,
@@ -107,7 +108,7 @@ describe('PartOrdersService Shop compatibility', () => {
   it('preserves admin billing, mark-paid, and tracking behavior', async () => {
     const part = await sparePartModel.create({
       sku: 'SP-TEST-3', slug: 'part-test-3', name: 'Test part 3',
-      applianceTypeSlug: 'refrigerator', price: 12500,
+      applianceTypeSlug: 'refrigerator', price: 12500, stock: 10, isInStock: true,
     });
     const order = await service.create({
       contactData, items: [{ partId: String(part._id), quantity: 1 }],
@@ -125,5 +126,29 @@ describe('PartOrdersService Shop compatibility', () => {
     });
     expect(tracked.status).toBe('DISPATCHED');
     expect(tracked.courierTracking?.trackingNumber).toBe('TRACK-1');
+  });
+
+  it('ignores a client-supplied price and rejects a zero-stock part', async () => {
+    const part = await sparePartModel.create({
+      sku: 'SP-TEST-4', slug: 'part-test-4', name: 'Priced part',
+      applianceTypeSlug: 'refrigerator', price: 45000, stock: 8, isInStock: true,
+    });
+    const order = await service.create({
+      contactData,
+      items: [{ partId: String(part._id), quantity: 1, price: 1, unitPrice: 1 } as any],
+    }, new Types.ObjectId().toString());
+    expect(order.items[0].priceAtPurchase).toBe('450');
+    expect(order.invoiceData?.lineItems?.[0]?.unitPrice).toBe(450);
+
+    const empty = await sparePartModel.create({
+      sku: 'SP-TEST-5', slug: 'part-test-5', name: 'Empty stock',
+      applianceTypeSlug: 'refrigerator', price: 45000, stock: 0, isInStock: true,
+    });
+    await expect(
+      service.create({
+        contactData,
+        items: [{ partId: String(empty._id), quantity: 1 }],
+      }, new Types.ObjectId().toString()),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

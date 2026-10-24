@@ -17,8 +17,18 @@ async function bootstrap() {
 
     console.log('BOOT: Nest app created');
 
+    const configured = (process.env.CORS_ORIGIN || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    const origins =
+      configured.length > 0
+        ? configured
+        : process.env.NODE_ENV === 'production'
+          ? []
+          : ['http://localhost:3000', 'http://localhost:3001'];
     app.enableCors({
-      origin: true,
+      origin: origins,
       credentials: true,
     });
 
