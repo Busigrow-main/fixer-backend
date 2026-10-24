@@ -411,4 +411,22 @@ describe('Fixxer shop APIs', () => {
     const orders = await partOrdersService.findAllByUser(userId);
     expect(orders).toHaveLength(1);
   });
+
+  it('merges parallel adds of the same part into one cart line', async () => {
+    const payload = {
+      productType: 'part' as const,
+      productId: String(part._id),
+      quantity: 1,
+    };
+    const [first, second] = await Promise.all([
+      cartService.addItem(userId, payload),
+      cartService.addItem(userId, payload),
+    ]);
+    const cart = await cartService.getCart(userId);
+    expect(cart.items).toHaveLength(1);
+    expect(cart.items[0].quantity).toBe(2);
+    expect(first.items).toHaveLength(1);
+    expect(second.items).toHaveLength(1);
+    expect(Math.max(first.items[0].quantity, second.items[0].quantity)).toBe(2);
+  });
 });

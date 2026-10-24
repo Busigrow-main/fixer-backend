@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 
 const WINDOW_MS = 10 * 60 * 1000;
-const MAX_PER_KEY = 5;
+const MAX_PER_PHONE = 5;
+const MAX_PER_IP = 15;
 
 @Injectable()
 export class QuickLoginRateLimitGuard implements CanActivate {
@@ -22,17 +23,21 @@ export class QuickLoginRateLimitGuard implements CanActivate {
       .split(',')[0]
       .trim();
     const ip = forwarded || String(req.ip || 'unknown');
-    const key = phone.length === 10 ? `phone:${phone}` : `ip:${ip}`;
     const now = Date.now();
-    const recent = (this.hits.get(key) || []).filter((at) => now - at < WINDOW_MS);
-    if (recent.length >= MAX_PER_KEY) {
-      throw new HttpException(
-        'Too many sign-in attempts. Try again later.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+    const keys = [`ip:${ip}`, ...(phone.length === 10 ? [`phone:${phone}`] : [])];
+    const limits = { [`ip:${ip}`]: MAX_PER_IP, [`phone:${phone}`]: MAX_PER_PHONE };
+
+    for (const key of keys) {
+      const recent = (this.hits.get(key) || []).filter((at) => now - at < WINDOW_MS);
+      if (recent.length >= (limits[key] ?? MAX_PER_PHONE)) {
+        throw new HttpException(
+          'Too many sign-in attempts. Try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      recent.push(now);
+      this.hits.set(key, recent);
     }
-    recent.push(now);
-    this.hits.set(key, recent);
     return true;
   }
 }

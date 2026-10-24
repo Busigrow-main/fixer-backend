@@ -27,6 +27,7 @@ export class CartService {
 
   async getCart(userId: string) {
     const cart = await this.getOrCreate(userId);
+    if (this.collapseDuplicateLines(cart)) await cart.save();
     return this.present(cart);
   }
 
@@ -42,32 +43,76 @@ export class CartService {
       product,
       dto.installationOptionId,
     );
+    const owner = new Types.ObjectId(userId);
+    const productId = new Types.ObjectId(String(snapshot.productId));
+    const lineMatch = {
+      productType: snapshot.productType,
+      productId,
+      installationOptionId: installation.id,
+    };
 
-    const cart = await this.getOrCreate(userId);
-    const existing = cart.items.find(
-      (item) =>
-        item.productType === snapshot.productType &&
-        String(item.productId) === String(snapshot.productId) &&
-        (item.installationOptionId || '') === installation.id,
-    );
+    await this.getOrCreate(userId);
 
-    if (existing) {
-      this.assertPurchasable(product, existing.quantity + quantity);
-      existing.quantity += quantity;
-      existing.unitPrice = snapshot.unitPrice;
-      existing.originalPrice = snapshot.originalPrice;
-      existing.installationCharge = installation.charge;
-    } else {
-      cart.items.push({
-        ...snapshot,
-        quantity,
-        installationOptionId: installation.id,
-        installationCharge: installation.charge,
-      } as any);
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const current = await this.cartModel.findOne({ userId: owner }).exec();
+      if (current && this.collapseDuplicateLines(current)) {
+        await current.save();
+      }
+      const existing = this.matchingLine(
+        current,
+        snapshot.productType,
+        productId,
+        installation.id,
+      );
+      this.assertPurchasable(product, (existing?.quantity ?? 0) + quantity);
+
+      if (existing) {
+        const updated = await this.cartModel
+          .findOneAndUpdate(
+            { userId: owner, 'items._id': existing._id },
+            {
+              $inc: { 'items.$.quantity': quantity },
+              $set: {
+                'items.$.unitPrice': snapshot.unitPrice,
+                'items.$.originalPrice': snapshot.originalPrice,
+                'items.$.installationCharge': installation.charge,
+                'items.$.installationOptionId': installation.id,
+              },
+            },
+            { returnDocument: 'after' },
+          )
+          .exec();
+        if (updated) {
+          if (this.collapseDuplicateLines(updated)) await updated.save();
+          return this.present(updated);
+        }
+        continue;
+      }
+
+      const pushed = await this.cartModel
+        .findOneAndUpdate(
+          { userId: owner, items: { $not: { $elemMatch: lineMatch } } },
+          {
+            $push: {
+              items: {
+                ...snapshot,
+                productId,
+                quantity,
+                installationOptionId: installation.id,
+                installationCharge: installation.charge,
+              },
+            },
+          },
+          { returnDocument: 'after' },
+        )
+        .exec();
+      if (pushed) {
+        if (this.collapseDuplicateLines(pushed)) await pushed.save();
+        return this.present(pushed);
+      }
     }
 
-    await cart.save();
-    return this.present(cart);
+    throw new BadRequestException('Could not add this item to your cart. Try again.');
   }
 
   async updateItem(userId: string, itemId: string, dto: UpdateCartItemDto) {
@@ -236,6 +281,38 @@ export class CartService {
       discount: Math.min(discount, itemsSubtotal),
       total: money(Math.max(0, itemsSubtotal + installationCharge - Math.min(discount, itemsSubtotal))),
     };
+  }
+
+  private matchingLine(
+    cart: ShopCartDocument | null,
+    productType: ShopProductType,
+    productId: Types.ObjectId,
+    installationOptionId: string,
+  ) {
+    return cart?.items.find(
+      (item) =>
+        item.productType === productType &&
+        String(item.productId) === String(productId) &&
+        (item.installationOptionId || '') === installationOptionId,
+    );
+  }
+
+  private collapseDuplicateLines(cart: ShopCartDocument) {
+    const merged = new Map<string, Record<string, unknown>>();
+    const order: string[] = [];
+    for (const item of cart.items) {
+      const key = `${item.productType}:${String(item.productId)}:${item.installationOptionId || ''}`;
+      const previous = merged.get(key);
+      if (!previous) {
+        merged.set(key, item.toObject());
+        order.push(key);
+        continue;
+      }
+      previous.quantity = Number(previous.quantity || 0) + Number(item.quantity || 0);
+    }
+    if (order.length === cart.items.length) return false;
+    cart.items.splice(0, cart.items.length, ...order.map((key) => merged.get(key) as any));
+    return true;
   }
 
   private snapshot(product: { productType: ShopProductType; doc: any }) {
