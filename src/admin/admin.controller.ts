@@ -47,8 +47,22 @@ import {
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const csv = require('csv-parser');
-import * as xlsx from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import { Readable } from 'stream';
+
+function excelCellValue(cell: ExcelJS.Cell): unknown {
+  const value = cell.value;
+  if (value == null) return null;
+  if (typeof value === 'object') {
+    if (value instanceof Date) return value;
+    if ('text' in value && typeof value.text === 'string') return value.text;
+    if ('richText' in value && Array.isArray(value.richText)) {
+      return value.richText.map((part) => part.text).join('');
+    }
+    if ('result' in value) return value.result ?? null;
+  }
+  return value;
+}
 
 @ApiTags('Admin')
 @ApiBearerAuth(JWT_AUTH)
@@ -388,11 +402,7 @@ export class AdminController {
       fileFilter: (_req, file, cb) => {
         const ext = file.originalname.toLowerCase();
 
-        if (
-          ext.endsWith('.csv') ||
-          ext.endsWith('.xlsx') ||
-          ext.endsWith('.xls')
-        ) {
+        if (ext.endsWith('.csv') || ext.endsWith('.xlsx')) {
           cb(null, true);
         } else {
           cb(
@@ -415,11 +425,8 @@ export class AdminController {
     const fileName = file.originalname.toLowerCase();
     let rows: any[];
 
-    if (
-      fileName.endsWith('.xlsx') ||
-      fileName.endsWith('.xls')
-    ) {
-      rows = this.parseXlsx(file.buffer);
+    if (fileName.endsWith('.xlsx')) {
+      rows = await this.parseXlsx(file.buffer);
     } else {
       rows = await this.parseCsv(file.buffer);
     }
@@ -433,17 +440,36 @@ export class AdminController {
     return this.adminService.processBulkUpload(rows);
   }
 
-  private parseXlsx(buffer: Buffer): any[] {
-    const workbook = xlsx.read(buffer, {
-      type: 'buffer',
+  private async parseXlsx(buffer: Buffer): Promise<any[]> {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) return [];
+
+    const rows: Record<string, unknown>[] = [];
+    let headers: Array<string | undefined> = [];
+
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      const values: unknown[] = [];
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        values[colNumber] = excelCellValue(cell);
+      });
+      if (rowNumber === 1) {
+        headers = values.map((value) =>
+          value == null || value === '' ? undefined : String(value),
+        );
+        return;
+      }
+      const obj: Record<string, unknown> = {};
+      for (let i = 1; i < headers.length; i++) {
+        const key = headers[i];
+        if (!key) continue;
+        obj[key] = values[i] === undefined ? null : values[i];
+      }
+      rows.push(obj);
     });
 
-    const sheetName = workbook.SheetNames[0];
-
-    return xlsx.utils.sheet_to_json(
-      workbook.Sheets[sheetName],
-      { defval: null },
-    );
+    return rows;
   }
 
   private parseCsv(buffer: Buffer): Promise<any[]> {

@@ -16,6 +16,11 @@ import {
   ShopProductType,
 } from './shop-pricing';
 
+function cartLineId(line: object): Types.ObjectId | undefined {
+  const id = (line as { _id?: Types.ObjectId })._id;
+  return id;
+}
+
 @Injectable()
 export class CartService {
   constructor(
@@ -305,10 +310,11 @@ export class CartService {
       product.doc.stock != null &&
       Number(product.doc.stock) < line.quantity;
     if (!overCap && !overStock) return;
-    if (line._id) {
+    const lineId = cartLineId(line);
+    if (lineId) {
       await this.cartModel
         .updateOne(
-          { _id: cart._id, 'items._id': line._id, 'items.quantity': { $gte: addedQty } },
+          { _id: cart._id, 'items._id': lineId, 'items.quantity': { $gte: addedQty } },
           { $inc: { 'items.$.quantity': -addedQty } },
         )
         .exec();
@@ -339,7 +345,7 @@ export class CartService {
       const key = `${item.productType}:${String(item.productId)}:${item.installationOptionId || ''}`;
       const previous = merged.get(key);
       if (!previous) {
-        merged.set(key, item.toObject());
+        merged.set(key, item.toObject() as unknown as Record<string, unknown>);
         order.push(key);
         continue;
       }

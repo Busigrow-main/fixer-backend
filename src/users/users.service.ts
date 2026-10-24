@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
+
+function isDuplicateKey(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && (err as { code?: number }).code === 11000);
+}
 
 @Injectable()
 export class UsersService {
@@ -27,8 +31,33 @@ export class UsersService {
   }
 
   async create(userData: Partial<User>): Promise<UserDocument> {
-    const createdUser = new this.userModel(userData);
-    return createdUser.save();
+    try {
+      return await new this.userModel(userData).save();
+    } catch (err) {
+      if (isDuplicateKey(err)) {
+        throw new ConflictException(
+          userData.phone
+            ? 'An account with this phone number already exists'
+            : 'An account with these details already exists',
+        );
+      }
+      throw err;
+    }
+  }
+
+  /** Find-or-create for phone races: return the winner instead of 409/500. */
+  async createOrFindByPhone(
+    userData: Partial<User> & { phone: string },
+  ): Promise<UserDocument> {
+    try {
+      return await this.create(userData);
+    } catch (err) {
+      if (err instanceof ConflictException) {
+        const existing = await this.findOneByPhone(userData.phone);
+        if (existing) return existing;
+      }
+      throw err;
+    }
   }
 
   async findAll(page = 1, limit = 20): Promise<{ data: UserDocument[]; total: number }> {

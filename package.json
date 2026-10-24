@@ -50,6 +50,7 @@
     "class-validator": "^0.15.1",
     "cloudinary": "^2.10.0",
     "csv-parser": "^3.2.0",
+    "exceljs": "^4.4.0",
     "google-auth-library": "^11.1.0",
     "mongoose": "^9.4.1",
     "passport": "^0.7.0",
@@ -57,8 +58,11 @@
     "passport-local": "^1.0.0",
     "pdfkit": "^0.20.2",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "xlsx": "^0.18.5"
+    "rxjs": "^7.8.1"
+  },
+  "overrides": {
+    "proxy-addr": "2.0.8",
+    "multer": "2.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

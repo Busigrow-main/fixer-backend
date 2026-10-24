@@ -3,16 +3,20 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
+import { EmailOtpService } from './email-otp.service';
 import { UsersService } from '../users/users.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: jest.Mocked<Pick<UsersService, 'findOneByPhone' | 'create'>>;
+  let usersService: jest.Mocked<
+    Pick<UsersService, 'findOneByPhone' | 'create' | 'createOrFindByPhone'>
+  >;
 
   beforeEach(async () => {
     usersService = {
       findOneByPhone: jest.fn(),
       create: jest.fn(),
+      createOrFindByPhone: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -22,6 +26,10 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: { sign: jest.fn().mockReturnValue('jwt-token') },
+        },
+        {
+          provide: EmailOtpService,
+          useValue: { sendOtp: jest.fn(), verifyOtp: jest.fn() },
         },
       ],
     }).compile();
@@ -35,7 +43,7 @@ describe('AuthService', () => {
 
   it('quickLogin creates a new customer when phone is unknown', async () => {
     usersService.findOneByPhone.mockResolvedValue(null);
-    usersService.create.mockResolvedValue({
+    usersService.createOrFindByPhone.mockResolvedValue({
       _id: 'user1',
       phone: '9876543210',
       role: 'CUSTOMER',
@@ -44,7 +52,7 @@ describe('AuthService', () => {
 
     const result = await service.quickLogin('9876543210', 'Alex');
 
-    expect(usersService.create).toHaveBeenCalled();
+    expect(usersService.createOrFindByPhone).toHaveBeenCalled();
     expect(result.access_token).toBe('jwt-token');
   });
 
@@ -60,7 +68,7 @@ describe('AuthService', () => {
 
     const result = await service.quickLogin('9876543210');
 
-    expect(usersService.create).not.toHaveBeenCalled();
+    expect(usersService.createOrFindByPhone).not.toHaveBeenCalled();
     expect(result.access_token).toBe('jwt-token');
   });
 

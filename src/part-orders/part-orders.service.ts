@@ -341,7 +341,11 @@ export class PartOrdersService {
       .deleteOne({
         _id: id,
         status: 'PENDING',
-        paymentStatus: { $in: ['UNPAID', null, undefined] },
+        $or: [
+          { paymentStatus: 'UNPAID' },
+          { paymentStatus: null },
+          { paymentStatus: { $exists: false } },
+        ],
       })
       .exec();
   }

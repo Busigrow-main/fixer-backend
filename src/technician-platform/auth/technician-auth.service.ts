@@ -42,7 +42,7 @@ export class TechnicianAuthService {
     if (!user) {
       isNew = true;
       const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
-      user = await this.usersService.create({
+      user = await this.usersService.createOrFindByPhone({
         phone,
         passwordHash,
         role: 'TECHNICIAN',

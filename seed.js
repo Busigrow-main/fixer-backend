@@ -1,8 +1,54 @@
 const mongoose = require('mongoose');
-const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+
+function excelCellValue(cell) {
+  const value = cell.value;
+  if (value == null) return null;
+  if (typeof value === 'object') {
+    if (value instanceof Date) return value;
+    if (typeof value.text === 'string') return value.text;
+    if (Array.isArray(value.richText)) {
+      return value.richText.map((part) => part.text).join('');
+    }
+    if (value.result != null) return value.result;
+  }
+  return value;
+}
+
+async function sheetToJson(filePath, skipRows = 0) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+
+  const rows = [];
+  let headers = [];
+  let headerRead = false;
+
+  sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber <= skipRows) return;
+    const values = [];
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      values[colNumber] = excelCellValue(cell);
+    });
+    if (!headerRead) {
+      headers = values;
+      headerRead = true;
+      return;
+    }
+    const obj = {};
+    for (let i = 1; i < headers.length; i++) {
+      if (headers[i] == null || headers[i] === '') continue;
+      obj[String(headers[i])] = values[i] === undefined ? null : values[i];
+    }
+    rows.push(obj);
+  });
+
+  return rows;
+}
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -163,9 +209,7 @@ async function seedDatabase() {
     // await SparePart.init();
     
     console.log(`\n📖 Reading Excel file: ${filePath}`);
-    const workbook = xlsx.readFile(filePath);
-    const sheetName = workbook.SheetNames[0]; // Assuming data is in first sheet
-    const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null, range: 4 });
+    const rawData = await sheetToJson(filePath, 4);
     
     console.log(`📊 Found ${rawData.length} rows in the Excel file. Normalizing data...`);
 
