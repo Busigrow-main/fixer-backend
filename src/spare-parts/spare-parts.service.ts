@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { SparePart, SparePartDocument } from './schemas/spare-part.schema';
 import {
   ApplianceType,
@@ -17,6 +17,15 @@ import {
   PartCategoryDocument,
 } from './schemas/part-category.schema';
 import { SearchService } from '../search/search.service';
+
+function literalSearchRegex(raw: string): RegExp {
+  const escaped = String(raw ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  try {
+    return new RegExp(escaped, 'i');
+  } catch {
+    throw new BadRequestException('Invalid search query');
+  }
+}
 
 @Injectable()
 export class SparePartsService {
@@ -140,7 +149,7 @@ export class SparePartsService {
     }
 
     // Fallback: MongoDB regex (fast for small catalogs)
-    const regex = new RegExp(q, 'i');
+    const regex = literalSearchRegex(q);
     const [parts, categories, brands] = await Promise.all([
       this.sparePartModel
         .find({ isActive: true, $or: [{ name: regex }, { partNumber: regex }, { sku: regex }] })
@@ -200,10 +209,11 @@ export class SparePartsService {
       // If q is short, use regex for prefix matching
       // If q is long, use $text for better semantic matching
       if (q.length < 4) {
+        const regex = literalSearchRegex(q);
         filter.$or = [
-          { name: new RegExp(q, 'i') },
-          { partNumber: new RegExp(q, 'i') },
-          { sku: new RegExp(q, 'i') }
+          { name: regex },
+          { partNumber: regex },
+          { sku: regex },
         ];
         sortOptions = { name: 1 };
       } else {
@@ -296,6 +306,40 @@ export class SparePartsService {
     const sparePart = await this.sparePartModel.findById(id).exec();
     if (!sparePart) throw new NotFoundException('Spare Part not found');
     return sparePart;
+  }
+
+  async tryDecrementStock(
+    id: string,
+    quantity: number,
+  ): Promise<true | false | 'unlimited'> {
+    if (!Types.ObjectId.isValid(id) || quantity < 1) return false;
+    const part = await this.sparePartModel.findById(id).exec();
+    if (!part || part.isActive === false || part.isInStock === false) return false;
+    const stock = Number(part.stock);
+    if (!(stock > 0)) return 'unlimited';
+    const updated = await this.sparePartModel
+      .findOneAndUpdate(
+        { _id: id, isActive: true, stock: { $gte: quantity } },
+        { $inc: { stock: -quantity, soldCount: quantity } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+    if (!updated) return false;
+    if (updated.stock <= 0 && updated.isInStock !== false) {
+      updated.isInStock = false;
+      await updated.save();
+    }
+    return true;
+  }
+
+  async restoreStock(id: string, quantity: number): Promise<void> {
+    if (!Types.ObjectId.isValid(id) || quantity < 1) return;
+    await this.sparePartModel
+      .updateOne(
+        { _id: id },
+        { $inc: { stock: quantity, soldCount: -quantity }, $set: { isInStock: true } },
+      )
+      .exec();
   }
 
   // ================================================================

@@ -59,7 +59,7 @@ export class BookingsController {
 
   @Post('user/bookings/:id/claim-warranty')
   @ApiOperation({ summary: 'Claim warranty on a completed booking' })
-  async claimWarranty(@Param('id') id: string) {
-    return this.bookingsService.claimWarranty(id);
+  async claimWarranty(@Request() req: any, @Param('id') id: string) {
+    return this.bookingsService.claimWarranty(id, req.user.userId);
   }
 }

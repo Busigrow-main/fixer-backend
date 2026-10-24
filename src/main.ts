@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { json } from 'express';
 import { setupSwagger } from './common/swagger';
+import { jwtSecret } from './common/jwt-secret';
 
 async function bootstrap() {
   try {
@@ -10,9 +11,7 @@ async function bootstrap() {
     console.log('NODE_ENV:', process.env.NODE_ENV);
     console.log('PORT:', process.env.PORT);
 
-    if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-      throw new Error('FATAL: JWT_SECRET missing');
-    }
+    jwtSecret();
 
     const app = await NestFactory.create(AppModule);
 

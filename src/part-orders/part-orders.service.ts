@@ -6,6 +6,7 @@ import { CreatePartOrderDto } from './dtos/create-part-order.dto';
 import { UpdateOrderBillDto } from './dtos/update-order-bill.dto';
 import { SparePart, SparePartDocument } from '../spare-parts/schemas/spare-part.schema';
 import { Appliance, ApplianceDocument } from '../appliances/schemas/appliance.schema';
+import { USER_PUBLIC_POPULATE } from '../users/user-populate';
 
 export interface CreatePartOrderOptions {
   sourceHelpRequestId?: string;
@@ -89,7 +90,7 @@ export class PartOrdersService {
     const [data, total] = await Promise.all([
       this.partOrderModel
         .find(filter)
-        .populate('userId items.partId')
+        .populate([USER_PUBLIC_POPULATE, { path: 'items.partId' }])
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
@@ -104,7 +105,7 @@ export class PartOrdersService {
   async findOne(id: string): Promise<PartOrder> {
     const order = await this.partOrderModel
       .findById(id)
-      .populate('userId items.partId')
+      .populate([USER_PUBLIC_POPULATE, { path: 'items.partId' }])
       .exec();
 
     if (!order) {
@@ -155,7 +156,7 @@ export class PartOrdersService {
     if (!Types.ObjectId.isValid(sourceHelpRequestId)) return null;
     return this.partOrderModel
       .findOne({ sourceHelpRequestId: new Types.ObjectId(sourceHelpRequestId) })
-      .populate('userId items.partId')
+      .populate([USER_PUBLIC_POPULATE, { path: 'items.partId' }])
       .exec();
   }
 
@@ -316,7 +317,7 @@ export class PartOrdersService {
 
     const updatedOrder = await this.partOrderModel
       .findById(order._id)
-      .populate('userId items.partId')
+      .populate([USER_PUBLIC_POPULATE, { path: 'items.partId' }])
       .exec();
 
     if (!updatedOrder) {
@@ -444,7 +445,7 @@ export class PartOrdersService {
         },
         { returnDocument: 'after' },
       )
-      .populate('userId items.partId')
+      .populate([USER_PUBLIC_POPULATE, { path: 'items.partId' }])
       .exec();
 
     if (!updated) {
@@ -509,7 +510,7 @@ export class PartOrdersService {
         },
         { returnDocument: 'after' },
       )
-      .populate('userId items.partId')
+      .populate([USER_PUBLIC_POPULATE, { path: 'items.partId' }])
       .exec();
 
     if (!updated) {
