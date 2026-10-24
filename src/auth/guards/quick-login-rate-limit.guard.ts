@@ -19,13 +19,14 @@ export class QuickLoginRateLimitGuard implements CanActivate {
     const phone = String(req.body?.phone || '')
       .replace(/\D/g, '')
       .slice(-10);
-    const forwarded = String(req.headers?.['x-forwarded-for'] || '')
-      .split(',')[0]
-      .trim();
-    const ip = forwarded || String(req.ip || 'unknown');
+    const ip = String(req.socket?.remoteAddress || req.ip || 'unknown');
     const now = Date.now();
+    this.prune(now);
     const keys = [`ip:${ip}`, ...(phone.length === 10 ? [`phone:${phone}`] : [])];
-    const limits = { [`ip:${ip}`]: MAX_PER_IP, [`phone:${phone}`]: MAX_PER_PHONE };
+    const limits: Record<string, number> = {
+      [`ip:${ip}`]: MAX_PER_IP,
+      [`phone:${phone}`]: MAX_PER_PHONE,
+    };
 
     for (const key of keys) {
       const recent = (this.hits.get(key) || []).filter((at) => now - at < WINDOW_MS);
@@ -39,5 +40,13 @@ export class QuickLoginRateLimitGuard implements CanActivate {
       this.hits.set(key, recent);
     }
     return true;
+  }
+
+  private prune(now: number) {
+    for (const [key, times] of this.hits) {
+      const recent = times.filter((at) => now - at < WINDOW_MS);
+      if (recent.length) this.hits.set(key, recent);
+      else this.hits.delete(key);
+    }
   }
 }

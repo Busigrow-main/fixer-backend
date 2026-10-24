@@ -2,44 +2,61 @@ import {
   IsArray,
   IsEmail,
   IsEnum,
+  IsInt,
   IsMongoId,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
+  Matches,
+  Max,
+  MaxLength,
   Min,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { plainText } from '../../common/sanitize';
 
 export class ContactDataDto {
+  @Transform(({ value }) => plainText(value, 80))
   @IsString()
   @IsNotEmpty()
+  @MaxLength(80)
   name: string;
 
+  @Transform(({ value }) => String(value || '').replace(/\D/g, '').slice(-10))
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^\d{10}$/)
   phone: string;
 
   @IsOptional()
+  @Transform(({ value }) => (value ? plainText(value, 120) : undefined))
   @IsEmail()
+  @MaxLength(120)
   email?: string;
 
+  @Transform(({ value }) => plainText(value, 240))
   @IsString()
   @IsNotEmpty()
+  @MaxLength(240)
   address: string;
 
   @IsOptional()
+  @Transform(({ value }) => (value ? plainText(value, 40) : undefined))
   @IsString()
+  @MaxLength(40)
   preferredDate?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (value ? plainText(value, 40) : undefined))
   @IsString()
+  @MaxLength(40)
   preferredTime?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (value ? plainText(value, 400) : undefined))
   @IsString()
+  @MaxLength(400)
   notes?: string;
 }
 
@@ -47,8 +64,10 @@ export class OrderItemDto {
   @IsMongoId()
   partId: string;
 
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
+  @Max(99)
   quantity: number;
 }
 
@@ -73,12 +92,10 @@ export class ApplianceOrderItemDto {
   @IsString()
   modelNumber?: string;
 
-  @IsOptional()
-  @IsNumber()
-  price?: number;
-
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
+  @Max(99)
   quantity: number;
 }
 

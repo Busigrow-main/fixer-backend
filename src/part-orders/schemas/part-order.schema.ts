@@ -88,6 +88,9 @@ export class OrderInvoiceData {
   @Prop({ default: 0 })
   totalAmount: number;
 
+  @Prop({ default: 0 })
+  discount: number;
+
   @Prop()
   notes?: string;
 

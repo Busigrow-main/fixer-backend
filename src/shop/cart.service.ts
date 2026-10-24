@@ -64,7 +64,11 @@ export class CartService {
         productId,
         installation.id,
       );
-      this.assertPurchasable(product, (existing?.quantity ?? 0) + quantity);
+      const nextQty = (existing?.quantity ?? 0) + quantity;
+      if (nextQty > 99) {
+        throw new BadRequestException('Quantity must not be greater than 99');
+      }
+      this.assertPurchasable(product, nextQty);
 
       if (existing) {
         const updated = await this.cartModel
@@ -84,6 +88,7 @@ export class CartService {
           .exec();
         if (updated) {
           if (this.collapseDuplicateLines(updated)) await updated.save();
+          await this.assertLineWithinLimits(updated, snapshot.productType, productId, installation.id, product, quantity);
           return this.present(updated);
         }
         continue;
@@ -108,6 +113,7 @@ export class CartService {
         .exec();
       if (pushed) {
         if (this.collapseDuplicateLines(pushed)) await pushed.save();
+        await this.assertLineWithinLimits(pushed, snapshot.productType, productId, installation.id, product, quantity);
         return this.present(pushed);
       }
     }
@@ -170,8 +176,8 @@ export class CartService {
       throw new BadRequestException('Add items before applying a coupon');
     }
     const normalized = String(offer.couponCode).toUpperCase();
-    if (cart.coupons.some((coupon) => coupon.code === normalized)) {
-      throw new BadRequestException('Coupon is already applied');
+    if (cart.coupons.length > 0) {
+      throw new BadRequestException('Only one coupon can be applied');
     }
     cart.coupons.push({
       code: normalized,
@@ -283,6 +289,35 @@ export class CartService {
     };
   }
 
+  private async assertLineWithinLimits(
+    cart: ShopCartDocument,
+    productType: ShopProductType,
+    productId: Types.ObjectId,
+    installationOptionId: string,
+    product: { productType: ShopProductType; doc: any },
+    addedQty: number,
+  ) {
+    const line = this.matchingLine(cart, productType, productId, installationOptionId);
+    if (!line) return;
+    const overCap = line.quantity > 99;
+    const overStock =
+      product.productType === 'part' &&
+      product.doc.stock != null &&
+      Number(product.doc.stock) < line.quantity;
+    if (!overCap && !overStock) return;
+    if (line._id) {
+      await this.cartModel
+        .updateOne(
+          { _id: cart._id, 'items._id': line._id, 'items.quantity': { $gte: addedQty } },
+          { $inc: { 'items.$.quantity': -addedQty } },
+        )
+        .exec();
+    }
+    throw new BadRequestException(
+      overStock ? 'This spare part is out of stock' : 'Quantity must not be greater than 99',
+    );
+  }
+
   private matchingLine(
     cart: ShopCartDocument | null,
     productType: ShopProductType,
@@ -356,7 +391,7 @@ export class CartService {
       if (product.doc.isInStock === false) {
         throw new BadRequestException('This spare part is out of stock');
       }
-      if (Number(product.doc.stock) > 0 && Number(product.doc.stock) < quantity) {
+      if (product.doc.stock != null && Number(product.doc.stock) < quantity) {
         throw new BadRequestException('This spare part is out of stock');
       }
       return;

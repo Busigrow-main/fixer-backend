@@ -7,12 +7,15 @@ import { UpdateOrderBillDto } from './dtos/update-order-bill.dto';
 import { SparePart, SparePartDocument } from '../spare-parts/schemas/spare-part.schema';
 import { Appliance, ApplianceDocument } from '../appliances/schemas/appliance.schema';
 import { USER_PUBLIC_POPULATE } from '../users/user-populate';
+import { sanitizeContact } from '../common/sanitize';
 
 export interface CreatePartOrderOptions {
   sourceHelpRequestId?: string;
   acceptedQuote?: { description: string; quantity: number; unitPrice: number };
   paymentMethod?: 'COD' | 'ONLINE';
   invoiceLines?: { description: string; quantity: number; unitPrice: number }[];
+  discount?: number;
+  stockAlreadyReserved?: boolean;
 }
 
 function computeInvoiceTotals(
@@ -171,6 +174,10 @@ export class PartOrdersService {
     }
 
     const orderType = createOrderDto.orderType ?? 'part';
+    const contactData = sanitizeContact(createOrderDto.contactData || {});
+    if (!contactData.name || contactData.phone.length !== 10 || !contactData.address) {
+      throw new BadRequestException('Enter a valid name, 10-digit phone, and address');
+    }
 
     if (orderType === 'appliance') {
       if (!createOrderDto.applianceItem) {
@@ -179,27 +186,45 @@ export class PartOrdersService {
         );
       }
 
-      const applianceItem = { ...createOrderDto.applianceItem } as any;
-      delete applianceItem.productWarrantyYearsAtPurchase;
-      delete applianceItem.compressorWarrantyYearsAtPurchase;
-      const appliance = applianceItem.applianceId && Types.ObjectId.isValid(applianceItem.applianceId)
-        ? await this.applianceModel.findById(applianceItem.applianceId).lean().exec()
-        : await this.applianceModel.findOne({ slug: applianceItem.slug, isActive: true }).lean().exec();
-      if (appliance) {
-        applianceItem.productWarrantyYearsAtPurchase = appliance.productWarrantyYears ?? 0;
-        applianceItem.compressorWarrantyYearsAtPurchase = appliance.compressorWarrantyYears ?? 0;
+      const submitted = createOrderDto.applianceItem;
+      const appliance = submitted.applianceId && Types.ObjectId.isValid(submitted.applianceId)
+        ? await this.applianceModel.findById(submitted.applianceId).lean().exec()
+        : await this.applianceModel.findOne({ slug: submitted.slug, isActive: true }).lean().exec();
+      if (!appliance || appliance.isActive === false) {
+        throw new NotFoundException('Appliance not found');
       }
+      if (appliance.inStock === false) {
+        throw new BadRequestException('This appliance is out of stock');
+      }
+
+      const applianceItem = {
+        applianceId: appliance._id,
+        slug: appliance.slug,
+        name: appliance.name,
+        brand: appliance.brand,
+        modelNumber: appliance.modelNumber,
+        price: Number(appliance.price) || 0,
+        quantity: submitted.quantity,
+        productWarrantyYearsAtPurchase: appliance.productWarrantyYears ?? 0,
+        compressorWarrantyYearsAtPurchase: appliance.compressorWarrantyYears ?? 0,
+      };
 
       const createdOrder = new this.partOrderModel({
         orderType: 'appliance',
-        contactData: createOrderDto.contactData,
+        contactData,
         applianceItem,
         items: [],
         userId: Types.ObjectId.isValid(userId)
           ? new Types.ObjectId(userId)
           : userId,
-        paymentMethod: options.paymentMethod,
-        invoiceData: this.invoiceFromOptions(options),
+        paymentMethod: options.paymentMethod === 'ONLINE' ? 'COD' : options.paymentMethod,
+        invoiceData: this.invoiceFromOptions(options, [
+          {
+            description: applianceItem.name,
+            quantity: applianceItem.quantity,
+            unitPrice: applianceItem.price,
+          },
+        ]),
       });
 
       return createdOrder.save();
@@ -216,27 +241,71 @@ export class PartOrdersService {
     const partIds = items.map((item) => item.partId);
     const parts = await this.sparePartModel
       .find({ _id: { $in: partIds } })
-      .select('_id warrantyMonths')
       .lean()
       .exec();
     const partsById = new Map(parts.map((part) => [String(part._id), part]));
-    const orderItems = items.map((item) => {
-      const part = partsById.get(String(item.partId));
-      if (!part) {
-        throw new NotFoundException(`Spare part ${item.partId} not found`);
+    const reserved: { id: string; quantity: number }[] = [];
+    const orderItems = [];
+    try {
+      for (const item of items) {
+        const part = partsById.get(String(item.partId));
+        if (!part) {
+          throw new NotFoundException(`Spare part ${item.partId} not found`);
+        }
+        if (part.isActive === false || part.isInStock === false) {
+          throw new BadRequestException(`${part.name} is out of stock`);
+        }
+        const stock = Number(part.stock);
+        if (part.stock != null && !(stock > 0 && stock >= item.quantity)) {
+          throw new BadRequestException(`${part.name} is out of stock`);
+        }
+        if (!options.stockAlreadyReserved && part.stock != null && stock > 0) {
+          const updated = await this.sparePartModel
+            .findOneAndUpdate(
+              { _id: part._id, stock: { $gte: item.quantity } },
+              { $inc: { stock: -item.quantity, soldCount: item.quantity } },
+              { returnDocument: 'after' },
+            )
+            .exec();
+          if (!updated) {
+            throw new BadRequestException(`${part.name} is out of stock`);
+          }
+          if (updated.stock <= 0) {
+            updated.isInStock = false;
+            await updated.save();
+          }
+          reserved.push({ id: String(part._id), quantity: item.quantity });
+        }
+        const unitPrice = Math.round((Number(part.price) || 0) / 100 * 100) / 100;
+        orderItems.push({
+          partId: part._id,
+          quantity: item.quantity,
+          priceAtPurchase: String(unitPrice),
+          warrantyMonthsAtPurchase: Math.max(0, Number(part.warrantyMonths) || 0),
+        });
       }
-      return {
-        ...item,
-        // Snapshot from the catalog. An absent/zero catalog duration means no warranty.
-        warrantyMonthsAtPurchase: Math.max(0, Number(part.warrantyMonths) || 0),
-      };
-    });
+    } catch (err) {
+      for (const row of reserved) {
+        await this.sparePartModel
+          .updateOne(
+            { _id: row.id },
+            { $inc: { stock: row.quantity, soldCount: -row.quantity }, $set: { isInStock: true } },
+          )
+          .exec();
+      }
+      throw err;
+    }
 
-    const invoiceData = this.invoiceFromOptions(options);
+    const catalogLines = orderItems.map((item, index) => ({
+      description: partsById.get(String(items[index].partId))?.name || 'Spare part',
+      quantity: item.quantity,
+      unitPrice: Number(item.priceAtPurchase),
+    }));
+    const invoiceData = this.invoiceFromOptions(options, catalogLines);
 
     const createdOrder = new this.partOrderModel({
       orderType: 'part',
-      contactData: createOrderDto.contactData,
+      contactData,
       items: orderItems,
       userId: Types.ObjectId.isValid(userId)
         ? new Types.ObjectId(userId)
@@ -244,8 +313,8 @@ export class PartOrdersService {
       sourceHelpRequestId: options.sourceHelpRequestId
         ? new Types.ObjectId(options.sourceHelpRequestId)
         : undefined,
-      paymentMethod: options.paymentMethod,
-      invoiceData,
+        paymentMethod: options.paymentMethod === 'ONLINE' ? 'COD' : options.paymentMethod,
+        invoiceData,
     });
 
     try {
@@ -255,8 +324,26 @@ export class PartOrdersService {
         const existing = await this.findBySourceHelpRequestId(options.sourceHelpRequestId);
         if (existing) return existing;
       }
+      for (const row of reserved) {
+        await this.sparePartModel
+          .updateOne(
+            { _id: row.id },
+            { $inc: { stock: row.quantity, soldCount: -row.quantity }, $set: { isInStock: true } },
+          )
+          .exec();
+      }
       throw error;
     }
+  }
+
+  async abortIfUnpaid(id: string): Promise<void> {
+    await this.partOrderModel
+      .deleteOne({
+        _id: id,
+        status: 'PENDING',
+        paymentStatus: { $in: ['UNPAID', null, undefined] },
+      })
+      .exec();
   }
 
   async cancelOrder(
@@ -327,7 +414,10 @@ export class PartOrdersService {
     return updatedOrder;
   }
 
-  private invoiceFromOptions(options: CreatePartOrderOptions) {
+  private invoiceFromOptions(
+    options: CreatePartOrderOptions,
+    fallbackLines: { description: string; quantity: number; unitPrice: number }[] = [],
+  ) {
     const lines = options.invoiceLines?.length
       ? options.invoiceLines
       : options.acceptedQuote
@@ -338,11 +428,12 @@ export class PartOrdersService {
               unitPrice: options.acceptedQuote.unitPrice,
             },
           ]
-        : [];
+        : fallbackLines;
     if (!lines.length) return undefined;
     const totals = computeInvoiceTotals(
       lines.map((line) => ({ quantity: line.quantity, unitPrice: line.unitPrice })),
     );
+    const discount = Math.max(0, Number(options.discount) || 0);
     return {
       lineItems: totals.lineItems.map((line, index) => ({
         ...line,
@@ -351,7 +442,8 @@ export class PartOrdersService {
       subtotal: totals.subtotal,
       taxPercent: 0,
       taxAmount: 0,
-      totalAmount: totals.totalAmount,
+      discount,
+      totalAmount: Math.round(Math.max(0, totals.totalAmount - discount) * 100) / 100,
       generatedAt: new Date(),
     };
   }
