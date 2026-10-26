@@ -60,14 +60,23 @@ export class UsersService {
     }
   }
 
-  async findAll(page = 1, limit = 20): Promise<{ data: UserDocument[]; total: number }> {
-    const skip = (page - 1) * limit;
+  async findAll(page = 1, limit = 20) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.max(1, Math.min(100, limit));
+    const skip = (safePage - 1) * safeLimit;
+    
     const [data, total] = await Promise.all([
-      this.userModel.find({}, { passwordHash: 0 }).skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
+      this.userModel
+        .find({}, { passwordHash: 0 })
+        .skip(skip)
+        .limit(safeLimit)
+        .sort({ createdAt: -1 })
+        .exec(),
       this.userModel.countDocuments().exec(),
     ]);
+  
     return { data, total };
-  }
+  }  
 
   async countAll(): Promise<number> {
     return this.userModel.countDocuments().exec();
