@@ -21,12 +21,16 @@ async function bootstrap() {
       .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean);
+    const localFrontends = [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3001',
+    ];
     const origins =
-      configured.length > 0
+      process.env.NODE_ENV === 'production'
         ? configured
-        : process.env.NODE_ENV === 'production'
-          ? []
-          : ['http://localhost:3000', 'http://localhost:3001'];
+        : [...new Set([...configured, ...localFrontends])];
     app.enableCors({
       origin: origins,
       credentials: true,
