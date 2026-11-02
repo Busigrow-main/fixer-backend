@@ -202,11 +202,74 @@ function generatePartNumber(index) {
   return partNum;
 }
 
-function generatePrice(basePrice = 500, variance = 0.8) {
-  // Price in paise (1 rupee = 100 paise)
-  const multiplier = 1 + (Math.random() - 0.5) * variance;
-  const price = Math.round(basePrice * 100 * multiplier);
-  return Math.max(price, 100); // minimum 1 rupee
+// Per-unit INR ranges. The old generator used generatePrice(2000 | 10000)
+// for every category, so fasteners and capacitors stored ₹800–₹16,000 —
+// values that look like the stock lot, not one part.
+const UNIT_PRICE_RUPEES = {
+  'Cooling & Compressor': [2800, 9500],
+  Compressors: [3500, 12000],
+  'Motors & Drive': [900, 3800],
+  Motors: [700, 2800],
+  'Drums & Tubs': [2200, 7500],
+  'Belts & Pulleys': [180, 650],
+  'Controls & PCB': [850, 3200],
+  'Control Boards': [900, 3500],
+  'Control Panels': [600, 2200],
+  'Controls & Sensors': [350, 1600],
+  'Cooling Fans': [320, 1100],
+  'Seals & Gaskets': [180, 850],
+  'Ice Maker': [700, 2400],
+  'Water System': [220, 900],
+  'Shelves & Drawers': [350, 1400],
+  Lighting: [120, 550],
+  'LED Backlights': [400, 1800],
+  'Inlet Valves': [250, 850],
+  'Drain Pumps': [380, 1200],
+  Bearings: [150, 700],
+  Fasteners: [40, 220],
+  'Condenser Coils': [1200, 4500],
+  'Evaporator Coils': [1100, 4200],
+  Thermostats: [180, 750],
+  'Capillary Tubes': [80, 350],
+  Filters: [150, 650],
+  Magnetrons: [900, 2800],
+  Transformers: [450, 1600],
+  Capacitors: [80, 450],
+  'Heating Elements': [280, 1100],
+  'Waveguide Covers': [120, 480],
+  'Stirrer Motors': [250, 900],
+  Turntables: [180, 700],
+  'RO Membranes': [400, 1400],
+  'Pre-Filters': [150, 550],
+  'Carbon Filters': [180, 650],
+  Cartridges: [150, 600],
+  'Valves & Fittings': [80, 400],
+  'TDS Meters': [200, 800],
+  Pumps: [500, 1800],
+  Housings: [250, 950],
+  'Power Supplies': [700, 2500],
+  'Main Boards': [1200, 4500],
+  'T-Con Boards': [800, 2800],
+  'Panel Cables': [150, 600],
+  'Remote Controls': [250, 900],
+  Speakers: [300, 1100],
+  'Temperature Sensors': [150, 650],
+  'Relief Valves': [120, 480],
+  'Inlets & Outlets': [80, 350],
+  'Pipes & Fittings': [60, 300],
+  Insulation: [100, 450],
+  Regulators: [150, 600],
+  Blades: [200, 800],
+  Wiring: [80, 400],
+  'Speed Controllers': [180, 750],
+  default: [250, 1200],
+};
+
+function generatePrice(partCategory) {
+  const [minRupees, maxRupees] =
+    UNIT_PRICE_RUPEES[partCategory] || UNIT_PRICE_RUPEES.default;
+  const rupees = minRupees + Math.random() * (maxRupees - minRupees);
+  return Math.max(100, Math.round(rupees) * 100);
 }
 
 function generateName(applianceType, partCategory, brand) {
@@ -272,6 +335,44 @@ function generateName(applianceType, partCategory, brand) {
     Wiring: ['Power Cord', 'Cable Harness', 'Wire Loom'],
     Blades: ['Aluminum Blade Set', 'Wooden Blade Set', 'Replacement Blades'],
     'Remote Controls': ['IR Remote with Battery', 'Smart Remote', 'RF Remote'],
+    Compressors: ['Rotary Compressor', 'Scroll Compressor', 'Inverter Compressor'],
+    Motors: ['Fan Motor', 'BLDC Motor', 'Condenser Fan Motor'],
+    'Control Boards': ['Main Control Board', 'Inverter PCB', 'Display Board'],
+    'Control Panels': ['Touch Control Panel', 'Membrane Keypad', 'Display Panel'],
+    'Controls & Sensors': ['Temperature Sensor', 'Door Switch', 'Defrost Sensor'],
+    'Ice Maker': ['Ice Maker Assembly', 'Ice Tray', 'Ice Maker Motor'],
+    'Water System': ['Water Inlet Valve', 'Water Filter', 'Dispenser Valve'],
+    'Shelves & Drawers': ['Glass Shelf', 'Crisper Drawer', 'Door Bin'],
+    Lighting: ['LED Lamp', 'Cabinet Light', 'Lamp Cover'],
+    'LED Backlights': ['LED Strip', 'Backlight Bar', 'LED Lens'],
+    'Inlet Valves': ['Single Inlet Valve', 'Double Inlet Valve', 'Inlet Hose'],
+    'Drain Pumps': ['Drain Pump', 'Drain Motor', 'Drain Hose'],
+    Bearings: ['Drum Bearing', 'Rear Bearing', 'Bearing Kit'],
+    'Condenser Coils': ['Condenser Coil', 'Condenser Assembly'],
+    'Evaporator Coils': ['Evaporator Coil', 'Evaporator Assembly'],
+    'Capillary Tubes': ['Capillary Tube', 'Capillary Assembly'],
+    Filters: ['Cabin Filter', 'Mesh Filter', 'Drain Filter'],
+    Transformers: ['High Voltage Transformer', 'Power Transformer'],
+    'Waveguide Covers': ['Waveguide Cover', 'Mica Sheet'],
+    'Stirrer Motors': ['Stirrer Motor', 'Stirrer Fan'],
+    Turntables: ['Glass Turntable', 'Turntable Coupler', 'Turntable Motor'],
+    'Carbon Filters': ['Carbon Filter', 'Post-Carbon Cartridge'],
+    Cartridges: ['Sediment Cartridge', 'Inline Cartridge'],
+    'Valves & Fittings': ['Check Valve', 'Elbow Fitting', 'Quick Connect'],
+    'TDS Meters': ['TDS Meter', 'Inline TDS Sensor'],
+    Pumps: ['Booster Pump', 'RO Pump'],
+    Housings: ['Filter Housing', 'Membrane Housing'],
+    'Main Boards': ['Main Board', 'Logic Board'],
+    'T-Con Boards': ['T-Con Board', 'Timing Controller'],
+    'Panel Cables': ['LVDS Cable', 'Panel Flex Cable'],
+    Speakers: ['TV Speaker', 'Speaker Pair'],
+    'Temperature Sensors': ['NTC Sensor', 'Thermistor'],
+    'Relief Valves': ['Pressure Relief Valve', 'Safety Valve'],
+    'Inlets & Outlets': ['Inlet Pipe', 'Outlet Pipe'],
+    'Pipes & Fittings': ['Connection Pipe', 'Union Fitting'],
+    Insulation: ['Tank Insulation', 'Foam Jacket'],
+    Regulators: ['Fan Regulator', 'Stepped Regulator'],
+    'Speed Controllers': ['Speed Controller', 'Electronic Regulator'],
   };
 
   const names = partNames[partCategory] || ['Spare Part'];
@@ -378,8 +479,8 @@ async function generateSparePartsData() {
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, '');
 
-      const price = generatePrice(Math.random() < 0.5 ? 2000 : 10000, 1.2);
-      const mrp = Math.round(price * (1 + Math.random() * 0.3)); // 0-30% markup
+      const price = generatePrice(category);
+      const mrp = Math.round(price * (1 + Math.random() * 0.3));
 
       const part = {
         sku,

@@ -573,7 +573,11 @@ export class SparePartsService {
   async listForShop(limit = 8, page = 1) {
     const safeLimit = Math.min(24, Math.max(1, limit));
     const safePage = Math.max(1, page);
-    const filter = { isActive: true };
+    const filter = {
+      isActive: true,
+      isInStock: { $ne: false },
+      $or: [{ stock: { $gt: 0 } }, { stock: null }],
+    };
     const [items, total] = await Promise.all([
       this.sparePartModel
         .find(filter)

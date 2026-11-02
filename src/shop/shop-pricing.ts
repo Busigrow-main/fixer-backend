@@ -16,6 +16,16 @@ export function paiseToRupees(paise: unknown): number {
   return Math.round((Number(paise) || 0)) / 100;
 }
 
+function formatBrand(value: unknown): string | undefined {
+  const slug = String(value || '').trim();
+  if (!slug) return undefined;
+  return slug
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export function money(value: unknown): number {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
@@ -81,6 +91,7 @@ export function partToShopCard(part: any): ShopCard {
     slug: part.slug,
     sku: part.sku,
     name: part.name,
+    brand: formatBrand(part.brandSlug || part.brand),
     image: part.imageUrls?.[0] || null,
     price,
     originalPrice,
