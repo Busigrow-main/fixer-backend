@@ -99,10 +99,48 @@ describe('PartOrdersService Shop compatibility', () => {
     expect(await partOrderModel.countDocuments({ userId }).exec()).toBe(1);
     const listed = await service.findAllByUser(String(userId));
     expect(listed).toHaveLength(1);
+    expect(listed[0].canCancel).toBe(true);
+    expect(listed[0].invoiceAvailable).toBe(false);
 
     const cancelled = await service.cancelOrder(String(historical._id), String(userId), 'Changed my mind');
     expect(cancelled.status).toBe('CANCELLED');
     expect(cancelled.cancelledBy).toBe('CUSTOMER');
+    expect(cancelled.canCancel).toBe(false);
+    expect(cancelled.invoiceAvailable).toBe(false);
+  });
+
+  it('blocks cancel after dispatch and posts the invoice only on delivery', async () => {
+    const userId = new Types.ObjectId();
+    const part = await sparePartModel.create({
+      sku: 'SP-TEST-DELIVER', slug: 'part-deliver', name: 'Deliver part',
+      applianceTypeSlug: 'refrigerator', price: 25000, stock: 5, isInStock: true,
+    });
+    const order = await service.create({
+      contactData, items: [{ partId: String(part._id), quantity: 1 }],
+    }, String(userId));
+    const id = String((order as any)._id);
+
+    await service.attachTracking(id, { courierName: 'Delhivery', trackingNumber: 'DL-1' });
+    await expect(
+      service.cancelOrder(id, String(userId), 'Too late'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.updateStatus(id, 'CANCELLED', 'Admin too late'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const pendingView = await service.findOneForUser(id, String(userId));
+    expect(pendingView.canCancel).toBe(false);
+    expect(pendingView.invoiceAvailable).toBe(false);
+
+    const delivered = await service.updateStatus(id, 'DELIVERED');
+    expect(delivered.status).toBe('DELIVERED');
+    expect(delivered.isBilled).toBe(true);
+    expect(delivered.invoiceData?.finalizedAt).toBeTruthy();
+    expect(delivered.invoiceData?.lineItems?.length).toBeGreaterThan(0);
+
+    const customer = await service.findOneForUser(id, String(userId));
+    expect(customer.canCancel).toBe(false);
+    expect(customer.invoiceAvailable).toBe(true);
   });
 
   it('preserves admin billing, mark-paid, and tracking behavior', async () => {

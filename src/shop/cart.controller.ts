@@ -16,10 +16,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JWT_AUTH } from '../common/swagger';
 import { CartService } from './cart.service';
 import { AddCartItemDto, ApplyCouponDto, UpdateCartItemDto } from './dtos/cart.dto';
+import { ShopMaintenanceGuard } from './shop-maintenance.guard';
 
 @ApiTags('Cart')
 @ApiBearerAuth(JWT_AUTH)
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), ShopMaintenanceGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 @Controller('api/v1/cart')
 export class CartController {
