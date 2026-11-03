@@ -39,9 +39,34 @@ export function sanitizeTechnicianForCustomer(
   };
 }
 
+/** Statuses that only make sense once a technician is on the booking. */
+export const STATUSES_REQUIRING_TECHNICIAN = [
+  'ASSIGNED',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+] as const;
+
+export function statusRequiresTechnician(status: string | undefined | null): boolean {
+  return (STATUSES_REQUIRING_TECHNICIAN as readonly string[]).includes(
+    String(status || '').toUpperCase(),
+  );
+}
+
+const AWAITING_ASSIGNMENT: CustomerStatusView = {
+  code: 'CONFIRMED',
+  label: 'Awaiting assignment',
+  tone: 'pending',
+  stepIndex: 1,
+};
+
 export function getCustomerStatusView(
   status: string | undefined | null,
-  opts: { isWarrantyClaim?: boolean; arrivalAt?: Date | string | null } = {},
+  opts: {
+    isWarrantyClaim?: boolean;
+    arrivalAt?: Date | string | null;
+    /** When false/undefined for assignment-stage statuses, never claim a technician is assigned. */
+    hasTechnicianAssigned?: boolean;
+  } = {},
 ): CustomerStatusView {
   if (opts.isWarrantyClaim) {
     return {
@@ -53,6 +78,30 @@ export function getCustomerStatusView(
   }
 
   const code = String(status || 'PENDING').toUpperCase();
+  const hasTech = opts.hasTechnicianAssigned === true;
+
+  if (code === 'CANCELLED') {
+    return {
+      code,
+      label: 'Cancelled',
+      tone: 'danger',
+      stepIndex: -1,
+    };
+  }
+
+  // Confirmed / corrupt ASSIGNED* without a technician → waiting, not "assigned".
+  if (!hasTech && (code === 'CONFIRMED' || statusRequiresTechnician(code))) {
+    return { ...AWAITING_ASSIGNMENT };
+  }
+
+  if (!hasTech && code === 'RESCHEDULED') {
+    return {
+      code,
+      label: 'Awaiting assignment',
+      tone: 'pending',
+      stepIndex: 1,
+    };
+  }
 
   switch (code) {
     case 'PENDING':
@@ -110,13 +159,6 @@ export function getCustomerStatusView(
         label: 'Payment received',
         tone: 'success',
         stepIndex: 6,
-      };
-    case 'CANCELLED':
-      return {
-        code,
-        label: 'Cancelled',
-        tone: 'danger',
-        stepIndex: -1,
       };
     case 'RESCHEDULED':
       return {

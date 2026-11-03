@@ -67,21 +67,40 @@ describe('customer-booking.helpers', () => {
       expect(getCustomerStatusView('PENDING').label).toBe(
         'Finding a master technician',
       );
-      expect(getCustomerStatusView('ASSIGNED').label).toBe(
-        'Master technician assigned',
-      );
-      expect(getCustomerStatusView('ASSIGNED').tone).toBe('active');
+      expect(
+        getCustomerStatusView('ASSIGNED', { hasTechnicianAssigned: true }).label,
+      ).toBe('Master technician assigned');
+      expect(
+        getCustomerStatusView('ASSIGNED', { hasTechnicianAssigned: true }).tone,
+      ).toBe('active');
+    });
+
+    it('never claims a technician when none is assigned', () => {
+      expect(getCustomerStatusView('CONFIRMED').label).toBe('Awaiting assignment');
+      expect(getCustomerStatusView('ASSIGNED').label).toBe('Awaiting assignment');
+      expect(getCustomerStatusView('ASSIGNED').tone).toBe('pending');
+      expect(getCustomerStatusView('EN_ROUTE').label).toBe('Awaiting assignment');
+      expect(getCustomerStatusView('CANCELLED').label).toBe('Cancelled');
+      expect(
+        getCustomerStatusView('CONFIRMED', { hasTechnicianAssigned: true }).label,
+      ).toBe('Booking confirmed');
     });
 
     it('distinguishes en-route vs arrived via arrivalAt', () => {
-      expect(getCustomerStatusView('EN_ROUTE').label).toBe(
-        'Technician is on the way',
-      );
       expect(
-        getCustomerStatusView('EN_ROUTE', { arrivalAt: new Date() }).label,
+        getCustomerStatusView('EN_ROUTE', { hasTechnicianAssigned: true }).label,
+      ).toBe('Technician is on the way');
+      expect(
+        getCustomerStatusView('EN_ROUTE', {
+          hasTechnicianAssigned: true,
+          arrivalAt: new Date(),
+        }).label,
       ).toBe('Technician has arrived');
       expect(
-        getCustomerStatusView('EN_ROUTE', { arrivalAt: '' }).label,
+        getCustomerStatusView('EN_ROUTE', {
+          hasTechnicianAssigned: true,
+          arrivalAt: '',
+        }).label,
       ).toBe('Technician is on the way');
     });
 
@@ -106,9 +125,10 @@ describe('customer-booking.helpers', () => {
     it('handles null/undefined/lowercase/unknown statuses', () => {
       expect(getCustomerStatusView(null).code).toBe('PENDING');
       expect(getCustomerStatusView(undefined).label).toContain('Finding');
-      expect(getCustomerStatusView('in_progress').label).toBe(
-        'Service in progress',
-      );
+      expect(
+        getCustomerStatusView('in_progress', { hasTechnicianAssigned: true })
+          .label,
+      ).toBe('Service in progress');
       expect(getCustomerStatusView('SOMETHING_NEW')).toMatchObject({
         code: 'SOMETHING_NEW',
         label: 'something new',
@@ -117,11 +137,19 @@ describe('customer-booking.helpers', () => {
     });
 
     it('maps full happy-path journey tones', () => {
-      expect(getCustomerStatusView('CONFIRMED').tone).toBe('active');
-      expect(getCustomerStatusView('IN_PROGRESS').stepIndex).toBe(4);
+      expect(
+        getCustomerStatusView('CONFIRMED', { hasTechnicianAssigned: true }).tone,
+      ).toBe('active');
+      expect(
+        getCustomerStatusView('IN_PROGRESS', { hasTechnicianAssigned: true })
+          .stepIndex,
+      ).toBe(4);
       expect(getCustomerStatusView('COMPLETED').tone).toBe('success');
       expect(getCustomerStatusView('PAYMENT_COLLECTED').tone).toBe('success');
-      expect(getCustomerStatusView('RESCHEDULED').tone).toBe('neutral');
+      expect(
+        getCustomerStatusView('RESCHEDULED', { hasTechnicianAssigned: true })
+          .tone,
+      ).toBe('neutral');
     });
   });
 
