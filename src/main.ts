@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -23,19 +24,28 @@ async function bootstrap() {
       .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean);
+
     const localFrontends = [
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'http://localhost:3001',
       'http://127.0.0.1:3001',
+      'http://192.168.1.5:3000',
     ];
+
     const origins =
       process.env.NODE_ENV === 'production'
         ? configured
         : [...new Set([...configured, ...localFrontends])];
+
+    console.log('CORS_ORIGIN env:', process.env.CORS_ORIGIN);
+    console.log('Allowed CORS origins:', origins);
+
     app.enableCors({
       origin: origins,
       credentials: true,
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     });
 
     app.use(json({ limit: '10mb' }));

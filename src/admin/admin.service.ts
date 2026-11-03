@@ -22,6 +22,8 @@ export class AdminService {
       totalOrders,
       ordersByStatus,
       needsAdminAssignment,
+      recentBookings,
+      recentApplianceOrders,
     ] = await Promise.all([
       this.usersService.countAll(),
       this.bookingsService.countAll(),
@@ -30,6 +32,8 @@ export class AdminService {
       this.partOrdersService.countAll(),
       this.partOrdersService.countByStatus(),
       this.bookingsService.countNeedsAdminAssignment(),
+      this.bookingsService.findAllForAdmin(1, 10),
+      this.partOrdersService.findAllForAdmin(1, 10, undefined, 'appliance'),
     ]);
 
     return {
@@ -38,9 +42,14 @@ export class AdminService {
         total: totalBookings,
         byStatus: bookingsByStatus,
         needsAdminAssignment,
+        recent: recentBookings.data,
       },
       spareParts: { total: totalSpareParts },
-      orders: { total: totalOrders, byStatus: ordersByStatus },
+      orders: {
+        total: totalOrders,
+        byStatus: ordersByStatus,
+        recentAppliance: recentApplianceOrders.data,
+      },
       revenue: await this.bookingsService.getFixxerRevenueStats(),
     };
   }

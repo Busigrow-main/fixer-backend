@@ -41,6 +41,35 @@ import {
 } from './fixxer-code';
 import { buildJobSheetDefaults, partsFromVisits } from './job-sheet-defaults';
 
+const BOOKING_LEAD_TIME_MINUTES = 2 * 60;
+const SLOT_END_MINUTES: Record<string, number> = {
+  MORNING: 12 * 60,
+  AFTERNOON: 16 * 60,
+  EVENING: 20 * 60,
+};
+
+function getServiceNow() {
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
+    .formatToParts(new Date())
+    .reduce<Record<string, number>>((result, part) => {
+      if (part.type !== 'literal') result[part.type] = Number(part.value);
+      return result;
+    }, {});
+
+  return {
+    date: `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`,
+    minutes: parts.hour * 60 + parts.minute,
+  };
+}
+
 @Injectable()
 export class BookingsService {
   constructor(
@@ -445,6 +474,7 @@ export class BookingsService {
       if (status === 'NEEDS_ASSIGNMENT') {
         filter.dispatchStatus = 'NEEDS_ADMIN';
         filter.technicianId = null;
+        filter.status = { $ne: 'CANCELLED' };
       } else {
         filter.status = status;
       }
@@ -470,8 +500,8 @@ export class BookingsService {
         .skip(skip)
         .limit(limit)
         .sort({
-          adminEscalatedAt: -1,
           createdAt: -1,
+          adminEscalatedAt: -1,
         })
         .exec(),
 
@@ -488,6 +518,7 @@ export class BookingsService {
       .countDocuments({
         dispatchStatus: 'NEEDS_ADMIN',
         technicianId: null,
+        status: { $ne: 'CANCELLED' },
       })
       .exec();
   }
@@ -549,6 +580,31 @@ export class BookingsService {
     if (!isServiceable) {
       throw new BadRequestException(
         'Sorry, Fixxer is  not fixing in this area.',
+      );
+    }
+
+    const preferredVisitDate = createBookingDto.preferredVisitDate;
+    const preferredVisitSlot = createBookingDto.preferredVisitSlot;
+    if (preferredVisitDate && !/^\d{4}-\d{2}-\d{2}$/.test(preferredVisitDate)) {
+      throw new BadRequestException('Please select a valid visit date.');
+    }
+    if (
+      preferredVisitSlot &&
+      !Object.prototype.hasOwnProperty.call(SLOT_END_MINUTES, preferredVisitSlot)
+    ) {
+      throw new BadRequestException('Please select a valid visit window.');
+    }
+    const serviceNow = getServiceNow();
+    if (preferredVisitDate && preferredVisitDate < serviceNow.date) {
+      throw new BadRequestException('Please select today or a future visit date.');
+    }
+    if (
+      preferredVisitDate === serviceNow.date &&
+      preferredVisitSlot &&
+      SLOT_END_MINUTES[preferredVisitSlot] <= serviceNow.minutes + BOOKING_LEAD_TIME_MINUTES
+    ) {
+      throw new BadRequestException(
+        'That visit window has ended. Please choose another time.',
       );
     }
 
