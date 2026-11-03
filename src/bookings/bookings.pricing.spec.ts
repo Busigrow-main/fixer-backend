@@ -353,12 +353,19 @@ describe('BookingsService – Pricing', () => {
   });
 
   it('findAllByUser: EN_ROUTE without arrivalAt stays on-the-way', async () => {
+    const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
     const userId = new Types.ObjectId();
+    const tech = await techModel.create({
+      name: 'Route Tech',
+      phone: '9000022222',
+      skills: ['ac'],
+    });
     const subCat = testService.subCategories[0];
     await bookingModel.create({
       userId,
       serviceId: testService._id,
       subCategoryId: subCat._id,
+      technicianId: tech._id,
       contactPhone: '9555555555',
       addressData: { zip: '110004', text: 'En route' },
       status: 'EN_ROUTE',
@@ -370,6 +377,29 @@ describe('BookingsService – Pricing', () => {
 
     const [row] = await service.findAllByUser(userId.toString());
     expect(row.statusView.label).toBe('Technician is on the way');
+  });
+
+  it('findAllByUser: ASSIGNED without technician heals to awaiting assignment', async () => {
+    const userId = new Types.ObjectId();
+    const subCat = testService.subCategories[0];
+    await bookingModel.create({
+      userId,
+      serviceId: testService._id,
+      subCategoryId: subCat._id,
+      contactPhone: '9555555000',
+      addressData: { zip: '110004', text: 'Corrupt assigned' },
+      status: 'ASSIGNED',
+      invoiceData: { serviceTotal: 1199, totalAmount: 1199 },
+      estimatedAmount: 1199,
+    });
+
+    mockVisits.findByBooking.mockResolvedValueOnce([]);
+
+    const [row] = await service.findAllByUser(userId.toString());
+    expect(row.status).toBe('CONFIRMED');
+    expect(row.hasTechnicianAssigned).toBe(false);
+    expect(row.statusView.label).toBe('Awaiting assignment');
+    expect(row.statusView.tone).toBe('pending');
   });
 
   it('findAllByUser: expectedArrivalAt wins over visit schedule', async () => {

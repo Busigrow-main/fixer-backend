@@ -29,6 +29,7 @@ import {
   resolveExpectedArrival,
   resolveFrozenEstimatedAmount,
   sanitizeTechnicianForCustomer,
+  statusRequiresTechnician,
 } from './customer-booking.helpers';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
 import { BillEmailService } from './bill-email.service';
@@ -146,6 +147,22 @@ export class BookingsService {
   }
 
   /** Full booking detail for admin/customer — always includes populated visits/parts. */
+  /**
+   * ASSIGNED / EN_ROUTE / IN_PROGRESS without technicianId is corrupt.
+   * Heal to CONFIRMED so admin filters and customer copy stay honest.
+   */
+  private async reconcileAssignmentInvariant(
+    booking: { _id?: any; status?: string; technicianId?: any },
+  ): Promise<void> {
+    if (!booking?._id) return;
+    if (!statusRequiresTechnician(booking.status)) return;
+    if (booking.technicianId) return;
+    await this.bookingModel
+      .updateOne({ _id: booking._id }, { $set: { status: 'CONFIRMED' } })
+      .exec();
+    booking.status = 'CONFIRMED';
+  }
+
   async populateBookingDetail(id: string): Promise<any> {
     const booking = await this.bookingModel
       .findById(id)
@@ -156,6 +173,8 @@ export class BookingsService {
     if (!booking) {
       throw new NotFoundException('Booking not found');
     }
+
+    await this.reconcileAssignmentInvariant(booking as any);
 
     const visits = await this.visitsService.findByBooking(id);
 
@@ -237,6 +256,7 @@ export class BookingsService {
     const results: any[] = [];
 
     for (const booking of bookings as any[]) {
+      await this.reconcileAssignmentInvariant(booking);
       const bookingId = String(booking._id);
 
       const installedParts =
@@ -291,6 +311,7 @@ export class BookingsService {
         {
           isWarrantyClaim,
           arrivalAt: booking.arrivalAt,
+          hasTechnicianAssigned,
         },
       );
 
@@ -886,6 +907,13 @@ export class BookingsService {
     }
 
     const previousStatus = existing.status;
+    const nextStatus = String(status || '').toUpperCase();
+
+    if (statusRequiresTechnician(nextStatus) && !existing.technicianId) {
+      throw new BadRequestException(
+        'Assign a technician before setting this status. Use the Assigned Technician control — ASSIGNED requires a real technician on the booking.',
+      );
+    }
 
     if (status === 'COMPLETED' && previousStatus !== 'COMPLETED') {
       await this.requireFixxerCode(id, fixxerCode);
@@ -899,7 +927,7 @@ export class BookingsService {
       await this.bookingModel
         .findByIdAndUpdate(
           id,
-          { status },
+          { status: nextStatus || status },
           { returnDocument: 'after' },
         )
         .exec();
