@@ -788,8 +788,13 @@ export class BookingsService {
   prepareAssignmentCode() {
     try {
       return issueFixxerCode();
-    } catch {
-      throw new BadRequestException('FIXXER CODE is not configured');
+    } catch (err) {
+      const detail =
+        err instanceof Error ? err.message.replace(/^FATAL:\s*/, '') : '';
+      throw new BadRequestException(
+        detail ||
+          'FIXXER_CODE_KEY is not configured. Set a 32-byte key in the API runtime env (openssl rand -base64 32) and restart the server.',
+      );
     }
   }
 

@@ -29,17 +29,38 @@ export function stripFixxerCodeSecrets<T extends Record<string, any> | null | un
   return doc;
 }
 
-function encryptionKey(): Buffer {
+/**
+ * AES-256 key for encrypting the customer FIXXER CODE.
+ * Accepts 64-char hex, standard base64 of 32 bytes, or a raw 32-byte utf8 string.
+ * Generate with: openssl rand -base64 32
+ */
+export function fixxerCodeKey(): Buffer {
   const raw = String(process.env.FIXXER_CODE_KEY || '').trim();
+  if (!raw) {
+    throw new Error(
+      'FATAL: FIXXER_CODE_KEY is required (32-byte AES key). Set it in the runtime env — generate with: openssl rand -base64 32',
+    );
+  }
   if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, 'hex');
 
   const asBase64 = Buffer.from(raw, 'base64');
-  if (raw && asBase64.length === 32) return asBase64;
+  if (asBase64.length === 32) return asBase64;
 
   const asUtf8 = Buffer.from(raw, 'utf8');
   if (asUtf8.length === 32) return asUtf8;
 
-  throw new Error('FIXXER_CODE_KEY must be 32 bytes');
+  throw new Error(
+    'FATAL: FIXXER_CODE_KEY must be 32 bytes (64-char hex or base64). Generate with: openssl rand -base64 32',
+  );
+}
+
+/** Call during bootstrap so a missing key fails before any assignment. */
+export function assertFixxerCodeConfigured(): void {
+  fixxerCodeKey();
+}
+
+function encryptionKey(): Buffer {
+  return fixxerCodeKey();
 }
 
 export function issueFixxerCode(): { code: string; fields: FixxerCodeFields } {
