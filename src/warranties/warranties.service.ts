@@ -13,7 +13,7 @@ import {
 import { Visit, VisitDocument } from '../visits/schemas/visit.schema';
 import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 
-const DEFAULT_PART_WARRANTY_MONTHS = 6;
+const MAX_PART_WARRANTY_MONTHS = 12;
 
 @Injectable()
 export class WarrantiesService {
@@ -159,15 +159,14 @@ export class WarrantiesService {
     catalogMonths?: number | null,
     override?: number | null,
   ): number {
-    if (override != null && Number.isFinite(Number(override)) && Number(override) > 0) {
-      return Math.floor(Number(override));
+    if (override != null && Number.isFinite(Number(override))) {
+      return Math.min(MAX_PART_WARRANTY_MONTHS, Math.max(0, Math.floor(Number(override))));
     }
     if (catalogMonths != null && Number.isFinite(Number(catalogMonths))) {
       const n = Math.floor(Number(catalogMonths));
-      if (n > 0) return n;
-      return 0;
+      return Math.min(MAX_PART_WARRANTY_MONTHS, Math.max(0, n));
     }
-    return DEFAULT_PART_WARRANTY_MONTHS;
+    return 0;
   }
 
   async listInstalledParts(bookingId: string): Promise<Array<{

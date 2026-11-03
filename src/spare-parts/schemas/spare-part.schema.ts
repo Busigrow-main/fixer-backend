@@ -94,7 +94,7 @@ export class SparePart {
     type: string;
   };
 
-  @Prop()
+  @Prop({ min: 0, max: 12, default: 0 })
   warrantyMonths: number;
 
   // === META ===
