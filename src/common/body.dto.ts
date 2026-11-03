@@ -26,6 +26,22 @@ export class RoleBodyDto {
   role: 'CUSTOMER' | 'ADMIN';
 }
 
+export class ShopSettingsDto {
+  @ApiPropertyOptional({
+    description: 'When true, customers see Fixxer Shop Under Maintenance',
+  })
+  @IsOptional()
+  @IsBoolean()
+  maintenanceEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Customer-facing maintenance message (max 280 chars)',
+  })
+  @IsOptional()
+  @IsString()
+  maintenanceMessage?: string;
+}
+
 export class AssignTechnicianDto {
   @ApiProperty()
   technicianId: string;

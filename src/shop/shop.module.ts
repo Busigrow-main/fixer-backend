@@ -13,8 +13,11 @@ import { CheckoutService } from './checkout.service';
 import { InstallationController } from './installation.controller';
 import { InstallationService } from './installation.service';
 import { ShopCart, ShopCartSchema } from './schemas/cart.schema';
+import { ShopSettings, ShopSettingsSchema } from './schemas/shop-settings.schema';
 import { ShopController } from './shop.controller';
+import { ShopMaintenanceGuard } from './shop-maintenance.guard';
 import { ShopService } from './shop.service';
+import { ShopSettingsService } from './shop-settings.service';
 
 @Module({
   imports: [
@@ -24,7 +27,10 @@ import { ShopService } from './shop.service';
     OffersModule,
     PartOrdersModule,
     ServiceablePincodesModule,
-    MongooseModule.forFeature([{ name: ShopCart.name, schema: ShopCartSchema }]),
+    MongooseModule.forFeature([
+      { name: ShopCart.name, schema: ShopCartSchema },
+      { name: ShopSettings.name, schema: ShopSettingsSchema },
+    ]),
   ],
   controllers: [
     ShopController,
@@ -32,6 +38,14 @@ import { ShopService } from './shop.service';
     CartController,
     CheckoutController,
   ],
-  providers: [ShopService, InstallationService, CartService, CheckoutService],
+  providers: [
+    ShopService,
+    ShopSettingsService,
+    ShopMaintenanceGuard,
+    InstallationService,
+    CartService,
+    CheckoutService,
+  ],
+  exports: [ShopSettingsService],
 })
 export class ShopModule {}

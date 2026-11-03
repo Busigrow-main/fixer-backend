@@ -18,6 +18,16 @@ export interface CreatePartOrderOptions {
   stockAlreadyReserved?: boolean;
 }
 
+const CUSTOMER_CANCELLABLE = new Set(['PENDING', 'PROCESSING']);
+
+export function isShopOrderCancellable(status?: string) {
+  return CUSTOMER_CANCELLABLE.has(String(status || ''));
+}
+
+export function isShopInvoicePosted(status?: string) {
+  return String(status || '') === 'DELIVERED';
+}
+
 function computeInvoiceTotals(
   lineItems: { quantity: number; unitPrice: number }[],
   taxPercent = 0,
@@ -52,11 +62,11 @@ export class PartOrdersService {
     private applianceModel: Model<ApplianceDocument>,
   ) {}
 
-  async findAllByUser(userId: string): Promise<PartOrder[]> {
+  async findAllByUser(userId: string): Promise<any[]> {
     const ownerId = Types.ObjectId.isValid(userId)
       ? new Types.ObjectId(userId)
       : userId;
-    return this.partOrderModel
+    const orders = await this.partOrderModel
       .find({
         userId: Types.ObjectId.isValid(userId)
           ? { $in: [ownerId, userId] }
@@ -65,6 +75,7 @@ export class PartOrdersService {
       .populate('items.partId')
       .sort({ createdAt: -1 })
       .exec();
+    return orders.map((order) => this.toCustomerOrder(order));
   }
 
   async findAllForAdmin(
@@ -118,7 +129,7 @@ export class PartOrdersService {
     return order;
   }
 
-  async findOneForUser(id: string, userId: string): Promise<PartOrder> {
+  async findOneForUser(id: string, userId: string): Promise<any> {
     const ownerId = Types.ObjectId.isValid(userId)
       ? new Types.ObjectId(userId)
       : userId;
@@ -136,7 +147,7 @@ export class PartOrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    return order;
+    return this.toCustomerOrder(order);
   }
 
   async findTrackingForUser(id: string, userId: string) {
@@ -152,6 +163,8 @@ export class PartOrdersService {
       cancelledAt: doc.cancelledAt ?? null,
       createdAt: doc.createdAt ?? null,
       updatedAt: doc.updatedAt ?? null,
+      canCancel: Boolean(doc.canCancel),
+      invoiceAvailable: Boolean(doc.invoiceAvailable),
     };
   }
 
@@ -354,7 +367,7 @@ export class PartOrdersService {
     id: string,
     userId: string,
     reason: string,
-  ): Promise<PartOrder> {
+  ): Promise<any> {
     const ownerId = Types.ObjectId.isValid(userId)
       ? new Types.ObjectId(userId)
       : userId;
@@ -373,15 +386,9 @@ export class PartOrdersService {
       throw new BadRequestException('Order is already cancelled');
     }
 
-    const nonCancellableStatuses = [
-      'DISPATCHED',
-      'DELIVERED',
-      'RETURNED',
-    ];
-
-    if (nonCancellableStatuses.includes(order.status)) {
+    if (!isShopOrderCancellable(order.status)) {
       throw new BadRequestException(
-        'This order can no longer be cancelled',
+        'This order can no longer be cancelled once it has been dispatched',
       );
     }
 
@@ -404,6 +411,7 @@ export class PartOrdersService {
     order.cancelledAt = new Date();
     order.cancelledBy = 'CUSTOMER';
 
+    await this.restoreOrderStock(order);
     await order.save();
 
     const updatedOrder = await this.partOrderModel
@@ -415,7 +423,7 @@ export class PartOrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    return updatedOrder;
+    return this.toCustomerOrder(updatedOrder);
   }
 
   private invoiceFromOptions(
@@ -640,6 +648,12 @@ export class PartOrdersService {
         );
       }
 
+      if (!isShopOrderCancellable(order.status)) {
+        throw new BadRequestException(
+          'This order can no longer be cancelled once it has been dispatched',
+        );
+      }
+
       const trimmedReason = String(reason || '').trim();
 
       if (!trimmedReason) {
@@ -659,9 +673,14 @@ export class PartOrdersService {
       order.cancelledAt = new Date();
       order.cancelledBy = 'ADMIN';
 
+      await this.restoreOrderStock(order);
       await order.save();
 
       return order;
+    }
+
+    if (status === 'DELIVERED') {
+      return this.postInvoiceOnDelivery(id);
     }
 
     /*
@@ -746,5 +765,86 @@ export class PartOrdersService {
     return this.partOrderModel
       .countDocuments({ orderType })
       .exec();
+  }
+
+  private toCustomerOrder(order: PartOrderDocument | PartOrder) {
+    const doc =
+      typeof (order as PartOrderDocument).toObject === 'function'
+        ? (order as PartOrderDocument).toObject()
+        : order;
+    const status = String((doc as PartOrder).status || 'PENDING');
+    return {
+      ...doc,
+      canCancel: isShopOrderCancellable(status),
+      invoiceAvailable: isShopInvoicePosted(status),
+    };
+  }
+
+  private async restoreOrderStock(order: PartOrderDocument) {
+    if (order.orderType === 'appliance') return;
+    for (const item of order.items || []) {
+      const partId = (item.partId as any)?._id || item.partId;
+      const quantity = Number(item.quantity) || 0;
+      if (!partId || quantity < 1) continue;
+      await this.sparePartModel
+        .updateOne(
+          { _id: partId },
+          { $inc: { stock: quantity, soldCount: -quantity }, $set: { isInStock: true } },
+        )
+        .exec();
+    }
+  }
+
+  private async postInvoiceOnDelivery(id: string) {
+    const order = await this.partOrderModel.findById(id).exec();
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (order.status === 'CANCELLED') {
+      throw new BadRequestException('A cancelled order cannot be marked delivered');
+    }
+
+    const current =
+      order.invoiceData && typeof (order.invoiceData as any).toObject === 'function'
+        ? (order.invoiceData as any).toObject()
+        : { ...(order.invoiceData || {}) };
+    let invoiceData = current;
+    if (!invoiceData?.lineItems?.length) {
+      const defaults = this.buildDefaultBillLines(order);
+      if (!defaults.length) {
+        throw new BadRequestException('Cannot post invoice: no line items on this order');
+      }
+      const computed = computeInvoiceTotals(defaults, invoiceData?.taxPercent ?? 0);
+      invoiceData = {
+        lineItems: computed.lineItems as any,
+        subtotal: computed.subtotal,
+        taxPercent: invoiceData?.taxPercent ?? 0,
+        taxAmount: computed.taxAmount,
+        totalAmount: computed.totalAmount,
+        generatedAt: invoiceData?.generatedAt ?? new Date(),
+        notes: invoiceData?.notes,
+      };
+    }
+
+    const updated = await this.partOrderModel
+      .findByIdAndUpdate(
+        id,
+        {
+          status: 'DELIVERED',
+          isBilled: true,
+          invoiceData: {
+            ...invoiceData,
+            finalizedAt: invoiceData.finalizedAt ?? new Date(),
+          },
+        },
+        { returnDocument: 'after' },
+      )
+      .populate([USER_PUBLIC_POPULATE, { path: 'items.partId' }])
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Order not found');
+    }
+    return updated;
   }
 }

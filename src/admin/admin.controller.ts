@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -41,9 +42,11 @@ import {
   FixxerCodeDto,
   NoteDto,
   RoleBodyDto,
+  ShopSettingsDto,
   StatusReasonDto,
   TrackingDto,
 } from '../common/body.dto';
+import { ShopSettingsService } from '../shop/shop-settings.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const csv = require('csv-parser');
@@ -77,12 +80,56 @@ export class AdminController {
     private readonly partOrdersService: PartOrdersService,
     private readonly warrantiesService: WarrantiesService,
     private readonly serviceablePincodesService: ServiceablePincodesService,
+    private readonly shopSettingsService: ShopSettingsService,
   ) {}
 
   // ─── Dashboard ────────────────────────────────────────────
   @Get('dashboard')
   async getDashboard() {
     return this.adminService.getDashboardStats();
+  }
+
+  // ─── Fixxer Shop settings ─────────────────────────────────
+  @Get('shop-settings')
+  @ApiOperation({ summary: 'Get Fixxer Shop maintenance settings' })
+  async getShopSettings() {
+    const settings = await this.shopSettingsService.getSettings();
+    return {
+      maintenanceEnabled: Boolean(settings.maintenanceEnabled),
+      maintenanceMessage: settings.maintenanceMessage,
+      updatedAt: (settings as any).updatedAt ?? null,
+      updatedBy: settings.updatedBy ?? null,
+    };
+  }
+
+  @Put('shop-settings')
+  @ApiOperation({ summary: 'Enable or disable Fixxer Shop maintenance mode' })
+  async updateShopSettings(
+    @Body() body: ShopSettingsDto,
+    @Req() req: any,
+  ) {
+    if (
+      body.maintenanceEnabled === undefined &&
+      body.maintenanceMessage === undefined
+    ) {
+      throw new BadRequestException(
+        'Provide maintenanceEnabled and/or maintenanceMessage',
+      );
+    }
+    const settings = await this.shopSettingsService.updateSettings({
+      maintenanceEnabled:
+        body.maintenanceEnabled === undefined
+          ? undefined
+          : Boolean(body.maintenanceEnabled),
+      maintenanceMessage: body.maintenanceMessage,
+      updatedBy: req.user?.userId || req.user?.sub,
+    });
+    return {
+      maintenanceEnabled: Boolean(settings.maintenanceEnabled),
+      maintenanceMessage: settings.maintenanceMessage,
+      updatedAt: (settings as any).updatedAt ?? null,
+      updatedBy: settings.updatedBy ?? null,
+    };
   }
 
   @Get('revenue')

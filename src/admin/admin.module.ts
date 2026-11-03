@@ -8,6 +8,7 @@ import { SparePartsModule } from '../spare-parts/spare-parts.module';
 import { PartOrdersModule } from '../part-orders/part-orders.module';
 import { WarrantiesModule } from '../warranties/warranties.module';
 import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
+import { ShopModule } from '../shop/shop.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-p
     PartOrdersModule,
     WarrantiesModule,
     ServiceablePincodesModule,
+    ShopModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],
