@@ -8,6 +8,7 @@ import { PartOrder, PartOrderDocument, PartOrderSchema } from './schemas/part-or
 import { SparePart, SparePartDocument, SparePartSchema } from '../spare-parts/schemas/spare-part.schema';
 import { Appliance, ApplianceDocument, ApplianceSchema } from '../appliances/schemas/appliance.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
+import { GstService } from '../gst/gst.service';
 
 describe('PartOrdersService Shop compatibility', () => {
   jest.setTimeout(60000);
@@ -31,7 +32,7 @@ describe('PartOrdersService Shop compatibility', () => {
           { name: User.name, schema: UserSchema },
         ]),
       ],
-      providers: [PartOrdersService],
+      providers: [PartOrdersService, GstService],
     }).compile();
     service = module.get(PartOrdersService);
     partOrderModel = module.get(getModelToken(PartOrder.name));
