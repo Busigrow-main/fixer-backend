@@ -64,18 +64,55 @@ export class BillLineItem {
   @Prop({ required: true, min: 0 })
   unitPrice: number;
 
+  /** Line total charged (GST-inclusive when priceMode=INCLUSIVE). */
   @Prop({ required: true, min: 0 })
   amount: number;
+
+  @Prop({ min: 0 })
+  taxableAmount?: number;
+
+  @Prop({ min: 0 })
+  taxAmount?: number;
+
+  @Prop()
+  hsn?: string;
 }
 
 export const BillLineItemSchema =
   SchemaFactory.createForClass(BillLineItem);
 
 @Schema({ _id: false })
+export class InvoiceSoldBy {
+  @Prop()
+  name?: string;
+
+  @Prop()
+  address?: string;
+
+  @Prop()
+  gstin?: string;
+
+  @Prop()
+  pan?: string;
+
+  @Prop()
+  phone?: string;
+
+  @Prop()
+  email?: string;
+
+  @Prop()
+  website?: string;
+}
+
+export const InvoiceSoldBySchema = SchemaFactory.createForClass(InvoiceSoldBy);
+
+@Schema({ _id: false })
 export class OrderInvoiceData {
   @Prop({ type: [BillLineItemSchema], default: [] })
   lineItems: BillLineItem[];
 
+  /** Taxable value (after Rule 35 reverse-calc when inclusive). */
   @Prop({ default: 0 })
   subtotal: number;
 
@@ -86,10 +123,35 @@ export class OrderInvoiceData {
   taxAmount: number;
 
   @Prop({ default: 0 })
+  cgstAmount: number;
+
+  @Prop({ default: 0 })
+  sgstAmount: number;
+
+  @Prop({ default: 0 })
+  igstAmount: number;
+
+  /** Grand total charged — equals catalog/display total when inclusive. */
+  @Prop({ default: 0 })
   totalAmount: number;
 
   @Prop({ default: 0 })
   discount: number;
+
+  /** INCLUSIVE (default): displayed prices already contain GST. */
+  @Prop({ type: String, enum: ['INCLUSIVE', 'EXCLUSIVE'], default: 'INCLUSIVE' })
+  priceMode?: 'INCLUSIVE' | 'EXCLUSIVE';
+
+  /** Customer state / place of supply shown on the tax invoice. */
+  @Prop()
+  placeOfSupply?: string;
+
+  /** INTRA = CGST+SGST, INTER = IGST. Entered by admin. */
+  @Prop({ type: String, enum: ['INTRA', 'INTER'], default: 'INTRA' })
+  supplyType?: 'INTRA' | 'INTER';
+
+  @Prop({ type: InvoiceSoldBySchema })
+  soldBy?: InvoiceSoldBy;
 
   @Prop()
   notes?: string;

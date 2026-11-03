@@ -20,6 +20,7 @@ import { ServiceablePincodesModule } from './serviceable-pincodes/serviceable-pi
 import { LeadsModule } from './leads/leads.module';
 import { ShopPartHelpModule } from './shop-part-help/shop-part-help.module';
 import { ShopModule } from './shop/shop.module';
+import { GstModule } from './gst/gst.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ShopModule } from './shop/shop.module';
     LeadsModule,
     ShopPartHelpModule,
     ShopModule,
+    GstModule,
   ],
   controllers: [AppController],
   providers: [AppService],

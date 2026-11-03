@@ -8,6 +8,9 @@ import { SparePart, SparePartDocument } from '../spare-parts/schemas/spare-part.
 import { Appliance, ApplianceDocument } from '../appliances/schemas/appliance.schema';
 import { USER_PUBLIC_POPULATE } from '../users/user-populate';
 import { sanitizeContact } from '../common/sanitize';
+import { GstService } from '../gst/gst.service';
+import { breakdownInvoice } from '../gst/gst.engine';
+import type { GstPriceMode, GstSupplyType } from '../gst/gst.types';
 
 export interface CreatePartOrderOptions {
   sourceHelpRequestId?: string;
@@ -28,26 +31,37 @@ export function isShopInvoicePosted(status?: string) {
   return String(status || '') === 'DELIVERED';
 }
 
-function computeInvoiceTotals(
-  lineItems: { quantity: number; unitPrice: number }[],
+/** @deprecated Prefer GstService / breakdownInvoice — kept for tests that import the old name. */
+export function computeInvoiceTotals(
+  lineItems: { quantity: number; unitPrice: number; description?: string }[],
   taxPercent = 0,
+  priceMode: GstPriceMode = 'INCLUSIVE',
+  supplyType: GstSupplyType = 'INTRA',
 ) {
-  const normalized = lineItems.map((row) => ({
-    ...row,
-    amount: Math.round(row.quantity * row.unitPrice * 100) / 100,
-  }));
-
-  const subtotal = normalized.reduce((sum, row) => sum + row.amount, 0);
-  const taxAmount =
-    Math.round(subtotal * (taxPercent / 100) * 100) / 100;
-  const totalAmount =
-    Math.round((subtotal + taxAmount) * 100) / 100;
-
+  const invoice = breakdownInvoice({
+    lineItems,
+    taxPercent,
+    priceMode,
+    supplyType,
+  });
   return {
-    lineItems: normalized,
-    subtotal,
-    taxAmount,
-    totalAmount,
+    lineItems: invoice.lineItems.map((row) => ({
+      description: row.description,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      amount: row.amount,
+      taxableAmount: row.taxableAmount,
+      taxAmount: row.taxAmount,
+      hsn: row.hsn,
+    })),
+    subtotal: invoice.subtotal,
+    taxAmount: invoice.taxAmount,
+    totalAmount: invoice.totalAmount,
+    cgstAmount: invoice.cgstAmount,
+    sgstAmount: invoice.sgstAmount,
+    igstAmount: invoice.igstAmount,
+    priceMode: invoice.priceMode,
+    supplyType: invoice.supplyType,
   };
 }
 
@@ -60,6 +74,7 @@ export class PartOrdersService {
     private sparePartModel: Model<SparePartDocument>,
     @InjectModel(Appliance.name)
     private applianceModel: Model<ApplianceDocument>,
+    private readonly gstService: GstService,
   ) {}
 
   async findAllByUser(userId: string): Promise<any[]> {
@@ -442,18 +457,27 @@ export class PartOrdersService {
           ]
         : fallbackLines;
     if (!lines.length) return undefined;
-    const totals = computeInvoiceTotals(
-      lines.map((line) => ({ quantity: line.quantity, unitPrice: line.unitPrice })),
-    );
+    const totals = this.gstService.breakdown({
+      lineItems: lines.map((line) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+      })),
+      taxPercent: 0,
+      priceMode: 'INCLUSIVE',
+      supplyType: 'INTRA',
+    });
     const discount = Math.max(0, Number(options.discount) || 0);
     return {
-      lineItems: totals.lineItems.map((line, index) => ({
-        ...line,
-        description: lines[index].description,
-      })),
+      lineItems: totals.lineItems,
       subtotal: totals.subtotal,
       taxPercent: 0,
-      taxAmount: 0,
+      taxAmount: totals.taxAmount,
+      cgstAmount: totals.cgstAmount,
+      sgstAmount: totals.sgstAmount,
+      igstAmount: totals.igstAmount,
+      priceMode: 'INCLUSIVE' as const,
+      supplyType: 'INTRA' as const,
       discount,
       totalAmount: Math.round(Math.max(0, totals.totalAmount - discount) * 100) / 100,
       generatedAt: new Date(),
@@ -516,35 +540,76 @@ export class PartOrdersService {
 
     const taxPercent =
       dto.taxPercent ?? order.invoiceData?.taxPercent ?? 0;
+    const priceMode: GstPriceMode =
+      dto.priceMode === 'EXCLUSIVE'
+        ? 'EXCLUSIVE'
+        : order.invoiceData?.priceMode === 'EXCLUSIVE'
+          ? 'EXCLUSIVE'
+          : 'INCLUSIVE';
+    const supplyType: GstSupplyType =
+      dto.supplyType === 'INTER' || order.invoiceData?.supplyType === 'INTER'
+        ? 'INTER'
+        : 'INTRA';
 
-    const {
-      lineItems,
-      subtotal,
-      taxAmount,
-      totalAmount,
-    } = computeInvoiceTotals(
-      dto.lineItems,
+    const gst = this.gstService.breakdown({
+      lineItems: dto.lineItems,
       taxPercent,
-    );
+      priceMode,
+      supplyType: dto.supplyType ?? supplyType,
+    });
+
+    const existingInvoice =
+      order.invoiceData && typeof (order.invoiceData as any).toObject === 'function'
+        ? (order.invoiceData as any).toObject()
+        : { ...(order.invoiceData || {}) };
 
     const updated = await this.partOrderModel
       .findByIdAndUpdate(
         id,
         {
           invoiceData: {
-            lineItems,
-            subtotal,
-            taxPercent,
-            taxAmount,
-            totalAmount,
+            ...existingInvoice,
+            lineItems: gst.lineItems,
+            subtotal: gst.subtotal,
+            taxPercent: gst.taxPercent,
+            taxAmount: gst.taxAmount,
+            cgstAmount: gst.cgstAmount,
+            sgstAmount: gst.sgstAmount,
+            igstAmount: gst.igstAmount,
+            totalAmount: gst.totalAmount,
+            priceMode: gst.priceMode,
             notes:
               dto.notes ??
-              order.invoiceData?.notes,
+              existingInvoice.notes,
+            placeOfSupply:
+              dto.placeOfSupply !== undefined
+                ? String(dto.placeOfSupply).trim()
+                : existingInvoice.placeOfSupply,
+            supplyType: gst.supplyType,
+            soldBy:
+              dto.soldBy !== undefined
+                ? {
+                    name: dto.soldBy.name?.trim() || existingInvoice.soldBy?.name,
+                    address:
+                      dto.soldBy.address?.trim() ||
+                      existingInvoice.soldBy?.address,
+                    gstin:
+                      dto.soldBy.gstin?.trim() || existingInvoice.soldBy?.gstin,
+                    pan: dto.soldBy.pan?.trim() || existingInvoice.soldBy?.pan,
+                    phone:
+                      dto.soldBy.phone?.trim() || existingInvoice.soldBy?.phone,
+                    email:
+                      dto.soldBy.email?.trim() || existingInvoice.soldBy?.email,
+                    website:
+                      dto.soldBy.website?.trim() ||
+                      existingInvoice.soldBy?.website,
+                  }
+                : existingInvoice.soldBy,
             generatedAt:
-              order.invoiceData?.generatedAt ??
+              existingInvoice.generatedAt ??
               new Date(),
             finalizedAt:
-              order.invoiceData?.finalizedAt,
+              existingInvoice.finalizedAt,
           },
         },
         { returnDocument: 'after' },
@@ -582,17 +647,24 @@ export class PartOrdersService {
         );
       }
 
-      const computed = computeInvoiceTotals(
-        defaults,
-        0,
-      );
+      const computed = this.gstService.breakdown({
+        lineItems: defaults,
+        taxPercent: 0,
+        priceMode: 'INCLUSIVE',
+        supplyType: 'INTRA',
+      });
 
       invoiceData = {
         lineItems: computed.lineItems as any,
         subtotal: computed.subtotal,
         taxPercent: 0,
         taxAmount: computed.taxAmount,
+        cgstAmount: computed.cgstAmount,
+        sgstAmount: computed.sgstAmount,
+        igstAmount: computed.igstAmount,
         totalAmount: computed.totalAmount,
+        priceMode: 'INCLUSIVE',
+        supplyType: 'INTRA',
         generatedAt: new Date(),
       } as any;
     }
@@ -814,15 +886,28 @@ export class PartOrdersService {
       if (!defaults.length) {
         throw new BadRequestException('Cannot post invoice: no line items on this order');
       }
-      const computed = computeInvoiceTotals(defaults, invoiceData?.taxPercent ?? 0);
+      const computed = this.gstService.breakdown({
+        lineItems: defaults,
+        taxPercent: invoiceData?.taxPercent ?? 0,
+        priceMode: invoiceData?.priceMode === 'EXCLUSIVE' ? 'EXCLUSIVE' : 'INCLUSIVE',
+        supplyType: invoiceData?.supplyType === 'INTER' ? 'INTER' : 'INTRA',
+      });
       invoiceData = {
+        ...invoiceData,
         lineItems: computed.lineItems as any,
         subtotal: computed.subtotal,
         taxPercent: invoiceData?.taxPercent ?? 0,
         taxAmount: computed.taxAmount,
+        cgstAmount: computed.cgstAmount,
+        sgstAmount: computed.sgstAmount,
+        igstAmount: computed.igstAmount,
         totalAmount: computed.totalAmount,
+        priceMode: computed.priceMode,
         generatedAt: invoiceData?.generatedAt ?? new Date(),
         notes: invoiceData?.notes,
+        placeOfSupply: invoiceData?.placeOfSupply,
+        supplyType: computed.supplyType,
+        soldBy: invoiceData?.soldBy,
       };
     }
 
