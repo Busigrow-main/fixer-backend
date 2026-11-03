@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { json } from 'express';
 import { setupSwagger } from './common/swagger';
 import { jwtSecret } from './common/jwt-secret';
+import { assertFixxerCodeConfigured } from './bookings/fixxer-code';
 
 async function bootstrap() {
   try {
@@ -12,6 +13,7 @@ async function bootstrap() {
     console.log('PORT:', process.env.PORT);
 
     jwtSecret();
+    assertFixxerCodeConfigured();
 
     const app = await NestFactory.create(AppModule);
 

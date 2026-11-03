@@ -14,10 +14,13 @@ import { InstallationController } from './installation.controller';
 import { InstallationService } from './installation.service';
 import { ShopCart, ShopCartSchema } from './schemas/cart.schema';
 import { ShopSettings, ShopSettingsSchema } from './schemas/shop-settings.schema';
+import { ShopWishlist, ShopWishlistSchema } from './schemas/wishlist.schema';
 import { ShopController } from './shop.controller';
 import { ShopMaintenanceGuard } from './shop-maintenance.guard';
 import { ShopService } from './shop.service';
 import { ShopSettingsService } from './shop-settings.service';
+import { WishlistController } from './wishlist.controller';
+import { WishlistService } from './wishlist.service';
 
 @Module({
   imports: [
@@ -30,6 +33,7 @@ import { ShopSettingsService } from './shop-settings.service';
     MongooseModule.forFeature([
       { name: ShopCart.name, schema: ShopCartSchema },
       { name: ShopSettings.name, schema: ShopSettingsSchema },
+      { name: ShopWishlist.name, schema: ShopWishlistSchema },
     ]),
   ],
   controllers: [
@@ -37,6 +41,7 @@ import { ShopSettingsService } from './shop-settings.service';
     InstallationController,
     CartController,
     CheckoutController,
+    WishlistController,
   ],
   providers: [
     ShopService,
@@ -45,6 +50,7 @@ import { ShopSettingsService } from './shop-settings.service';
     InstallationService,
     CartService,
     CheckoutService,
+    WishlistService,
   ],
   exports: [ShopSettingsService],
 })

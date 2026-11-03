@@ -50,7 +50,7 @@ describe('FIXXER CODE', () => {
     process.env.FIXXER_CODE_KEY = Buffer.alloc(32, 3).toString('base64');
     expect(decryptFixxerCode(issued.fields)).toBeNull();
     delete process.env.FIXXER_CODE_KEY;
-    expect(() => issueFixxerCode()).toThrow('32 bytes');
+    expect(() => issueFixxerCode()).toThrow(/FIXXER_CODE_KEY/);
     process.env.FIXXER_CODE_KEY = previous;
   });
 
