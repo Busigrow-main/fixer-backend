@@ -467,6 +467,9 @@ export class BookingsService {
     status?: string,
     dispatchStatus?: string,
     cancelledBy?: 'CUSTOMER' | 'ADMIN',
+    search?: string,
+    fromDate?: string,
+    toDate?: string,
   ): Promise<{ data: Booking[]; total: number }> {
     const filter: any = {};
 
@@ -489,6 +492,63 @@ export class BookingsService {
 
     if (cancelledBy) {
       filter.cancelledBy = cancelledBy;
+    }
+
+    const trimmedSearch = String(search || '').trim();
+    if (trimmedSearch) {
+      const escapedSearch = trimmedSearch.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&',
+      );
+      const searchRegex = new RegExp(escapedSearch, 'i');
+      const matchingUsers = await this.userModel
+        .find({
+          $or: [
+            { phone: searchRegex },
+            { fullName: searchRegex },
+          ],
+        })
+        .select('_id')
+        .lean()
+        .exec();
+
+      const searchConditions: any[] = [
+        { contactPhone: searchRegex },
+        { userId: { $in: matchingUsers.map((user) => user._id) } },
+        { 'productDetails.serialNumber': searchRegex },
+        { 'invoiceData.spareParts.serialNumber': searchRegex },
+        { 'jobDetails.invoiceNumber': searchRegex },
+      ];
+
+      if (Types.ObjectId.isValid(trimmedSearch)) {
+        searchConditions.push({
+          _id: new Types.ObjectId(trimmedSearch),
+        });
+      }
+
+      filter.$or = searchConditions;
+    }
+
+    if (fromDate || toDate) {
+      const createdAt: Record<string, Date> = {};
+
+      if (fromDate) {
+        const start = new Date(`${fromDate}T00:00:00.000Z`);
+        if (Number.isNaN(start.getTime())) {
+          throw new BadRequestException('Invalid fromDate');
+        }
+        createdAt.$gte = start;
+      }
+
+      if (toDate) {
+        const end = new Date(`${toDate}T23:59:59.999Z`);
+        if (Number.isNaN(end.getTime())) {
+          throw new BadRequestException('Invalid toDate');
+        }
+        createdAt.$lte = end;
+      }
+
+      filter.createdAt = createdAt;
     }
 
     const skip = (page - 1) * limit;
