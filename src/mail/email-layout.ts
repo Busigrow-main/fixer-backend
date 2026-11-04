@@ -116,7 +116,7 @@ export function renderEmail(input: {
             <td style="padding:22px 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.6;color:${MUTED};">
               Cool Air Refrigeration · MLA Colony, Raja Bazar, Patna 800014<br/>
               +91 70047 71388 · busigrowindia@gmail.com<br/>
-              Labour for the same fault is covered for 60 days. Genuine Fixxer-installed parts are covered for 6 months unless the bill says otherwise.
+              Labour for the same fault is covered for 60 days. Genuine Fixxer-installed parts carry the part-specific period shown on the bill, from no cover up to 12 months.
             </td>
           </tr>
         </table>

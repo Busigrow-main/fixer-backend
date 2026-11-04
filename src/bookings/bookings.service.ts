@@ -53,6 +53,35 @@ import {
   fixxerServiceSac,
 } from '../gst/gst.types';
 
+const BOOKING_LEAD_TIME_MINUTES = 2 * 60;
+const SLOT_END_MINUTES: Record<string, number> = {
+  MORNING: 12 * 60,
+  AFTERNOON: 16 * 60,
+  EVENING: 20 * 60,
+};
+
+function getServiceNow() {
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
+    .formatToParts(new Date())
+    .reduce<Record<string, number>>((result, part) => {
+      if (part.type !== 'literal') result[part.type] = Number(part.value);
+      return result;
+    }, {});
+
+  return {
+    date: `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`,
+    minutes: parts.hour * 60 + parts.minute,
+  };
+}
+
 @Injectable()
 export class BookingsService {
   constructor(
@@ -397,6 +426,9 @@ export class BookingsService {
     status?: string,
     dispatchStatus?: string,
     cancelledBy?: 'CUSTOMER' | 'ADMIN',
+    search?: string,
+    fromDate?: string,
+    toDate?: string,
   ): Promise<{ data: Booking[]; total: number }> {
     const filter: any = {};
 
@@ -404,6 +436,7 @@ export class BookingsService {
       if (status === 'NEEDS_ASSIGNMENT') {
         filter.dispatchStatus = 'NEEDS_ADMIN';
         filter.technicianId = null;
+        filter.status = { $ne: 'CANCELLED' };
       } else {
         filter.status = status;
       }
@@ -420,6 +453,63 @@ export class BookingsService {
       filter.cancelledBy = cancelledBy;
     }
 
+    const trimmedSearch = String(search || '').trim();
+    if (trimmedSearch) {
+      const escapedSearch = trimmedSearch.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&',
+      );
+      const searchRegex = new RegExp(escapedSearch, 'i');
+      const matchingUsers = await this.userModel
+        .find({
+          $or: [
+            { phone: searchRegex },
+            { fullName: searchRegex },
+          ],
+        })
+        .select('_id')
+        .lean()
+        .exec();
+
+      const searchConditions: any[] = [
+        { contactPhone: searchRegex },
+        { userId: { $in: matchingUsers.map((user) => user._id) } },
+        { 'productDetails.serialNumber': searchRegex },
+        { 'invoiceData.spareParts.serialNumber': searchRegex },
+        { 'jobDetails.invoiceNumber': searchRegex },
+      ];
+
+      if (Types.ObjectId.isValid(trimmedSearch)) {
+        searchConditions.push({
+          _id: new Types.ObjectId(trimmedSearch),
+        });
+      }
+
+      filter.$or = searchConditions;
+    }
+
+    if (fromDate || toDate) {
+      const createdAt: Record<string, Date> = {};
+
+      if (fromDate) {
+        const start = new Date(`${fromDate}T00:00:00.000Z`);
+        if (Number.isNaN(start.getTime())) {
+          throw new BadRequestException('Invalid fromDate');
+        }
+        createdAt.$gte = start;
+      }
+
+      if (toDate) {
+        const end = new Date(`${toDate}T23:59:59.999Z`);
+        if (Number.isNaN(end.getTime())) {
+          throw new BadRequestException('Invalid toDate');
+        }
+        createdAt.$lte = end;
+      }
+
+      filter.createdAt = createdAt;
+    }
+
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
@@ -429,8 +519,8 @@ export class BookingsService {
         .skip(skip)
         .limit(limit)
         .sort({
-          adminEscalatedAt: -1,
           createdAt: -1,
+          adminEscalatedAt: -1,
         })
         .exec(),
 
@@ -447,6 +537,7 @@ export class BookingsService {
       .countDocuments({
         dispatchStatus: 'NEEDS_ADMIN',
         technicianId: null,
+        status: { $ne: 'CANCELLED' },
       })
       .exec();
   }
@@ -511,10 +602,29 @@ export class BookingsService {
       );
     }
 
-    if (createBookingDto.preferredVisitDate) {
-      assertValidCalendarDate(
-        createBookingDto.preferredVisitDate,
-        'preferredVisitDate',
+    const preferredVisitDate = createBookingDto.preferredVisitDate;
+    const preferredVisitSlot = createBookingDto.preferredVisitSlot;
+    if (preferredVisitDate) {
+      assertValidCalendarDate(preferredVisitDate, 'preferredVisitDate');
+    }
+    if (
+      preferredVisitSlot &&
+      !Object.prototype.hasOwnProperty.call(SLOT_END_MINUTES, preferredVisitSlot)
+    ) {
+      throw new BadRequestException('Please select a valid visit window.');
+    }
+    const serviceNow = getServiceNow();
+    if (preferredVisitDate && preferredVisitDate < serviceNow.date) {
+      throw new BadRequestException('Please select today or a future visit date.');
+    }
+    if (
+      preferredVisitDate === serviceNow.date &&
+      preferredVisitSlot &&
+      SLOT_END_MINUTES[preferredVisitSlot] <=
+        serviceNow.minutes + BOOKING_LEAD_TIME_MINUTES
+    ) {
+      throw new BadRequestException(
+        'That visit window has ended. Please choose another time.',
       );
     }
 

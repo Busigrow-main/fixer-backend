@@ -79,7 +79,7 @@ function buildParts() {
       tags: [type.name, category[1], brand.name],
       searchKeywords: [partNumber, type.slug, category[0]],
       installationDifficulty: { type: index % 4 === 0 ? 'Professional Only' : 'Medium' },
-      warrantyMonths: index % 5 === 0 ? 12 : 6,
+      warrantyMonths: index % 5 === 0 ? 12 : index % 5 === 1 ? 2 : index % 5 === 2 ? 0 : 6,
       isActive: true,
     };
   });

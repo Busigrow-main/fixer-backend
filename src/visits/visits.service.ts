@@ -114,6 +114,20 @@ export class VisitsService {
     const payload = { ...partData };
     delete payload._skipSerialAssert;
 
+    if (payload.warrantyMonths != null) {
+      const warrantyMonths = Number(payload.warrantyMonths);
+      if (
+        !Number.isInteger(warrantyMonths) ||
+        warrantyMonths < 0 ||
+        warrantyMonths > 12
+      ) {
+        throw new BadRequestException(
+          'Spare-part warranty must be between 0 and 12 months',
+        );
+      }
+      payload.warrantyMonths = warrantyMonths;
+    }
+
     const visit = await this.visitModel.findById(visitId).exec();
     if (!visit) throw new NotFoundException('Visit not found');
 
