@@ -1918,6 +1918,7 @@ export class BookingsService {
   }
 
   async getFixxerRevenueStats() {
+    // Paid tech collections + admin-finalized COMPLETED/billed jobs (invoice may exist while paymentStatus is still UNPAID).
     const paid =
       await this.bookingModel
         .find({
@@ -1931,8 +1932,12 @@ export class BookingsService {
               },
             },
             {
-              status:
-                'PAYMENT_COLLECTED',
+              status: {
+                $in: [
+                  'PAYMENT_COLLECTED',
+                  'COMPLETED',
+                ],
+              },
             },
             {
               paidAt: {
@@ -1940,10 +1945,11 @@ export class BookingsService {
                 $ne: null,
               },
             },
+            { isBilled: true },
           ],
         })
         .select(
-          '_id paidAt jobClosedAt updatedAt invoiceData paymentStatus jobPaymentMethod',
+          '_id paidAt jobClosedAt updatedAt invoiceData paymentStatus jobPaymentMethod isBilled status',
         )
         .lean()
         .exec();
@@ -2098,6 +2104,19 @@ export class BookingsService {
 
         technicianNet =
           settlement.technicianNet;
+      }
+
+      fixxerNet = Number(fixxerNet) || 0;
+      technicianNet = Number(technicianNet) || 0;
+      customerTotal = Number(customerTotal) || 0;
+
+      // Skip empty shells (COMPLETED with no invoice yet).
+      if (
+        customerTotal <= 0 &&
+        fixxerNet <= 0 &&
+        technicianNet <= 0
+      ) {
+        continue;
       }
 
       const collectedAt =
