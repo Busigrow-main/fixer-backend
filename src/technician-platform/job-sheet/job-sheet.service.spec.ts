@@ -17,6 +17,7 @@ import { WarrantiesService } from '../../warranties/warranties.service';
 import { CustomerAppliancesService } from '../../customer-appliances/customer-appliances.service';
 import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../common/notification-dispatch.service';
+import { ServiceablePincodesService } from '../../serviceable-pincodes/serviceable-pincodes.service';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 
 describe('JobSheetService', () => {
@@ -79,6 +80,13 @@ describe('JobSheetService', () => {
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },
         { provide: CustomerAppliancesService, useValue: { syncFromBooking: jest.fn(), linkBookingByPhone: jest.fn().mockResolvedValue([]) } },
+        {
+          provide: ServiceablePincodesService,
+          useValue: {
+            isServiceable: jest.fn().mockResolvedValue(true),
+            assertServiceable: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -142,15 +150,18 @@ describe('JobSheetService', () => {
       expect(doc!.jobDetails!.workDone).toBe('Replaced filter');
     });
 
-    it('bumps revision on each save', async () => {
+    it('bumps revision on each save without demoting job status', async () => {
       await service.saveJobSheet(bookingId, techId.toString(), {
         jobDetails: { diagnosis: 'A' },
       });
+      const mid = await bookingModel.findById(bookingId).lean().exec();
+      expect(mid!.status).toBe('IN_PROGRESS');
       await service.saveJobSheet(bookingId, techId.toString(), {
         jobDetails: { diagnosis: 'B' },
       });
       const doc = await bookingModel.findById(bookingId).lean().exec();
       expect(doc!.jobSheetRevision).toBe(2);
+      expect(doc!.status).toBe('IN_PROGRESS');
     });
 
     it('does not write completionData.labourCharge', async () => {

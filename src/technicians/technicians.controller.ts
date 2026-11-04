@@ -78,6 +78,12 @@ export class TechniciansController {
     return this.techniciansService.findAll();
   }
 
+  @Get('available')
+  @ApiOperation({ summary: 'List active AVAILABLE technicians (assign pool)' })
+  findAvailable() {
+    return this.techniciansService.findAvailable();
+  }
+
   @Get(':id/details')
   getDetails(@Param('id') id: string) {
     return this.techniciansService.getTechnicianWithJobs(id);

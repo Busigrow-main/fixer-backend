@@ -40,6 +40,18 @@ import {
   stripFixxerCodeSecrets,
 } from './fixxer-code';
 import { buildJobSheetDefaults, partsFromVisits } from './job-sheet-defaults';
+import { TechnicianEngineService } from '../technician-engine/technician-engine.service';
+import {
+  assertAssignableTechnician,
+  assertBookingAssignable,
+  TechnicianEngineError,
+} from '../technician-engine/technician-engine';
+import { assertValidCalendarDate } from '../common/calendar-date';
+import { GstService } from '../gst/gst.service';
+import {
+  FIXXER_SERVICE_GST_PERCENT,
+  fixxerServiceSac,
+} from '../gst/gst.types';
 
 @Injectable()
 export class BookingsService {
@@ -58,7 +70,9 @@ export class BookingsService {
     private visitsService: VisitsService,
     private customerAppliancesService: CustomerAppliancesService,
     private serviceablePincodesService: ServiceablePincodesService,
+    private gstService: GstService,
     @Optional() private billEmail?: BillEmailService,
+    @Optional() private technicianEngine?: TechnicianEngineService,
   ) {}
 
   /** Save the booking contact number on a Google account that has no phone yet. */
@@ -150,6 +164,8 @@ export class BookingsService {
   /**
    * ASSIGNED / EN_ROUTE / IN_PROGRESS without technicianId is corrupt.
    * Heal to CONFIRMED so admin filters and customer copy stay honest.
+   * Must run on the raw ObjectId ref — populate() turns missing techs into null
+   * and would otherwise demote valid in-progress jobs.
    */
   private async reconcileAssignmentInvariant(
     booking: { _id?: any; status?: string; technicianId?: any },
@@ -164,6 +180,17 @@ export class BookingsService {
   }
 
   async populateBookingDetail(id: string): Promise<any> {
+    // Reconcile against the unpopulated ref before populate() nulls missing techs.
+    const raw = await this.bookingModel
+      .findById(id)
+      .select('status technicianId')
+      .lean()
+      .exec();
+    if (!raw) {
+      throw new NotFoundException('Booking not found');
+    }
+    await this.reconcileAssignmentInvariant(raw as any);
+
     const booking = await this.bookingModel
       .findById(id)
       .populate('userId serviceId technicianId')
@@ -173,8 +200,6 @@ export class BookingsService {
     if (!booking) {
       throw new NotFoundException('Booking not found');
     }
-
-    await this.reconcileAssignmentInvariant(booking as any);
 
     const visits = await this.visitsService.findByBooking(id);
 
@@ -246,6 +271,16 @@ export class BookingsService {
           }
         : { userId: String(userId) };
 
+    // Reconcile on raw refs first — populate() nulls missing technician docs.
+    const rawBookings = await this.bookingModel
+      .find(userFilter)
+      .select('_id status technicianId')
+      .lean()
+      .exec();
+    for (const raw of rawBookings as any[]) {
+      await this.reconcileAssignmentInvariant(raw);
+    }
+
     const bookings = await this.bookingModel
       .find(userFilter)
       .populate('userId serviceId technicianId')
@@ -256,7 +291,6 @@ export class BookingsService {
     const results: any[] = [];
 
     for (const booking of bookings as any[]) {
-      await this.reconcileAssignmentInvariant(booking);
       const bookingId = String(booking._id);
 
       const installedParts =
@@ -352,84 +386,9 @@ export class BookingsService {
     return results;
   }
 
-  private async syncInvoicePartsFromVisits(
-    booking: any,
-    visits: any[],
-  ) {
-    let partsTotal = 0;
-    const spareParts: {
-      partName: string;
-      quantity: number;
-      cost: number;
-      isThirdParty: boolean;
-      warrantyCovered?: boolean;
-      warrantyMonths?: number;
-      serialNumber?: string;
-    }[] = [];
-
-    for (const visit of visits) {
-      for (const usage of visit.partsUsed || []) {
-        const quantity = Number(usage.quantity) || 1;
-        let partName = usage.partName || 'Spare part';
-        let cost = Number(usage.cost) || 0;
-
-        if (usage.warrantyCovered) {
-          partName =
-            usage.partName ||
-            usage.sparePartId?.name ||
-            'Warranty replacement';
-          cost = 0;
-        } else if (usage.isThirdParty || usage.sourcedBy === 'SELF') {
-          partName = usage.partName || 'Generic Part';
-          cost = Number(usage.cost) || 0;
-        } else if (usage.sparePartId) {
-          partName =
-            usage.partName ||
-            usage.sparePartId?.name ||
-            'Spare Part';
-          cost = await this.visitsService.correctCatalogCost(usage);
-        }
-
-        partsTotal += cost * quantity;
-        spareParts.push({
-          partName,
-          quantity,
-          cost,
-          isThirdParty: !!usage.isThirdParty,
-          warrantyCovered: !!usage.warrantyCovered,
-          warrantyMonths: Number(usage.warrantyMonths) || undefined,
-          serialNumber: usage.serialNumber || undefined,
-        });
-      }
-    }
-
-    const serviceTotal = Number(booking.invoiceData?.serviceTotal || 0);
-    const additionalCharges = booking.invoiceData?.additionalCharges || [];
-    const additionalTotal = additionalCharges.reduce(
-      (sum: number, charge: any) => sum + (Number(charge?.amount) || 0),
-      0,
-    );
-    const totalAmount = serviceTotal + partsTotal + additionalTotal;
-
-    booking.invoiceData = {
-      ...(booking.invoiceData || {}),
-      serviceTotal,
-      additionalCharges,
-      spareParts,
-      partsTotal,
-      totalAmount,
-    };
-
-    await this.bookingModel.updateOne(
-      { _id: booking._id },
-      {
-        $set: {
-          'invoiceData.spareParts': spareParts,
-          'invoiceData.partsTotal': partsTotal,
-          'invoiceData.totalAmount': totalAmount,
-        },
-      },
-    );
+  private async syncInvoicePartsFromVisits(booking: any, _visits: any[]) {
+    // Rebuild invoice (parts + exclusive GST on top) via the shared generator.
+    await this.generateInvoiceData(String(booking._id), { returnDetail: false });
   }
 
   async findAllForAdmin(
@@ -549,6 +508,13 @@ export class BookingsService {
     if (!isServiceable) {
       throw new BadRequestException(
         'Sorry, Fixxer is  not fixing in this area.',
+      );
+    }
+
+    if (createBookingDto.preferredVisitDate) {
+      assertValidCalendarDate(
+        createBookingDto.preferredVisitDate,
+        'preferredVisitDate',
       );
     }
 
@@ -847,12 +813,14 @@ export class BookingsService {
     reason?: string,
     fixxerCode?: string,
   ): Promise<any> {
+    const nextStatus = String(status || '').toUpperCase();
+
     /*
      * Admin cancellation needs to store the cancellation
      * reason, timestamp and actor separately from the
      * normal booking lifecycle status.
      */
-    if (status === 'CANCELLED') {
+    if (nextStatus === 'CANCELLED') {
       const booking =
         await this.bookingModel
           .findById(id)
@@ -864,7 +832,7 @@ export class BookingsService {
         );
       }
 
-      if (booking.status === 'CANCELLED') {
+      if (String(booking.status || '').toUpperCase() === 'CANCELLED') {
         throw new BadRequestException(
           'Booking is already cancelled',
         );
@@ -906,8 +874,7 @@ export class BookingsService {
       );
     }
 
-    const previousStatus = existing.status;
-    const nextStatus = String(status || '').toUpperCase();
+    const previousStatus = String(existing.status || '').toUpperCase();
 
     if (statusRequiresTechnician(nextStatus) && !existing.technicianId) {
       throw new BadRequestException(
@@ -915,7 +882,7 @@ export class BookingsService {
       );
     }
 
-    if (status === 'COMPLETED' && previousStatus !== 'COMPLETED') {
+    if (nextStatus === 'COMPLETED' && previousStatus !== 'COMPLETED') {
       await this.requireFixxerCode(id, fixxerCode);
     }
 
@@ -927,7 +894,7 @@ export class BookingsService {
       await this.bookingModel
         .findByIdAndUpdate(
           id,
-          { status: nextStatus || status },
+          { status: nextStatus },
           { returnDocument: 'after' },
         )
         .exec();
@@ -939,7 +906,7 @@ export class BookingsService {
     }
 
     if (
-      status === 'CONFIRMED' &&
+      nextStatus === 'CONFIRMED' &&
       previousStatus !== 'CONFIRMED' &&
       this.billEmail
     ) {
@@ -950,7 +917,7 @@ export class BookingsService {
       }
     }
 
-    if (status === 'COMPLETED') {
+    if (nextStatus === 'COMPLETED') {
       try {
         await this.generateInvoiceData(
           id,
@@ -965,6 +932,21 @@ export class BookingsService {
           'Invoice/Warranty lock failed:',
           err,
         );
+      }
+
+      if (
+        previousStatus !== 'COMPLETED' &&
+        existing.technicianId &&
+        this.technicianEngine
+      ) {
+        try {
+          await this.technicianEngine.applyStatusStepAvailability(
+            String(existing.technicianId),
+            'COMPLETED',
+          );
+        } catch (err) {
+          console.error('Availability release on COMPLETED failed:', err);
+        }
       }
 
       if (previousStatus !== 'COMPLETED' && this.billEmail) {
@@ -991,9 +973,28 @@ export class BookingsService {
     const previousTechnicianId = existing.technicianId
       ? String(existing.technicianId)
       : '';
+    const sameTechnician = previousTechnicianId === String(technicianId);
+
+    try {
+      assertBookingAssignable(existing.status);
+      const tech = await this.technicianModel.findById(technicianId).exec();
+      // Re-selecting the current assignee is fine even while ON_JOB on this booking.
+      if (sameTechnician) {
+        if (!tech?.isActive) {
+          throw new TechnicianEngineError('Technician is not active and available');
+        }
+      } else {
+        assertAssignableTechnician(tech);
+      }
+    } catch (err) {
+      if (err instanceof TechnicianEngineError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
+
     const keepCode =
-      previousTechnicianId === String(technicianId) &&
-      !!existing.fixxerCodeCiphertext;
+      sameTechnician && !!existing.fixxerCodeCiphertext;
     const issued = keepCode ? null : this.prepareAssignmentCode();
 
     const updatedBooking =
@@ -1028,6 +1029,13 @@ export class BookingsService {
 
     if (issued) {
       await this.deliverAssignmentCode(id, issued.code);
+    }
+
+    if (this.technicianEngine) {
+      await this.technicianEngine.onAdminAssigned({
+        technicianId,
+        previousTechnicianId,
+      });
     }
 
     await this.notificationDispatch.notify(
@@ -1359,6 +1367,17 @@ export class BookingsService {
       );
     }
 
+    if (booking.technicianId && this.technicianEngine) {
+      try {
+        await this.technicianEngine.applyStatusStepAvailability(
+          String(booking.technicianId),
+          'COMPLETED',
+        );
+      } catch (err) {
+        console.error('Availability release on finalize failed:', err);
+      }
+    }
+
     const detail = await this.generateInvoiceData(id);
 
     if (this.billEmail) {
@@ -1444,6 +1463,8 @@ export class BookingsService {
 
     // --- Service Total ---
     let serviceTotal: number;
+    let serviceLabel = 'Service charge';
+    let serviceDoc: ServiceDocument | null = null;
 
     if (booking.invoiceData?.manualOverride) {
       serviceTotal = Number(booking.invoiceData.serviceTotal) || 0;
@@ -1455,17 +1476,18 @@ export class BookingsService {
     } else {
       serviceTotal = 0;
 
-      const service =
-        await this.serviceModel
-          .findById(
-            booking.serviceId,
-          )
-          .exec();
+      serviceDoc = await this.serviceModel
+        .findById(booking.serviceId)
+        .exec();
 
-      if (service) {
+      if (serviceDoc) {
+        serviceLabel =
+          serviceDoc.name ||
+          serviceDoc.title ||
+          serviceLabel;
         const subCat =
           this.findSubCategoryById(
-            service,
+            serviceDoc,
             booking.subCategoryId,
           );
 
@@ -1477,18 +1499,21 @@ export class BookingsService {
               : this.parseNumericPrice(
                   subCat.price,
                 );
+          if (subCat.name) {
+            serviceLabel = `${serviceDoc.name || serviceLabel} — ${subCat.name}`;
+          }
         }
 
         if (!serviceTotal) {
           serviceTotal =
-            (service as any)
+            (serviceDoc as any)
               .startingPriceNumeric !=
             null
-              ? (service as any)
+              ? (serviceDoc as any)
                   .startingPriceNumeric /
                 100
               : this.parseNumericPrice(
-                  service.startingPrice,
+                  serviceDoc.startingPrice,
                 );
         }
       }
@@ -1572,10 +1597,42 @@ export class BookingsService {
         0,
       );
 
-    const totalAmount =
-      serviceTotal +
-      partsTotal +
-      additionalTotal;
+    const sacCode = fixxerServiceSac(
+      serviceDoc?.slug || serviceDoc?.name || serviceLabel,
+    );
+
+    // Service prices are pre-GST; engine adds tax on top (shop is the reverse: inclusive).
+    const gst = this.gstService.breakdown({
+      lineItems: [
+        ...(serviceTotal > 0
+          ? [
+              {
+                description: serviceLabel,
+                quantity: 1,
+                unitPrice: serviceTotal,
+                hsn: sacCode,
+              },
+            ]
+          : []),
+        ...sparePartsSummary.map((part) => ({
+          description: part.partName || 'Spare part',
+          quantity: part.quantity || 1,
+          unitPrice: part.warrantyCovered ? 0 : part.cost || 0,
+          hsn: sacCode,
+        })),
+        ...additionalCharges.map((charge: any) => ({
+          description: charge.label || 'Additional charge',
+          quantity: 1,
+          unitPrice: Number(charge.amount) || 0,
+          hsn: sacCode,
+        })),
+      ],
+      taxPercent: FIXXER_SERVICE_GST_PERCENT,
+      priceMode: 'EXCLUSIVE' as const,
+      supplyType: 'INTRA' as const,
+    });
+
+    const totalAmount = gst.totalAmount;
 
     const settlement =
       computeTechnicianSettlement({
@@ -1608,6 +1665,15 @@ export class BookingsService {
             sparePartsSummary,
           'invoiceData.totalAmount':
             totalAmount,
+          'invoiceData.taxableValue': gst.taxableValue,
+          'invoiceData.taxPercent': gst.taxPercent,
+          'invoiceData.taxAmount': gst.taxAmount,
+          'invoiceData.cgstAmount': gst.cgstAmount,
+          'invoiceData.sgstAmount': gst.sgstAmount,
+          'invoiceData.igstAmount': gst.igstAmount,
+          'invoiceData.priceMode': gst.priceMode,
+          'invoiceData.supplyType': gst.supplyType,
+          'invoiceData.sacCode': sacCode,
           'invoiceData.technicianNet':
             settlement.technicianNet,
           'invoiceData.fixxerNet':

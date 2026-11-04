@@ -1,6 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { TechnicianJobsService } from '../jobs/technician-jobs.service';
+import { TechnicianEngineService } from '../../technician-engine/technician-engine.service';
 
 describe('TechnicianJobsService claim + available (mocked)', () => {
   const technicianId = new Types.ObjectId().toString();
@@ -83,15 +84,17 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
       resolveCategorySlugs: jest.fn().mockResolvedValue(['ac-repair']),
       broadcastJob: jest.fn().mockResolvedValue({ notified: 1 }),
     };
+    const technicianEngine = new TechnicianEngineService(techniciansService);
 
     const service = new TechnicianJobsService(
       bookingsService,
       techniciansService,
       jobDispatch,
+      technicianEngine,
       bookingModel,
     );
 
-    return { service, bookingModel, jobDispatch, tech, booking };
+    return { service, bookingModel, jobDispatch, techniciansService, tech, booking };
   }
 
   it('listAvailableJobs returns open jobs matching pincode + category', async () => {
@@ -116,7 +119,7 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
         return this;
       },
     };
-    const { service, bookingModel, jobDispatch } = buildService({
+    const { service, bookingModel, jobDispatch, techniciansService } = buildService({
       findOneAndUpdateResult: claimed,
     });
 
@@ -132,6 +135,9 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
     expect(update.$unset.assignmentEmailSentAt).toBe(1);
     expect(JSON.stringify(update)).not.toContain('482193');
     expect(jobDispatch.notifyJobTaken).toHaveBeenCalled();
+    expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
+      availabilityStatus: 'ON_JOB',
+    });
   });
 
   it('claimJob throws ConflictException when another tech already claimed', async () => {
@@ -141,13 +147,15 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
     );
   });
 
-  it('rejectJob rebroadcasts the job', async () => {
+  it('rejectJob rebroadcasts the job and restores AVAILABLE', async () => {
     const booking = {
       _id: bookingId,
       technicianId: technicianId,
       assignmentStatus: 'PENDING_ACCEPTANCE',
     };
-    const { service, jobDispatch, bookingModel } = buildService({ booking });
+    const { service, jobDispatch, bookingModel, techniciansService } = buildService({
+      booking,
+    });
     bookingModel.findById = jest.fn().mockReturnValue({
       exec: jest.fn().mockResolvedValue(booking),
     });
@@ -163,5 +171,8 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
     expect(update.$unset.fixxerCodeAuthTag).toBe(1);
     expect(update.$unset.fixxerCodeVerifiedAt).toBe(1);
     expect(update.$set.technicianId).toBeNull();
+    expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
+      availabilityStatus: 'AVAILABLE',
+    });
   });
 });

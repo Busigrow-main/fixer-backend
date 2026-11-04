@@ -13,6 +13,7 @@ import { NotificationDispatchService } from '../technician-platform/common/notif
 import { VisitsService } from '../visits/visits.service';
 import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
+import { GstService } from '../gst/gst.service';
 
 describe('BookingsService – Job Sheet Sync (Dot-Path Merge)', () => {
   jest.setTimeout(30000);
@@ -45,6 +46,7 @@ describe('BookingsService – Job Sheet Sync (Dot-Path Merge)', () => {
       ],
       providers: [
         BookingsService,
+        GstService,
         { provide: WarrantiesService, useValue: mockWarranties },
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },

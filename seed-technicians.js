@@ -16,11 +16,11 @@ async function seedTechnicians() {
         email: 'amit.sharma@example.com',
         skills: ['Washing Machine', 'Refrigerator'],
         isActive: true,
+        idVerified: true,
+        verificationStatus: 'VERIFIED',
         availabilityStatus: 'AVAILABLE',
         averageRating: 4.8,
         totalCompletedJobs: 142,
-        createdAt: new Date(),
-        updatedAt: new Date()
       },
       {
         name: 'Rahul Verma',
@@ -28,11 +28,11 @@ async function seedTechnicians() {
         email: 'rahul.verma@example.com',
         skills: ['AC Repair', 'Geyser'],
         isActive: true,
+        idVerified: true,
+        verificationStatus: 'VERIFIED',
         availabilityStatus: 'AVAILABLE',
         averageRating: 4.6,
         totalCompletedJobs: 89,
-        createdAt: new Date(),
-        updatedAt: new Date()
       },
       {
         name: 'Suresh Kumar',
@@ -40,11 +40,11 @@ async function seedTechnicians() {
         email: 'suresh.kumar@example.com',
         skills: ['Microwave', 'Chimney'],
         isActive: true,
+        idVerified: true,
+        verificationStatus: 'VERIFIED',
         availabilityStatus: 'ON_JOB',
         averageRating: 4.9,
         totalCompletedJobs: 215,
-        createdAt: new Date(),
-        updatedAt: new Date()
       },
       {
         name: 'Vikram Singh',
@@ -52,11 +52,11 @@ async function seedTechnicians() {
         email: 'vikram.singh@example.com',
         skills: ['Water Purifier', 'AC Repair'],
         isActive: true,
+        idVerified: true,
+        verificationStatus: 'VERIFIED',
         availabilityStatus: 'UNAVAILABLE',
         averageRating: 4.2,
         totalCompletedJobs: 45,
-        createdAt: new Date(),
-        updatedAt: new Date()
       },
       {
         name: 'Deepak Patel',
@@ -64,17 +64,42 @@ async function seedTechnicians() {
         email: 'deepak.patel@example.com',
         skills: ['Refrigerator', 'Microwave', 'Washing Machine'],
         isActive: true,
+        idVerified: true,
+        verificationStatus: 'VERIFIED',
         availabilityStatus: 'AVAILABLE',
         averageRating: 4.7,
         totalCompletedJobs: 176,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
+      },
     ];
 
-    const result = await techniciansCollection.insertMany(technicians);
-    console.log(`Successfully seeded ${result.insertedCount} technicians`);
+    const now = new Date();
+    const ops = technicians.map((tech) => ({
+      updateOne: {
+        filter: { phone: tech.phone },
+        update: {
+          $set: { ...tech, updatedAt: now },
+          $setOnInsert: { createdAt: now },
+        },
+        upsert: true,
+      },
+    }));
 
+    // Mark every technician in DB as ID verified (seeded + any others).
+    const bulk = await techniciansCollection.bulkWrite(ops);
+    const verifiedAll = await techniciansCollection.updateMany(
+      {},
+      {
+        $set: {
+          idVerified: true,
+          verificationStatus: 'VERIFIED',
+          updatedAt: now,
+        },
+      },
+    );
+
+    console.log(
+      `Seed upserted: matched ${bulk.matchedCount}, upserted ${bulk.upsertedCount}; idVerified set on ${verifiedAll.modifiedCount} technicians`,
+    );
   } catch (error) {
     console.error('Error seeding technicians:', error);
   } finally {

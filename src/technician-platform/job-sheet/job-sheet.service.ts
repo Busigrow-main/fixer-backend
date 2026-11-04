@@ -27,6 +27,7 @@ import {
 } from '../settlement';
 import { WarrantiesService } from '../../warranties/warranties.service';
 import { CustomerAppliancesService } from '../../customer-appliances/customer-appliances.service';
+import { assertValidCalendarDate } from '../../common/calendar-date';
 
 export type JobSheetSaveBody = {
   productDetails?: {
@@ -169,7 +170,8 @@ export class JobSheetService {
 
     await this.bookingModel.findByIdAndUpdate(jobId, { $set: setPayload }).exec();
 
-    await this.bookingsService.generateInvoiceData(jobId);
+    // returnDetail:false — avoid populateBookingDetail/reconcile side-effects on status
+    await this.bookingsService.generateInvoiceData(jobId, { returnDetail: false });
 
     if (productDetails.serialNumber) {
       const refreshed = await this.bookingModel.findById(jobId).lean().exec();
@@ -224,6 +226,7 @@ export class JobSheetService {
 
     const scheduledDate =
       body.scheduledDate || new Date().toISOString().slice(0, 10);
+    assertValidCalendarDate(String(scheduledDate).slice(0, 10), 'scheduledDate');
     const timeIn = this.parseVisitTime(body.timeIn, scheduledDate);
     const timeOut = this.parseVisitTime(body.timeOut, scheduledDate);
 

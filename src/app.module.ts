@@ -14,6 +14,7 @@ import { TechniciansModule } from './technicians/technicians.module';
 import { VisitsModule } from './visits/visits.module';
 import { WarrantiesModule } from './warranties/warranties.module';
 import { TechnicianPlatformModule } from './technician-platform/technician-platform.module';
+import { TechnicianEngineModule } from './technician-engine/technician-engine.module';
 import { CustomerAppliancesModule } from './customer-appliances/customer-appliances.module';
 import { OffersModule } from './offers/offers.module';
 import { ServiceablePincodesModule } from './serviceable-pincodes/serviceable-pincodes.module';
@@ -32,6 +33,7 @@ import { GstModule } from './gst/gst.module';
     ServicesModule,
     SparePartsModule,
     AppliancesModule,
+    TechnicianEngineModule,
     BookingsModule,
     PartOrdersModule,
     AdminModule,

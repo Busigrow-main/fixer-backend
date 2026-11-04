@@ -9,7 +9,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BookingsService } from '../../bookings/bookings.service';
 import { TechniciansService } from '../../technicians/technicians.service';
-import { JOB_STATUS_FLOW } from '../constants';
+import { TechnicianEngineService } from '../../technician-engine/technician-engine.service';
+import { assertAssignmentAccepted } from '../../technician-engine/technician-engine';
 import { technicianIdQuery, resolveTechnicianId } from '../common/technician-id.util';
 import { Booking, BookingDocument } from '../../bookings/schemas/booking.schema';
 import { JobDispatchService } from '../dispatch/job-dispatch.service';
@@ -27,6 +28,7 @@ export class TechnicianJobsService {
     private bookingsService: BookingsService,
     private techniciansService: TechniciansService,
     private jobDispatch: JobDispatchService,
+    private technicianEngine: TechnicianEngineService,
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
   ) {}
 
@@ -129,9 +131,7 @@ export class TechnicianJobsService {
     await this.jobDispatch.expireIfNeeded(jobId);
 
     const tech = await this.techniciansService.findOne(technicianId);
-    if (!tech.isActive || tech.availabilityStatus !== 'AVAILABLE') {
-      throw new BadRequestException('You must be active and available to claim a job');
-    }
+    this.technicianEngine.assertCanClaim(tech);
 
     const existing = await this.bookingModel.findById(jobId).populate('serviceId', 'slug name').exec();
     if (!existing) throw new NotFoundException('Job not found');
@@ -172,6 +172,8 @@ export class TechnicianJobsService {
       throw new ConflictException('Job was already claimed by another technician');
     }
 
+    await this.technicianEngine.applyJobEvent(technicianId, 'CLAIMED');
+
     const notified = (existing.notifiedTechnicianIds ?? []) as Types.ObjectId[];
     void this.jobDispatch.notifyJobTaken(jobId, technicianId, notified);
     await this.bookingsService.deliverAssignmentCode(jobId, issued.code);
@@ -184,9 +186,7 @@ export class TechnicianJobsService {
     if (!booking) throw new NotFoundException('Job not found');
     this.assertOwnership(booking, technicianId);
 
-    if (booking.assignmentStatus !== 'PENDING_ACCEPTANCE') {
-      throw new BadRequestException('Job is not pending acceptance');
-    }
+    this.technicianEngine.assertCanAccept(booking.assignmentStatus);
 
     const updated = await this.bookingModel
       .findByIdAndUpdate(
@@ -198,6 +198,8 @@ export class TechnicianJobsService {
       .populate('serviceId', 'name')
       .exec();
 
+    await this.technicianEngine.applyJobEvent(technicianId, 'ACCEPTED');
+
     return presentTechnicianBooking(updated);
   }
 
@@ -208,9 +210,7 @@ export class TechnicianJobsService {
     if (!booking) throw new NotFoundException('Job not found');
     this.assertOwnership(booking, technicianId);
 
-    if (booking.assignmentStatus !== 'PENDING_ACCEPTANCE') {
-      throw new BadRequestException('Job is not pending acceptance');
-    }
+    this.technicianEngine.assertCanReject(booking.assignmentStatus);
 
     const updated = await this.bookingModel
       .findByIdAndUpdate(
@@ -237,6 +237,8 @@ export class TechnicianJobsService {
       )
       .exec();
 
+    await this.technicianEngine.applyJobEvent(technicianId, 'REJECTED');
+
     // Re-broadcast to eligible technicians
     void this.jobDispatch.broadcastJob(jobId);
 
@@ -253,38 +255,24 @@ export class TechnicianJobsService {
     if (!booking) throw new NotFoundException('Job not found');
     this.assertOwnership(booking, technicianId);
 
-    if (booking.assignmentStatus !== 'ACCEPTED') {
-      throw new BadRequestException('Job must be accepted first');
+    try {
+      assertAssignmentAccepted(booking.assignmentStatus);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'Job must be accepted first',
+      );
     }
 
-    const current = booking.status;
-    const currentIndex = JOB_STATUS_FLOW.indexOf(current as any);
-    const nextIndex = JOB_STATUS_FLOW.indexOf(nextStatus as any);
-
-    if (nextIndex === -1) {
-      throw new BadRequestException('Invalid job status');
-    }
-    if (currentIndex === -1 && nextStatus !== 'ASSIGNED') {
-      throw new BadRequestException(`Cannot transition from ${current} to ${nextStatus}`);
-    }
-    if (currentIndex !== -1 && nextIndex !== currentIndex + 1) {
-      throw new BadRequestException(`Cannot skip states. Current: ${current}, requested: ${nextStatus}`);
-    }
+    const { next } = this.technicianEngine.planStatusStep(booking.status, nextStatus);
 
     const updated = await this.bookingsService.updateStatus(
       jobId,
-      nextStatus,
+      next,
       undefined,
       fixxerCode,
     );
 
-    if (nextStatus === 'IN_PROGRESS') {
-      await this.techniciansService.update(technicianId, { availabilityStatus: 'ON_JOB' });
-    }
-    if (nextStatus === 'PAYMENT_COLLECTED') {
-      await this.technicianModelIncrement(technicianId);
-      await this.techniciansService.update(technicianId, { availabilityStatus: 'AVAILABLE' });
-    }
+    await this.technicianEngine.applyStatusStepAvailability(technicianId, next);
 
     return updated;
   }
@@ -294,9 +282,7 @@ export class TechnicianJobsService {
     if (!booking) throw new NotFoundException('Job not found');
     this.assertOwnership(booking, technicianId);
 
-    if (booking.status !== 'ASSIGNED' && booking.status !== 'EN_ROUTE') {
-      throw new BadRequestException('Job is not in a valid state for arrival');
-    }
+    this.technicianEngine.assertCanMarkArrival(booking.status);
 
     return presentTechnicianBooking(
       await this.bookingModel
@@ -345,12 +331,6 @@ export class TechnicianJobsService {
       s.toLowerCase(),
     );
     return required.some((c) => offered.includes(c.toLowerCase()));
-  }
-
-  private async technicianModelIncrement(technicianId: string) {
-    await this.techniciansService.update(technicianId, {
-      totalCompletedJobs: (await this.techniciansService.findOne(technicianId)).totalCompletedJobs + 1,
-    });
   }
 
   private assertOwnership(booking: Booking, technicianId: string) {

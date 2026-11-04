@@ -212,7 +212,7 @@ export function buildBillEmail(input: BookingMailInput) {
     'Final breakdown',
     ...input.lines.map((line) => `${line.label}${line.detail ? ` (${line.detail})` : ''}: ${formatInr(line.amount)}`),
     `${input.totalLabel}: ${formatInr(input.total)}`,
-    'GST is not added on top.',
+    'Service amounts are pre-GST; GST is added on top.',
     '',
     'Labour for the same fault is covered for 60 days from completion.',
     ...(input.partWarranties?.length
@@ -231,7 +231,9 @@ export function buildBillEmail(input: BookingMailInput) {
     bodyHtml: `${facts(input)}
       <div style="height:1px;background:#E8E8EA;margin:8px 0 18px;"></div>
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#C8102E;">Final breakdown</div>
-      ${renderLedger(input.lines, input.totalLabel, input.total)}
+      ${renderLedger(input.lines, input.totalLabel, input.total, {
+        gstNote: 'Service amounts are pre-GST; GST is added on top of the taxable value.',
+      })}
       <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#64646B;">
         Labour for the same fault is covered for 60 days from completion.
       </p>

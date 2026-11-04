@@ -12,6 +12,8 @@ import { VisitsModule } from '../visits/visits.module';
 import { CustomerAppliancesModule } from '../customer-appliances/customer-appliances.module';
 import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
 import { AuthModule } from '../auth/auth.module';
+import { TechnicianEngineModule } from '../technician-engine/technician-engine.module';
+import { GstModule } from '../gst/gst.module';
 import { BillEmailService } from './bill-email.service';
 import { EmailPreviewController } from './email-preview.controller';
 
@@ -29,6 +31,8 @@ import { EmailPreviewController } from './email-preview.controller';
     CustomerAppliancesModule,
     ServiceablePincodesModule,
     AuthModule,
+    TechnicianEngineModule,
+    GstModule,
   ],
   controllers: [BookingsController, EmailPreviewController],
   providers: [BookingsService, BillEmailService],

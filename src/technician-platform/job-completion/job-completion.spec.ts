@@ -16,6 +16,8 @@ import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../common/notification-dispatch.service';
 import { CustomerAppliancesService } from '../../customer-appliances/customer-appliances.service';
 import { ServiceablePincodesService } from '../../serviceable-pincodes/serviceable-pincodes.service';
+import { TechniciansService } from '../../technicians/technicians.service';
+import { TechnicianEngineService } from '../../technician-engine/technician-engine.service';
 import { issueFixxerCode } from '../../bookings/fixxer-code';
 import * as bcrypt from 'bcrypt';
 
@@ -34,6 +36,14 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
   const mockEarnings = {
     recordEarning: jest.fn(),
     hasJobPayout: jest.fn().mockResolvedValue(false),
+  };
+  const mockTechnicians = {
+    findOne: jest.fn().mockResolvedValue({
+      _id: techId,
+      availabilityStatus: 'ON_JOB',
+      totalCompletedJobs: 3,
+    }),
+    update: jest.fn().mockResolvedValue({}),
   };
   const mockVisits = {
     findByBooking: jest.fn().mockResolvedValue([]),
@@ -61,6 +71,8 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
         BookingsService,
         { provide: EarningsService, useValue: mockEarnings },
         { provide: VisitsService, useValue: mockVisits },
+        { provide: TechniciansService, useValue: mockTechnicians },
+        TechnicianEngineService,
         { provide: WarrantiesService, useValue: mockWarranties },
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },
@@ -86,6 +98,14 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
     mockEarnings.recordEarning.mockReset();
     mockEarnings.hasJobPayout.mockReset();
     mockEarnings.hasJobPayout.mockResolvedValue(false);
+    mockTechnicians.findOne.mockReset();
+    mockTechnicians.findOne.mockResolvedValue({
+      _id: techId,
+      availabilityStatus: 'ON_JOB',
+      totalCompletedJobs: 3,
+    });
+    mockTechnicians.update.mockReset();
+    mockTechnicians.update.mockResolvedValue({});
     mockVisits.findByBooking.mockReset();
     mockVisits.findByBooking.mockResolvedValue([]);
     mockVisits.updateStatus.mockReset();
@@ -210,6 +230,13 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
     expect(commissionCall[0].amount).toBe(100); // 10% of ₹1000
     expect(selfPartsCall[0].amount).toBe(200);
     expect(feeCall[0].amount).toBe(-100);
+    expect(mockTechnicians.update).toHaveBeenCalledWith(
+      techId,
+      expect.objectContaining({
+        availabilityStatus: 'AVAILABLE',
+        totalCompletedJobs: 4,
+      }),
+    );
   });
 
   it('recordPayment does not re-credit labour/parts if payout already exists', async () => {

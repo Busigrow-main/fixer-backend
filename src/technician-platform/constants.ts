@@ -7,17 +7,12 @@ export const SELF_PART_PLATFORM_FEE = 100;
 /** Technician commission on Fixxer-inventory spare parts sold on a job. */
 export const INVENTORY_PART_COMMISSION_RATE = 0.1;
 
-export const JOB_SHEET_EDITABLE_STATUSES = ['EN_ROUTE', 'IN_PROGRESS'] as const;
-
-export const JOB_STATUS_FLOW = [
-  'ASSIGNED',
-  'EN_ROUTE',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'PAYMENT_COLLECTED',
-] as const;
-
-export type TechnicianJobStatus = (typeof JOB_STATUS_FLOW)[number];
+/** Job lifecycle + sheet rules live in technician-engine; re-exported for platform callers. */
+export {
+  JOB_SHEET_EDITABLE_STATUSES,
+  JOB_STATUS_FLOW,
+} from '../technician-engine/technician-engine.types';
+export type { TechnicianJobStatus } from '../technician-engine/technician-engine.types';
 
 export const ONBOARDING_EVENTS = [
   'OTP_SENT',

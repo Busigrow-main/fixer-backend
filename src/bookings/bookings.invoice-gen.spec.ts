@@ -13,6 +13,7 @@ import { NotificationDispatchService } from '../technician-platform/common/notif
 import { VisitsService } from '../visits/visits.service';
 import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
+import { GstService } from '../gst/gst.service';
 
 describe('BookingsService – Invoice Generation', () => {
   jest.setTimeout(30000);
@@ -50,6 +51,7 @@ describe('BookingsService – Invoice Generation', () => {
       ],
       providers: [
         BookingsService,
+        GstService,
         { provide: WarrantiesService, useValue: mockWarranties },
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },
@@ -109,7 +111,9 @@ describe('BookingsService – Invoice Generation', () => {
     const result = await service.generateInvoiceData(booking._id.toString(), { returnDetail: false });
     expect(result.invoiceData.serviceTotal).toBe(1199);
     expect(result.invoiceData.partsTotal).toBe(500); // 150*2 + 200*1
-    expect(result.invoiceData.totalAmount).toBe(1699);
+    // Exclusive GST: (1199+500)*1.18
+    expect(result.invoiceData.taxableValue).toBe(1699);
+    expect(result.invoiceData.totalAmount).toBeCloseTo(2004.82, 2);
     expect(result.invoiceData.spareParts).toHaveLength(2);
   });
 
@@ -141,7 +145,9 @@ describe('BookingsService – Invoice Generation', () => {
 
     const result = await service.generateInvoiceData(booking._id.toString(), { returnDetail: false });
     expect(result.invoiceData.serviceTotal).toBe(1199);
-    expect(result.invoiceData.totalAmount).toBe(1299); // 1199 + 100
+    // Exclusive GST: (1199+100)*1.18
+    expect(result.invoiceData.taxableValue).toBe(1299);
+    expect(result.invoiceData.totalAmount).toBeCloseTo(1532.82, 2);
   });
 
   it('keeps a manual service charge of zero', async () => {
