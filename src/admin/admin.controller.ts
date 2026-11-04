@@ -172,6 +172,9 @@ export class AdminController {
     @Query('status') status?: string,
     @Query('dispatchStatus') dispatchStatus?: string,
     @Query('cancelledBy') cancelledBy?: 'CUSTOMER' | 'ADMIN',
+    @Query('search') search?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
   ) {
     return this.bookingsService.findAllForAdmin(
       parseInt(page),
@@ -179,6 +182,9 @@ export class AdminController {
       status,
       dispatchStatus,
       cancelledBy,
+      search,
+      fromDate,
+      toDate,
     );
   }
 
