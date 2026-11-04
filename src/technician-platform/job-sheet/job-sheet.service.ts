@@ -410,6 +410,10 @@ export class JobSheetService {
         ? Math.floor(Number(partData.warrantyMonths))
         : undefined;
 
+    if (selfMonths && selfMonths > 12) {
+      throw new BadRequestException('Spare-part warranty cannot exceed 12 months');
+    }
+
     if (selfSerial && !selfMonths) {
       throw new BadRequestException(
         'warrantyMonths is required when registering a serial for a self-sourced part',

@@ -210,7 +210,7 @@ const sparePartsData = [
     isInStock: true,
     tags: ["filter", "water filter", "universal", "refrigerator", "generic"],
     installationDifficulty: { type: "Easy" },
-    warrantyMonths: 3,
+    warrantyMonths: 2,
     imageUrls: ["https://images.unsplash.com/photo-1595113316349-9fa4ee24f884"]
   },
   {
@@ -255,7 +255,7 @@ const sparePartsData = [
     isInStock: true,
     tags: ["hose", "inlet", "water pipe", "universal", "washing machine"],
     installationDifficulty: { type: "Easy" },
-    warrantyMonths: 12,
+    warrantyMonths: 0,
     imageUrls: ["https://images.unsplash.com/photo-1584622650111-993a426fbf0a"]
   }
 ];

@@ -33,7 +33,7 @@ const SERVICES_DATA = [
     icon: "ac_unit",
     image: "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=2000&auto=format&fit=crop",
     description: "Professional grade technical mastery for your kitchen's heart. Fixed base service charges depending on appliance type and category.",
-    features: ["60 Days Service Warranty", "Up to 30 Days Part Warranty", "Transparent Pricing", "Genuine Spare Parts"],
+    features: ["60 Days Service Warranty", "Up to 1 Year Part Warranty", "Transparent Pricing", "Genuine Spare Parts"],
     subCategories: [
       { name: "Single Door Refrigerator", price: "₹249" },
       { name: "Double Door Refrigerator", price: "₹349" },
@@ -48,7 +48,7 @@ const SERVICES_DATA = [
     icon: "local_laundry_service",
     image: "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?q=80&w=2000&auto=format&fit=crop",
     description: "Don't let laundry pile up. We provide fast, reliable repairs with transparent pricing and standardized service experience.",
-    features: ["60 Days Service Warranty", "Up to 30 Days Part Warranty", "Transparent Pricing", "Vibration & Noise Diagnosis"],
+    features: ["60 Days Service Warranty", "Up to 1 Year Part Warranty", "Transparent Pricing", "Vibration & Noise Diagnosis"],
     subCategories: [
       { name: "Semi-Automatic Washing Machine", price: "₹249" },
       { name: "Fully Automatic (Top Load)", price: "₹349" },
@@ -63,7 +63,7 @@ const SERVICES_DATA = [
     icon: "cooking",
     image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?q=80&w=2000&auto=format&fit=crop",
     description: "Keep your kitchen running perfectly. Service pricing is based on appliance volume and capacity. Our technicians are factory-trained for all models.",
-    features: ["60 Days Service Warranty", "Up to 30 Days Part Warranty", "Transparent Pricing", "Safety Radiation Checks"],
+    features: ["60 Days Service Warranty", "Up to 1 Year Part Warranty", "Transparent Pricing", "Safety Radiation Checks"],
     subCategories: [
       { name: "Microwave Repair (Based on Volume)", price: "Starting ₹249" },
     ],
@@ -76,7 +76,7 @@ const SERVICES_DATA = [
     icon: "thermostat",
     image: "https://aonecoolingsolution.in/wp-content/uploads/2025/02/split-ac-service-Sfastservices.jpg",
     description: "Climate master for your home. From installation to complex repairs, we restore your comfort quickly.",
-    features: ["60 Days Service Warranty", "Up to 30 Days Part Warranty", "Transparent Pricing", "Installation & Uninstallation"],
+    features: ["60 Days Service Warranty", "Up to 1 Year Part Warranty", "Transparent Pricing", "Installation & Uninstallation"],
     subCategories: [
       { name: "AC Installation", price: "₹1149" },
       { name: "AC Uninstallation", price: "₹749" },
