@@ -23,6 +23,13 @@ export type InvoicePdfInput = {
   additionalCharges: { label: string; amount: number }[];
   partsTotal: number;
   totalAmount: number;
+  taxableValue?: number;
+  taxPercent?: number;
+  taxAmount?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  sacCode?: string;
   warrantyPeriod: string;
   signature?: Buffer | null;
 };
@@ -138,12 +145,42 @@ export function buildInvoicePdf(input: InvoicePdfInput): Promise<Buffer> {
     y += 8;
     doc.moveTo(48, y).lineTo(548, y).strokeColor('#E8E8EA').stroke();
     y += 14;
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED);
+    if (input.sacCode) {
+      doc.text(`SAC ${input.sacCode}`, 56, y);
+    }
+    const taxable = Number(input.taxableValue) || 0;
+    const taxAmount = Number(input.taxAmount) || 0;
+    if (taxAmount > 0) {
+      doc.text('Taxable value', 360, y);
+      doc.text(inr(taxable), 430, y, { width: 110, align: 'right' });
+      y += 14;
+      if (Number(input.igstAmount) > 0) {
+        doc.text(`IGST ${Number(input.taxPercent) || 18}%`, 360, y);
+        doc.text(inr(input.igstAmount || 0), 430, y, { width: 110, align: 'right' });
+      } else {
+        const half = (Number(input.taxPercent) || 18) / 2;
+        doc.text(`CGST ${half}%`, 360, y);
+        doc.text(inr(input.cgstAmount || 0), 430, y, { width: 110, align: 'right' });
+        y += 14;
+        doc.text(`SGST ${half}%`, 360, y);
+        doc.text(inr(input.sgstAmount || 0), 430, y, { width: 110, align: 'right' });
+      }
+      y += 14;
+    }
     doc.font('Helvetica-Bold').fontSize(12).fillColor(INK);
     doc.text('Total', 360, y);
     doc.text(inr(input.totalAmount), 430, y, { width: 110, align: 'right' });
     y += 18;
     doc.font('Helvetica').fontSize(8).fillColor(MUTED);
-    doc.text('GST is not added on this service bill.', 360, y, { width: 180, align: 'right' });
+    doc.text(
+      taxAmount > 0
+        ? 'Service amounts are pre-GST. GST is added on top of the taxable value.'
+        : 'No GST charged on this bill.',
+      360,
+      y,
+      { width: 180, align: 'right' },
+    );
 
     y += 40;
     const covered = input.parts

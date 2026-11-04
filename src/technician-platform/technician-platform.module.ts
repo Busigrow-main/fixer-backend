@@ -6,6 +6,7 @@ import { TechniciansModule } from '../technicians/technicians.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { VisitsModule } from '../visits/visits.module';
 import { SparePartsModule } from '../spare-parts/spare-parts.module';
+import { TechnicianEngineModule } from '../technician-engine/technician-engine.module';
 import { DispatchModule } from './dispatch/dispatch.module';
 import { WarrantiesModule } from '../warranties/warranties.module';
 import { CustomerAppliancesModule } from '../customer-appliances/customer-appliances.module';
@@ -66,6 +67,7 @@ import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.ser
     BookingsModule,
     VisitsModule,
     SparePartsModule,
+    TechnicianEngineModule,
     DispatchModule,
     WarrantiesModule,
     CustomerAppliancesModule,

@@ -13,6 +13,8 @@ import { NotificationDispatchService } from '../technician-platform/common/notif
 import { VisitsService } from '../visits/visits.service';
 import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
+import { TechnicianEngineService } from '../technician-engine/technician-engine.service';
+import { GstService } from '../gst/gst.service';
 import { issueFixxerCode } from './fixxer-code';
 
 process.env.FIXXER_CODE_KEY = Buffer.alloc(32, 7).toString('base64');
@@ -32,6 +34,19 @@ describe('BookingsService – State Machine', () => {
     findByBooking: jest.fn().mockResolvedValue([]),
     correctCatalogCost: jest.fn(async (usage: any) => Number(usage?.cost) || 0),
   };
+  const mockTechnicianEngine = {
+    onAdminAssigned: jest.fn().mockImplementation(async ({ technicianId, previousTechnicianId }) => {
+      const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
+      await techModel.findByIdAndUpdate(technicianId, { availabilityStatus: 'ON_JOB' });
+      if (previousTechnicianId && previousTechnicianId !== String(technicianId)) {
+        await techModel.findByIdAndUpdate(previousTechnicianId, {
+          availabilityStatus: 'AVAILABLE',
+        });
+      }
+    }),
+    applyJobEvent: jest.fn(),
+    applyStatusStepAvailability: jest.fn(),
+  };
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
@@ -47,6 +62,8 @@ describe('BookingsService – State Machine', () => {
       ],
       providers: [
         BookingsService,
+        GstService,
+        { provide: TechnicianEngineService, useValue: mockTechnicianEngine },
         { provide: WarrantiesService, useValue: mockWarranties },
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },
@@ -154,11 +171,23 @@ describe('BookingsService – State Machine', () => {
     expect(doc!.status).toBe('COMPLETED');
   });
 
+  async function createEligibleTech(overrides: Record<string, unknown> = {}) {
+    const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
+    return techModel.create({
+      name: 'Tech',
+      phone: String(9000000000 + Math.floor(Math.random() * 99999999)),
+      skills: ['ac'],
+      availabilityStatus: 'AVAILABLE',
+      isActive: true,
+      ...overrides,
+    });
+  }
+
   it('assignment stores an encrypted FIXXER CODE and close requires it', async () => {
     const userId = new Types.ObjectId();
     const b = await createBooking({ userId, status: 'CONFIRMED' });
-    const techA = new Types.ObjectId().toString();
-    const techB = new Types.ObjectId().toString();
+    const techA = (await createEligibleTech())._id.toString();
+    const techB = (await createEligibleTech())._id.toString();
 
     await service.assignTechnician(b._id.toString(), techA);
     const first = await bookingModel.findById(b._id).lean().exec();
@@ -226,10 +255,32 @@ describe('BookingsService – State Machine', () => {
     await service.requireFixxerCode(issued._id.toString());
   });
 
+  it('assignTechnician sets the tech ON_JOB and frees the previous tech', async () => {
+    const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
+    await techModel.deleteMany({});
+    const techA = await createEligibleTech({ name: 'Tech A', phone: '9000000001' });
+    const techB = await createEligibleTech({ name: 'Tech B', phone: '9000000002' });
+
+    const b = await createBooking({ status: 'CONFIRMED' });
+    await service.assignTechnician(b._id.toString(), techA._id.toString());
+    expect((await techModel.findById(techA._id).lean().exec())!.availabilityStatus).toBe(
+      'ON_JOB',
+    );
+
+    await service.assignTechnician(b._id.toString(), techB._id.toString());
+    expect((await techModel.findById(techA._id).lean().exec())!.availabilityStatus).toBe(
+      'AVAILABLE',
+    );
+    expect((await techModel.findById(techB._id).lean().exec())!.availabilityStatus).toBe(
+      'ON_JOB',
+    );
+  });
+
   it('clears the code when the assignment is removed', async () => {
     const userId = new Types.ObjectId();
     const b = await createBooking({ userId, status: 'CONFIRMED' });
-    await service.assignTechnician(b._id.toString(), new Types.ObjectId().toString());
+    const tech = await createEligibleTech();
+    await service.assignTechnician(b._id.toString(), tech._id.toString());
     expect((await service.findAllByUser(userId.toString()))[0].fixxerCode).toMatch(/^\d{6}$/);
 
     await service.clearAssignmentCode(b._id.toString());
@@ -242,5 +293,47 @@ describe('BookingsService – State Machine', () => {
     const adminView = await service.populateBookingDetail(b._id.toString());
     expect(adminView.fixxerCodeIv).toBeUndefined();
     expect(adminView.fixxerCodeAuthTag).toBeUndefined();
+  });
+
+  it('normalizes lowercase completed so FIXXER CODE is still required', async () => {
+    const issued = await createBooking({ technicianId: new Types.ObjectId() });
+    const code = await sealCode(issued);
+    await expect(
+      service.updateStatus(issued._id.toString(), 'completed', undefined, '000000'),
+    ).rejects.toThrow('does not match');
+    expect((await bookingModel.findById(issued._id).lean().exec())!.status).toBe('IN_PROGRESS');
+
+    await service.updateStatus(issued._id.toString(), 'completed', undefined, code);
+    const doc = await bookingModel.findById(issued._id).lean().exec();
+    expect(doc!.status).toBe('COMPLETED');
+    expect(doc!.fixxerCodeVerifiedAt).toBeInstanceOf(Date);
+  });
+
+  it('rejects assign on cancelled/completed jobs and ineligible technicians', async () => {
+    const tech = await createEligibleTech();
+    const cancelled = await createBooking({ status: 'CANCELLED' });
+    await expect(
+      service.assignTechnician(cancelled._id.toString(), tech._id.toString()),
+    ).rejects.toThrow(/cancelled or completed/i);
+
+    const completed = await createBooking({ status: 'COMPLETED' });
+    await expect(
+      service.assignTechnician(completed._id.toString(), tech._id.toString()),
+    ).rejects.toThrow(/cancelled or completed/i);
+
+    const open = await createBooking({ status: 'CONFIRMED' });
+    await expect(
+      service.assignTechnician(open._id.toString(), new Types.ObjectId().toString()),
+    ).rejects.toThrow(/not found/i);
+
+    const inactive = await createEligibleTech({ isActive: false });
+    await expect(
+      service.assignTechnician(open._id.toString(), inactive._id.toString()),
+    ).rejects.toThrow(/not active and available/i);
+
+    const onJob = await createEligibleTech({ availabilityStatus: 'ON_JOB' });
+    await expect(
+      service.assignTechnician(open._id.toString(), onJob._id.toString()),
+    ).rejects.toThrow(/not active and available/i);
   });
 });

@@ -122,6 +122,36 @@ export class InvoiceData {
   @Prop({ default: 0 })
   totalAmount: number;
 
+  /** Pre-GST taxable value (service bills are EXCLUSIVE — GST added on top). */
+  @Prop({ default: 0 })
+  taxableValue: number;
+
+  @Prop({ default: 18 })
+  taxPercent: number;
+
+  @Prop({ default: 0 })
+  taxAmount: number;
+
+  @Prop({ default: 0 })
+  cgstAmount: number;
+
+  @Prop({ default: 0 })
+  sgstAmount: number;
+
+  @Prop({ default: 0 })
+  igstAmount: number;
+
+  /** Service bills default EXCLUSIVE; shop orders use INCLUSIVE. */
+  @Prop({ default: 'EXCLUSIVE' })
+  priceMode: string;
+
+  @Prop({ default: 'INTRA' })
+  supplyType: string;
+
+  /** SAC for the primary service line (998715 / 998713). */
+  @Prop()
+  sacCode?: string;
+
   @Prop()
   generatedAt: Date;
 

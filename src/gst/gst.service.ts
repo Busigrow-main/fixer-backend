@@ -6,7 +6,12 @@ import {
   roundMoney,
   splitTaxComponents,
 } from './gst.engine';
-import { STANDARD_GST_RATES } from './gst.types';
+import {
+  FIXXER_AC_SERVICE_SAC,
+  FIXXER_SERVICE_GST_PERCENT,
+  FIXXER_SERVICE_SAC,
+  STANDARD_GST_RATES,
+} from './gst.types';
 import type { GstBreakdownDto, GstExtractDto } from './gst.dto';
 
 @Injectable()
@@ -15,10 +20,18 @@ export class GstService {
   listStandardRates() {
     return {
       rates: [...STANDARD_GST_RATES],
-      defaultRate: 18,
+      defaultRate: FIXXER_SERVICE_GST_PERCENT,
       priceModeDefault: 'INCLUSIVE' as const,
       note:
         'Catalog and customer-facing prices are GST-inclusive. Invoice engine reverse-calculates taxable value via CGST Rule 35.',
+      fixxerServices: {
+        taxPercent: FIXXER_SERVICE_GST_PERCENT,
+        priceMode: 'EXCLUSIVE' as const,
+        sacHouseholdAppliances: FIXXER_SERVICE_SAC,
+        sacAirConditioning: FIXXER_AC_SERVICE_SAC,
+        basis:
+          'Notification 11/2017-Central Tax (Rate) heading 9987 residual — maintenance/repair at 18%. Service bills add GST on top of labour/parts; shop catalog stays GST-inclusive.',
+      },
     };
   }
 

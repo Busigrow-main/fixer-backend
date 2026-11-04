@@ -1,11 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { TechniciansService } from '../../technicians/technicians.service';
-
-const AVAILABILITY = new Set(['AVAILABLE', 'UNAVAILABLE', 'ON_JOB']);
+import { TechnicianEngineService } from '../../technician-engine/technician-engine.service';
 
 @Injectable()
 export class TechnicianProfileService {
-  constructor(private techniciansService: TechniciansService) {}
+  constructor(
+    private techniciansService: TechniciansService,
+    private technicianEngine: TechnicianEngineService,
+  ) {}
 
   getProfile(technicianId: string) {
     return this.techniciansService.findOne(technicianId);
@@ -31,11 +33,9 @@ export class TechnicianProfileService {
   }
 
   updateAvailability(technicianId: string, status: string) {
-    if (!AVAILABILITY.has(status)) {
-      throw new BadRequestException('status must be AVAILABLE, UNAVAILABLE, or ON_JOB');
-    }
+    const availabilityStatus = this.technicianEngine.assertManualAvailability(status);
     return this.techniciansService.update(technicianId, {
-      availabilityStatus: status,
+      availabilityStatus,
     });
   }
 }

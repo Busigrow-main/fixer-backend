@@ -13,6 +13,7 @@ import { NotificationDispatchService } from '../technician-platform/common/notif
 import { VisitsService } from '../visits/visits.service';
 import { CustomerAppliancesService } from '../customer-appliances/customer-appliances.service';
 import { ServiceablePincodesService } from '../serviceable-pincodes/serviceable-pincodes.service';
+import { GstService } from '../gst/gst.service';
 
 describe('BookingsService – Pricing', () => {
   jest.setTimeout(30000);
@@ -46,6 +47,7 @@ describe('BookingsService – Pricing', () => {
       ],
       providers: [
         BookingsService,
+        GstService,
         { provide: WarrantiesService, useValue: mockWarranties },
         { provide: JobDispatchService, useValue: mockDispatch },
         { provide: NotificationDispatchService, useValue: mockNotification },
@@ -101,6 +103,17 @@ describe('BookingsService – Pricing', () => {
 
     const result = await service.generateInvoiceData(booking._id.toString(), { returnDetail: false });
     expect(result.invoiceData.serviceTotal).toBe(1199); // 119900 paise = ₹1199
+    // Exclusive 18% — GST added on top of service charge.
+    expect(result.invoiceData.priceMode).toBe('EXCLUSIVE');
+    expect(result.invoiceData.taxPercent).toBe(18);
+    expect(result.invoiceData.sacCode).toBe('998713'); // ac-repair slug
+    expect(result.invoiceData.taxableValue).toBe(1199);
+    expect(result.invoiceData.taxAmount).toBeCloseTo(215.82, 2); // 1199 * 0.18
+    expect(result.invoiceData.totalAmount).toBeCloseTo(1414.82, 2);
+    expect(result.invoiceData.cgstAmount + result.invoiceData.sgstAmount).toBeCloseTo(
+      result.invoiceData.taxAmount,
+      2,
+    );
   });
 
   it('should fall back to parseNumericPrice when priceNumeric is null', async () => {

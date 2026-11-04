@@ -49,3 +49,21 @@ export type GstInvoiceBreakdown = {
 
 /** Common GST slabs published by GST Council (not seller-specific credentials). */
 export const STANDARD_GST_RATES = [0, 5, 12, 18, 28] as const;
+
+/**
+ * Fixxer home-appliance repair/maintenance.
+ * SAC 998715 — electrical household appliances (fridge, washer, etc.).
+ * SAC 998713 — air-conditioning installation/maintenance/repair.
+ * Rate: 18% under Notification 11/2017-CT (Rate) heading 9987 residual
+ * (9% CGST + 9% SGST intra-state / 18% IGST inter-state).
+ * Service bills: EXCLUSIVE (GST added on top). Shop catalog: INCLUSIVE (Rule 35 reverse).
+ */
+export const FIXXER_SERVICE_SAC = '998715';
+export const FIXXER_AC_SERVICE_SAC = '998713';
+export const FIXXER_SERVICE_GST_PERCENT = 18;
+
+export function fixxerServiceSac(serviceNameOrSlug?: string | null): string {
+  const key = String(serviceNameOrSlug || '').toLowerCase();
+  if (/\bac\b|air.?cond/.test(key)) return FIXXER_AC_SERVICE_SAC;
+  return FIXXER_SERVICE_SAC;
+}

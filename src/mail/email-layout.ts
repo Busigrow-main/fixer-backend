@@ -29,7 +29,12 @@ const PAPER = '#FFFFFF';
 const CANVAS = '#FAFAFA';
 const RULE = '#E8E8EA';
 
-export function renderLedger(lines: EmailLine[], totalLabel: string, total: number): string {
+export function renderLedger(
+  lines: EmailLine[],
+  totalLabel: string,
+  total: number,
+  opts?: { gstNote?: string },
+): string {
   const rows = lines
     .map((line) => {
       const detail = line.detail
@@ -59,7 +64,10 @@ export function renderLedger(lines: EmailLine[], totalLabel: string, total: numb
     </tr>
   </table>
   <p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:${MUTED};">
-    GST is not added on top of this figure.
+    ${escapeHtml(
+      opts?.gstNote ||
+        'Service amounts are pre-GST; GST is added on top of this figure.',
+    )}
   </p>`;
 }
 

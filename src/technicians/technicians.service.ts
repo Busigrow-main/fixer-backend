@@ -26,6 +26,13 @@ export class TechniciansService {
     return this.technicianModel.find().exec();
   }
 
+  /** Active technicians currently AVAILABLE (technician-engine assign pool). */
+  async findAvailable(): Promise<Technician[]> {
+    return this.technicianModel
+      .find({ isActive: true, availabilityStatus: 'AVAILABLE' })
+      .exec();
+  }
+
   async findApplications(status?: string): Promise<Technician[]> {
     const filter: Record<string, unknown> = {
       onboardingStatus: { $in: ['SUBMITTED', 'UNDER_REVIEW', 'REJECTED'] },

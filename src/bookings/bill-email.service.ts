@@ -104,6 +104,13 @@ export class BillEmailService {
       additionalCharges: booking.invoiceData?.additionalCharges || [],
       partsTotal: Number(booking.invoiceData?.partsTotal || 0),
       totalAmount: view.total,
+      taxableValue: Number(booking.invoiceData?.taxableValue || 0),
+      taxPercent: Number(booking.invoiceData?.taxPercent || 0),
+      taxAmount: Number(booking.invoiceData?.taxAmount || 0),
+      cgstAmount: Number(booking.invoiceData?.cgstAmount || 0),
+      sgstAmount: Number(booking.invoiceData?.sgstAmount || 0),
+      igstAmount: Number(booking.invoiceData?.igstAmount || 0),
+      sacCode: booking.invoiceData?.sacCode,
       warrantyPeriod: booking.jobDetails?.warrantyPeriod || '60 Days',
       signature,
     });
@@ -205,6 +212,28 @@ export class BillEmailService {
         detail: 'Other charge',
         amount: Number(charge.amount) || 0,
       });
+    }
+    const taxAmount = Number(invoice.taxAmount) || 0;
+    if (taxAmount > 0) {
+      const taxPercent = Number(invoice.taxPercent) || 18;
+      if (Number(invoice.igstAmount) > 0) {
+        lines.push({
+          label: `IGST ${taxPercent}%`,
+          detail: invoice.sacCode ? `SAC ${invoice.sacCode}` : 'Added on taxable value',
+          amount: Number(invoice.igstAmount) || 0,
+        });
+      } else {
+        lines.push({
+          label: `CGST ${taxPercent / 2}%`,
+          detail: invoice.sacCode ? `SAC ${invoice.sacCode}` : 'Added on taxable value',
+          amount: Number(invoice.cgstAmount) || 0,
+        });
+        lines.push({
+          label: `SGST ${taxPercent / 2}%`,
+          detail: 'Added on taxable value',
+          amount: Number(invoice.sgstAmount) || 0,
+        });
+      }
     }
     const total = Number(invoice.totalAmount || 0);
     const schedule = [booking.preferredVisitDate, booking.preferredVisitSlot]

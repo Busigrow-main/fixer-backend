@@ -8,6 +8,8 @@ import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { BookingsService } from '../../bookings/bookings.service';
+import { TechniciansService } from '../../technicians/technicians.service';
+import { TechnicianEngineService } from '../../technician-engine/technician-engine.service';
 import { EarningsService } from '../earnings/earnings.service';
 import { VisitsService } from '../../visits/visits.service';
 import { resolveTechnicianId } from '../common/technician-id.util';
@@ -30,6 +32,8 @@ export class JobCompletionService {
     private bookingsService: BookingsService,
     private earningsService: EarningsService,
     private visitsService: VisitsService,
+    private techniciansService: TechniciansService,
+    private technicianEngine: TechnicianEngineService,
     @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
     @InjectModel(SparePartUsage.name)
     private sparePartUsageModel: Model<SparePartUsageDocument>,
@@ -180,6 +184,16 @@ export class JobCompletionService {
 
     await this.applySelfPartFees(jobId, technicianId, method);
     await this.completeVisitsAndDeductStock(jobId);
+
+    // Engine owns availability reset on payment (same as status → PAYMENT_COLLECTED).
+    try {
+      await this.technicianEngine.applyStatusStepAvailability(
+        technicianId,
+        'PAYMENT_COLLECTED',
+      );
+    } catch (err) {
+      console.error('Failed to release technician availability after payment:', err);
+    }
 
     return stripFixxerCodeSecrets(updated?.toObject?.() ?? updated);
   }
