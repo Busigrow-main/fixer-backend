@@ -86,8 +86,39 @@ describe('BookingsService – Pricing', () => {
       subCategories: [
         { _id: new Types.ObjectId(), name: 'Split AC Gas Refill', price: '₹1,199', priceNumeric: 119900 },
         { _id: new Types.ObjectId(), name: 'Window AC Repair', price: '₹249', priceNumeric: null },
+        { _id: new Types.ObjectId(), name: 'Window AC', price: '₹249', priceNumeric: 24900 },
+        { _id: new Types.ObjectId(), name: 'Split AC', price: '₹449', priceNumeric: 44900 },
       ],
     });
+  });
+
+  it('should apply distinct Window AC and Split AC subcategory rates', async () => {
+    const subCategories = testService.subCategories as Array<{
+      name: string;
+      _id: Types.ObjectId;
+    }>;
+    const windowAc = subCategories.find((subCategory) => subCategory.name === 'Window AC');
+    const splitAc = subCategories.find((subCategory) => subCategory.name === 'Split AC');
+
+    expect(windowAc).toBeDefined();
+    expect(splitAc).toBeDefined();
+
+    const createBooking = async (subCategoryId: Types.ObjectId) => {
+      const booking = await bookingModel.create({
+        userId: new Types.ObjectId(),
+        serviceId: testService._id,
+        subCategoryId,
+        contactPhone: '9999999999',
+        addressData: { zip: '110001', text: 'Test' },
+        status: 'PENDING',
+      });
+
+      const result = await service.generateInvoiceData(booking._id.toString(), { returnDetail: false });
+      return result.invoiceData.serviceTotal;
+    };
+
+    await expect(createBooking(windowAc!._id)).resolves.toBe(249);
+    await expect(createBooking(splitAc!._id)).resolves.toBe(449);
   });
 
   it('should use priceNumeric (paise) when available', async () => {
