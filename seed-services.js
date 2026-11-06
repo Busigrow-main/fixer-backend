@@ -7,7 +7,8 @@ const MONGO_URI = process.env.MONGO_URI ||'mongodb://localhost:27017/fixxer';
 // Define mini-schemas for seeding (must match NestJS schemas)
 const SubCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
-  price: { type: String, required: true }
+  price: { type: String, required: true },
+  priceNumeric: { type: Number }
 });
 
 const ServiceSchema = new mongoose.Schema({
@@ -78,6 +79,8 @@ const SERVICES_DATA = [
     description: "Climate master for your home. From installation to complex repairs, we restore your comfort quickly.",
     features: ["60 Days Service Warranty", "Up to 1 Year Part Warranty", "Transparent Pricing", "Installation & Uninstallation"],
     subCategories: [
+      { name: "Window AC", price: "₹249", priceNumeric: 24900 },
+      { name: "Split AC", price: "₹449", priceNumeric: 44900 },
       { name: "AC Installation", price: "₹1149" },
       { name: "AC Uninstallation", price: "₹749" },
       { name: "AC Cleaning & Repair", price: "₹549" },
