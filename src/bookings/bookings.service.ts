@@ -222,7 +222,7 @@ export class BookingsService {
 
     const booking = await this.bookingModel
       .findById(id)
-      .populate('userId serviceId technicianId')
+      .populate('userId serviceId technicianId reviewedBy')
       .lean()
       .exec();
 
@@ -437,6 +437,24 @@ export class BookingsService {
         filter.dispatchStatus = 'NEEDS_ADMIN';
         filter.technicianId = null;
         filter.status = { $ne: 'CANCELLED' };
+      } else if (status === 'AWAITING_REVIEW') {
+        // Finished jobs with no decision yet (PENDING or never set).
+        filter.$and = [
+          ...(filter.$and || []),
+          {
+            $or: [
+              { jobClosed: true },
+              { status: { $in: ['COMPLETED', 'PAYMENT_COLLECTED'] } },
+            ],
+          },
+          {
+            $or: [
+              { reviewStatus: 'PENDING' },
+              { reviewStatus: { $exists: false } },
+              { reviewStatus: null },
+            ],
+          },
+        ];
       } else {
         filter.status = status;
       }
@@ -515,7 +533,7 @@ export class BookingsService {
     const [data, total] = await Promise.all([
       this.bookingModel
         .find(filter)
-        .populate('userId serviceId technicianId')
+        .populate('userId serviceId technicianId reviewedBy')
         .skip(skip)
         .limit(limit)
         .sort({
@@ -1066,6 +1084,10 @@ export class BookingsService {
           console.error('Closing bill email failed:', err);
         }
       }
+
+      if (previousStatus !== 'COMPLETED') {
+        await this.markAwaitingQualityReview(id);
+      }
     }
 
     return this.populateBookingDetail(id);
@@ -1498,6 +1520,8 @@ export class BookingsService {
       }
     }
 
+    await this.markAwaitingQualityReview(id);
+
     return detail;
   }
 
@@ -1816,6 +1840,121 @@ export class BookingsService {
       booking.status ===
         'PAYMENT_COLLECTED'
     );
+  }
+
+  /**
+   * Queue a finished job for supervisor QA. Never overwrites a prior decision
+   * and never touches payment, close flags, or earnings.
+   */
+  async markAwaitingQualityReview(id: string): Promise<void> {
+    await this.bookingModel
+      .updateOne(
+        {
+          _id: id,
+          $or: [
+            { reviewStatus: { $exists: false } },
+            { reviewStatus: null },
+          ],
+        },
+        { $set: { reviewStatus: 'PENDING' } },
+      )
+      .exec();
+  }
+
+  async submitQualityReview(
+    id: string,
+    reviewerId: string,
+    status: 'APPROVED' | 'NEEDS_FOLLOW_UP',
+    remarks?: string,
+  ): Promise<any> {
+    const booking = await this.bookingModel.findById(id).exec();
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+    if (!this.isJobFinished(booking)) {
+      throw new BadRequestException(
+        'Quality review is only available for completed jobs',
+      );
+    }
+
+    const trimmedRemarks = String(remarks || '').trim();
+    if (status === 'NEEDS_FOLLOW_UP' && !trimmedRemarks) {
+      throw new BadRequestException(
+        'Remarks are required when marking needs follow-up',
+      );
+    }
+    if (trimmedRemarks.length > 2000) {
+      throw new BadRequestException(
+        'Review remarks cannot exceed 2000 characters',
+      );
+    }
+
+    const at = new Date();
+    const by = new Types.ObjectId(reviewerId);
+    const entry = {
+      status,
+      by,
+      at,
+      ...(trimmedRemarks ? { remarks: trimmedRemarks } : {}),
+    };
+
+    // Only review fields — paid/completed/earnings stay untouched.
+    await this.bookingModel
+      .updateOne(
+        { _id: id },
+        {
+          $set: {
+            reviewStatus: status,
+            reviewedBy: by,
+            reviewedAt: at,
+            reviewRemarks: trimmedRemarks || undefined,
+          },
+          $push: { reviewHistory: entry },
+        },
+      )
+      .exec();
+
+    return this.populateBookingDetail(id);
+  }
+
+  async createCorrectiveBooking(id: string): Promise<any> {
+    const original = await this.bookingModel.findById(id).exec();
+    if (!original) {
+      throw new NotFoundException('Booking not found');
+    }
+    if (!this.isJobFinished(original)) {
+      throw new BadRequestException(
+        'Corrective bookings can only be created from completed jobs',
+      );
+    }
+
+    const corrective = new this.bookingModel({
+      userId: original.userId,
+      serviceId: original.serviceId,
+      subCategoryId: original.subCategoryId,
+      contactPhone: original.contactPhone,
+      addressData: original.addressData,
+      description: `CORRECTIVE FOLLOW-UP for Booking #${id.slice(-6).toUpperCase()}. Original issue: ${original.description || ''}`,
+      status: 'PENDING',
+      serviceType: original.serviceType || 'REPAIR',
+      paymentStatus: 'UNPAID',
+      parentId: original._id,
+      productDetails: original.productDetails,
+      dispatchStatus: 'OPEN',
+    });
+
+    const saved = await corrective.save();
+
+    await this.bookingModel
+      .findByIdAndUpdate(id, {
+        $push: { correctiveBookingIds: saved._id },
+      })
+      .exec();
+
+    // Keep original paid/closed/review state exactly as-is.
+    void this.jobDispatch.broadcastJob(saved._id.toString());
+
+    return this.populateBookingDetail(saved._id.toString());
   }
 
   async claimWarranty(

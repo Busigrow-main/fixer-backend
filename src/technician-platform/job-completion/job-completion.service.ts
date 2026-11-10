@@ -229,6 +229,9 @@ export class JobCompletionService {
       { jobClosed: true, jobClosedAt: new Date(), isBilled: true },
       { returnDocument: 'after' },
     );
+
+    await this.bookingsService.markAwaitingQualityReview(jobId);
+
     return stripFixxerCodeSecrets(closed?.toObject?.() ?? closed);
   }
 

@@ -213,6 +213,34 @@ export class AddressData {
 export const AddressDataSchema =
   SchemaFactory.createForClass(AddressData);
 
+export const QUALITY_REVIEW_STATUSES = [
+  'PENDING',
+  'APPROVED',
+  'NEEDS_FOLLOW_UP',
+] as const;
+
+@Schema({ _id: false })
+export class QualityReviewHistoryEntry {
+  @Prop({
+    type: String,
+    enum: QUALITY_REVIEW_STATUSES,
+    required: true,
+  })
+  status: (typeof QUALITY_REVIEW_STATUSES)[number];
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  by: Types.ObjectId;
+
+  @Prop({ required: true })
+  at: Date;
+
+  @Prop({ trim: true, maxlength: 2000 })
+  remarks?: string;
+}
+
+export const QualityReviewHistoryEntrySchema =
+  SchemaFactory.createForClass(QualityReviewHistoryEntry);
+
 export type BookingDocument = Booking & Document;
 
 @Schema({ timestamps: true })
@@ -370,6 +398,32 @@ export class Booking {
     default: [],
   })
   claimBookingIds: Types.ObjectId[];
+
+  /** Supervisor-created corrective jobs; separate from one-shot warranty claims. */
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'Booking' }],
+    default: [],
+  })
+  correctiveBookingIds: Types.ObjectId[];
+
+  @Prop({
+    type: String,
+    enum: QUALITY_REVIEW_STATUSES,
+    index: true,
+  })
+  reviewStatus?: (typeof QUALITY_REVIEW_STATUSES)[number];
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  reviewedBy?: Types.ObjectId;
+
+  @Prop()
+  reviewedAt?: Date;
+
+  @Prop({ trim: true, maxlength: 2000 })
+  reviewRemarks?: string;
+
+  @Prop({ type: [QualityReviewHistoryEntrySchema], default: [] })
+  reviewHistory: QualityReviewHistoryEntry[];
 
   @Prop({ default: false })
   isBilled: boolean;
