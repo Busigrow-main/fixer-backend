@@ -312,7 +312,7 @@ export class BookingsService {
 
     const bookings = await this.bookingModel
       .find(userFilter)
-      .populate('userId serviceId technicianId')
+      .populate('userId serviceId technicianId feedbackId')
       .sort({ createdAt: -1 })
       .lean()
       .exec();
