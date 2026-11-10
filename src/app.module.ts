@@ -22,6 +22,7 @@ import { LeadsModule } from './leads/leads.module';
 import { ShopPartHelpModule } from './shop-part-help/shop-part-help.module';
 import { ShopModule } from './shop/shop.module';
 import { GstModule } from './gst/gst.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { GstModule } from './gst/gst.module';
     ShopPartHelpModule,
     ShopModule,
     GstModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [AppService],
