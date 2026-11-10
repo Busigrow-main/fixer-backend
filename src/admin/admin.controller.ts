@@ -41,6 +41,7 @@ import {
   BookingStatusDto,
   FixxerCodeDto,
   NoteDto,
+  QualityReviewDto,
   RoleBodyDto,
   ShopSettingsDto,
   StatusReasonDto,
@@ -201,6 +202,19 @@ export class AdminController {
     );
   }
 
+  /** Completed/paid jobs waiting on supervisor quality review. */
+  @Get('bookings/awaiting-review')
+  async getAwaitingReview(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.bookingsService.findAllForAdmin(
+      parseInt(page),
+      parseInt(limit),
+      'AWAITING_REVIEW',
+    );
+  }
+
   // ─── Bookings Export ──────────────────────────────────────
   @Get('bookings/export')
   @ApiProduces('text/csv')
@@ -328,6 +342,33 @@ export class AdminController {
     @Body() body: FixxerCodeDto,
   ) {
     return this.bookingsService.finalizeInvoice(id, body?.fixxerCode);
+  }
+
+  @Put('bookings/:id/quality-review')
+  @ApiOperation({
+    summary:
+      'Record supervisor quality review without changing payment or completion',
+  })
+  async submitQualityReview(
+    @Param('id') id: string,
+    @Body() body: QualityReviewDto,
+    @Req() req: any,
+  ) {
+    return this.bookingsService.submitQualityReview(
+      id,
+      req.user?.userId || req.user?.sub,
+      body.status,
+      body.remarks,
+    );
+  }
+
+  @Post('bookings/:id/corrective')
+  @ApiOperation({
+    summary:
+      'Create a corrective follow-up booking linked to the original completed job',
+  })
+  async createCorrectiveBooking(@Param('id') id: string) {
+    return this.bookingsService.createCorrectiveBooking(id);
   }
 
   @Get('bookings/:id/warranties')

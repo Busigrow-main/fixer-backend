@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
 
 export class ReasonDto {
   @ApiProperty({ example: 'Ordered the wrong model' })
@@ -77,6 +77,17 @@ export class BookingStatusDto {
 
   @ApiPropertyOptional()
   fixxerCode?: string;
+}
+
+export class QualityReviewDto {
+  @ApiProperty({ enum: ['APPROVED', 'NEEDS_FOLLOW_UP'] })
+  @IsIn(['APPROVED', 'NEEDS_FOLLOW_UP'])
+  status: 'APPROVED' | 'NEEDS_FOLLOW_UP';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 }
 
 export class JobStatusDto {
