@@ -16,10 +16,11 @@ import { Booking, BookingDocument } from '../../bookings/schemas/booking.schema'
 import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { categoriesForServiceSlug } from '../dispatch/service-category.util';
 import { stripFixxerCodeSecrets } from '../../bookings/fixxer-code';
+import { omitTechnicianForbiddenBookingFields } from '../../bookings/booking-change-history';
 
 function presentTechnicianBooking(booking: any) {
   const plain = booking?.toObject ? booking.toObject() : { ...(booking || {}) };
-  return stripFixxerCodeSecrets(plain);
+  return omitTechnicianForbiddenBookingFields(stripFixxerCodeSecrets(plain));
 }
 
 @Injectable()
@@ -270,11 +271,12 @@ export class TechnicianJobsService {
       next,
       undefined,
       fixxerCode,
+      { actorRole: 'TECHNICIAN', actorId: technicianId },
     );
 
     await this.technicianEngine.applyStatusStepAvailability(technicianId, next);
 
-    return updated;
+    return presentTechnicianBooking(updated);
   }
 
   async markArrival(technicianId: string, jobId: string, lat: number, lng: number) {
@@ -340,14 +342,16 @@ export class TechnicianJobsService {
   }
 
   private formatJobDetail(booking: any) {
-    return stripFixxerCodeSecrets({
-      ...(booking.toObject?.() || booking),
-      customer: booking.userId,
-      address: booking.addressData,
-      problem: booking.description,
-      estimatedAmount: booking.estimatedAmount || booking.invoiceData?.totalAmount || 0,
-      location: booking.arrivalGps,
-      otpRequired: booking.otpRequired,
-    });
+    return omitTechnicianForbiddenBookingFields(
+      stripFixxerCodeSecrets({
+        ...(booking.toObject?.() || booking),
+        customer: booking.userId,
+        address: booking.addressData,
+        problem: booking.description,
+        estimatedAmount: booking.estimatedAmount || booking.invoiceData?.totalAmount || 0,
+        location: booking.arrivalGps,
+        otpRequired: booking.otpRequired,
+      }),
+    );
   }
 }

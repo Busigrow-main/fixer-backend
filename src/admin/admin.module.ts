@@ -9,6 +9,7 @@ import { PartOrdersModule } from '../part-orders/part-orders.module';
 import { WarrantiesModule } from '../warranties/warranties.module';
 import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
 import { ShopModule } from '../shop/shop.module';
+import { OpsModule } from '../ops/ops.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ShopModule } from '../shop/shop.module';
     WarrantiesModule,
     ServiceablePincodesModule,
     ShopModule,
+    OpsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

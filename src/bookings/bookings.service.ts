@@ -52,6 +52,11 @@ import {
   FIXXER_SERVICE_GST_PERCENT,
   fixxerServiceSac,
 } from '../gst/gst.types';
+import {
+  BookingAuditContext,
+  buildChangeEvent,
+  type BookingChangeEventInput,
+} from './booking-change-history';
 
 const BOOKING_LEAD_TIME_MINUTES = 2 * 60;
 const SLOT_END_MINUTES: Record<string, number> = {
@@ -222,7 +227,13 @@ export class BookingsService {
 
     const booking = await this.bookingModel
       .findById(id)
-      .populate('userId serviceId technicianId reviewedBy')
+      .populate([
+        'userId',
+        'serviceId',
+        'technicianId',
+        'reviewedBy',
+        { path: 'changeHistory.actorId', select: 'fullName phone role' },
+      ])
       .lean()
       .exec();
 
@@ -844,6 +855,16 @@ export class BookingsService {
       })
       .exec();
 
+    await this.appendChangeHistory(id, [
+      {
+        field: 'warrantyExpiry',
+        previous: booking.warrantyExpiry || null,
+        next: expiryDate,
+        actorRole: 'SYSTEM',
+        reason: 'lock-service-warranty',
+      },
+    ]);
+
     const existingService =
       await this.warrantiesService.findByBooking(
         id,
@@ -935,13 +956,45 @@ export class BookingsService {
     });
   }
 
+  /** Append-only; corrections must call this again — never rewrite prior events. */
+  async appendChangeHistory(
+    bookingId: string,
+    events: BookingChangeEventInput[],
+  ): Promise<void> {
+    if (!events.length) return;
+    await this.bookingModel
+      .updateOne(
+        { _id: bookingId },
+        { $push: { changeHistory: { $each: events.map(buildChangeEvent) } } },
+      )
+      .exec();
+  }
+
+  async getChangeHistory(id: string) {
+    const booking = await this.bookingModel
+      .findById(id)
+      .select('changeHistory')
+      .populate('changeHistory.actorId', 'fullName phone role')
+      .lean()
+      .exec();
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+    const history = Array.isArray((booking as any).changeHistory)
+      ? [...(booking as any).changeHistory].reverse()
+      : [];
+    return { bookingId: id, data: history, total: history.length };
+  }
+
   async updateStatus(
     id: string,
     status: string,
     reason?: string,
     fixxerCode?: string,
+    audit?: BookingAuditContext,
   ): Promise<any> {
     const nextStatus = String(status || '').toUpperCase();
+    const actor = audit || { actorRole: 'ADMIN' as const, reason };
 
     /*
      * Admin cancellation needs to store the cancellation
@@ -981,6 +1034,7 @@ export class BookingsService {
         );
       }
 
+      const previousStatus = booking.status;
       booking.status = 'CANCELLED';
       booking.dispatchStatus = 'EXPIRED';
       booking.cancellationReason =
@@ -989,6 +1043,16 @@ export class BookingsService {
       booking.cancelledBy = 'ADMIN';
 
       await booking.save();
+      await this.appendChangeHistory(id, [
+        {
+          field: 'status',
+          previous: previousStatus,
+          next: 'CANCELLED',
+          actorRole: actor.actorRole,
+          actorId: actor.actorId,
+          reason: trimmedReason,
+        },
+      ]);
 
       return this.populateBookingDetail(id);
     }
@@ -1090,12 +1154,26 @@ export class BookingsService {
       }
     }
 
+    if (previousStatus !== nextStatus) {
+      await this.appendChangeHistory(id, [
+        {
+          field: 'status',
+          previous: previousStatus,
+          next: nextStatus,
+          actorRole: actor.actorRole,
+          actorId: actor.actorId,
+          reason: actor.reason || reason,
+        },
+      ]);
+    }
+
     return this.populateBookingDetail(id);
   }
 
   async assignTechnician(
     id: string,
     technicianId: string,
+    audit?: BookingAuditContext,
   ): Promise<any> {
     const existing = await this.bookingModel.findById(id).exec();
     if (!existing) {
@@ -1177,6 +1255,31 @@ export class BookingsService {
       'You have been assigned a new service job.',
       { bookingId: id },
     );
+
+    if (previousTechnicianId !== String(technicianId)) {
+      await this.appendChangeHistory(id, [
+        {
+          field: 'technicianId',
+          previous: previousTechnicianId || null,
+          next: technicianId,
+          actorRole: audit?.actorRole || 'ADMIN',
+          actorId: audit?.actorId,
+          reason: audit?.reason,
+        },
+        ...(String(existing.status || '').toUpperCase() !== 'ASSIGNED'
+          ? [
+              {
+                field: 'status' as const,
+                previous: existing.status,
+                next: 'ASSIGNED',
+                actorRole: (audit?.actorRole || 'ADMIN') as BookingAuditContext['actorRole'],
+                actorId: audit?.actorId,
+                reason: audit?.reason,
+              },
+            ]
+          : []),
+      ]);
+    }
 
     return this.populateBookingDetail(id);
   }
@@ -1372,7 +1475,13 @@ export class BookingsService {
       serviceType?: string;
       paymentStatus?: string;
     },
+    audit?: BookingAuditContext,
   ): Promise<any> {
+    const existing = await this.bookingModel.findById(id).exec();
+    if (!existing) {
+      throw new NotFoundException('Booking not found');
+    }
+
     const booking =
       await this.bookingModel
         .findByIdAndUpdate(
@@ -1387,6 +1496,35 @@ export class BookingsService {
         'Booking not found',
       );
     }
+
+    const events: BookingChangeEventInput[] = [];
+    if (
+      data.serviceType !== undefined &&
+      data.serviceType !== existing.serviceType
+    ) {
+      events.push({
+        field: 'serviceType',
+        previous: existing.serviceType,
+        next: data.serviceType,
+        actorRole: audit?.actorRole || 'ADMIN',
+        actorId: audit?.actorId,
+        reason: audit?.reason,
+      });
+    }
+    if (
+      data.paymentStatus !== undefined &&
+      data.paymentStatus !== existing.paymentStatus
+    ) {
+      events.push({
+        field: 'paymentStatus',
+        previous: existing.paymentStatus,
+        next: data.paymentStatus,
+        actorRole: audit?.actorRole || 'ADMIN',
+        actorId: audit?.actorId,
+        reason: audit?.reason,
+      });
+    }
+    await this.appendChangeHistory(id, events);
 
     return this.populateBookingDetail(id);
   }
@@ -1419,6 +1557,7 @@ export class BookingsService {
       serviceTotal?: number;
       additionalCharges?: any[];
     },
+    audit?: BookingAuditContext,
   ): Promise<any> {
     const booking =
       await this.bookingModel
@@ -1433,6 +1572,8 @@ export class BookingsService {
 
     const setOps: Record<string, any> =
       {};
+    const events: BookingChangeEventInput[] = [];
+    const actorRole = audit?.actorRole || 'ADMIN';
 
     if (data.serviceTotal !== undefined) {
       setOps['invoiceData.serviceTotal'] =
@@ -1440,6 +1581,14 @@ export class BookingsService {
 
       setOps['invoiceData.manualOverride'] =
         true;
+      events.push({
+        field: 'invoice.serviceTotal',
+        previous: booking.invoiceData?.serviceTotal ?? null,
+        next: data.serviceTotal,
+        actorRole,
+        actorId: audit?.actorId,
+        reason: audit?.reason,
+      });
     }
 
     if (
@@ -1449,6 +1598,14 @@ export class BookingsService {
       setOps[
         'invoiceData.additionalCharges'
       ] = data.additionalCharges;
+      events.push({
+        field: 'invoice.additionalCharges',
+        previous: booking.invoiceData?.additionalCharges ?? [],
+        next: data.additionalCharges,
+        actorRole,
+        actorId: audit?.actorId,
+        reason: audit?.reason,
+      });
     }
 
     if (Object.keys(setOps).length > 0) {
@@ -1457,6 +1614,7 @@ export class BookingsService {
           $set: setOps,
         })
         .exec();
+      await this.appendChangeHistory(id, events);
     }
 
     return this.generateInvoiceData(id);
@@ -1465,8 +1623,15 @@ export class BookingsService {
   async finalizeInvoice(
     id: string,
     fixxerCode?: string,
+    audit?: BookingAuditContext,
   ): Promise<any> {
     await this.requireFixxerCode(id, fixxerCode);
+
+    const existing = await this.bookingModel.findById(id).exec();
+    if (!existing) {
+      throw new NotFoundException('Booking not found');
+    }
+    const previousStatus = existing.status;
 
     const booking =
       await this.bookingModel
@@ -1521,6 +1686,19 @@ export class BookingsService {
     }
 
     await this.markAwaitingQualityReview(id);
+
+    if (String(previousStatus || '').toUpperCase() !== 'COMPLETED') {
+      await this.appendChangeHistory(id, [
+        {
+          field: 'status',
+          previous: previousStatus,
+          next: 'COMPLETED',
+          actorRole: audit?.actorRole || 'ADMIN',
+          actorId: audit?.actorId,
+          reason: audit?.reason || 'finalize-invoice',
+        },
+      ]);
+    }
 
     return detail;
   }
@@ -1909,7 +2087,18 @@ export class BookingsService {
             reviewedAt: at,
             reviewRemarks: trimmedRemarks || undefined,
           },
-          $push: { reviewHistory: entry },
+          $push: {
+            reviewHistory: entry,
+            changeHistory: buildChangeEvent({
+              field: 'reviewStatus',
+              previous: booking.reviewStatus || null,
+              next: status,
+              actorRole: 'ADMIN',
+              actorId: reviewerId,
+              reason: trimmedRemarks,
+              at,
+            }),
+          },
         },
       )
       .exec();
