@@ -14,6 +14,11 @@ import { EarningsService } from '../earnings/earnings.service';
 import { VisitsService } from '../../visits/visits.service';
 import { resolveTechnicianId } from '../common/technician-id.util';
 import { stripFixxerCodeSecrets } from '../../bookings/fixxer-code';
+import { omitTechnicianForbiddenBookingFields } from '../../bookings/booking-change-history';
+
+function presentCompletionBooking(booking: any) {
+  return omitTechnicianForbiddenBookingFields(stripFixxerCodeSecrets(booking));
+}
 import { SELF_PART_PLATFORM_FEE } from '../constants';
 import {
   collectPartsFromVisits,
@@ -75,7 +80,7 @@ export class JobCompletionService {
     const valid = await bcrypt.compare(otp, booking.completionOtpHash);
     if (!valid) throw new BadRequestException('Invalid OTP');
 
-    return stripFixxerCodeSecrets(
+    return presentCompletionBooking(
       (
         await this.bookingModel.findByIdAndUpdate(
           jobId,
@@ -91,7 +96,7 @@ export class JobCompletionService {
 
   async uploadSignature(jobId: string, technicianId: string, signatureUrl: string) {
     await this.getOwnedBooking(jobId, technicianId);
-    return stripFixxerCodeSecrets(
+    return presentCompletionBooking(
       (
         await this.bookingModel.findByIdAndUpdate(
           jobId,
@@ -195,7 +200,7 @@ export class JobCompletionService {
       console.error('Failed to release technician availability after payment:', err);
     }
 
-    return stripFixxerCodeSecrets(updated?.toObject?.() ?? updated);
+    return presentCompletionBooking(updated?.toObject?.() ?? updated);
   }
 
   async closeJob(jobId: string, technicianId: string, fixxerCode?: string) {
@@ -232,7 +237,7 @@ export class JobCompletionService {
 
     await this.bookingsService.markAwaitingQualityReview(jobId);
 
-    return stripFixxerCodeSecrets(closed?.toObject?.() ?? closed);
+    return presentCompletionBooking(closed?.toObject?.() ?? closed);
   }
 
   /** Debit ₹100 per pending self-sourced spare-part line. */

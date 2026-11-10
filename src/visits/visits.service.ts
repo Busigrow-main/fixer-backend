@@ -8,6 +8,10 @@ import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 import { SparePart, SparePartDocument } from '../spare-parts/schemas/spare-part.schema';
 import { WarrantiesService } from '../warranties/warranties.service';
 import { buildJobSheetDefaults, partsFromVisits } from '../bookings/job-sheet-defaults';
+import {
+  BookingAuditContext,
+  buildChangeEvent,
+} from '../bookings/booking-change-history';
 
 @Injectable()
 export class VisitsService {
@@ -110,7 +114,11 @@ export class VisitsService {
     return existingVisit;
   }
 
-  async addSparePartToVisit(visitId: string, partData: any): Promise<SparePartUsage> {
+  async addSparePartToVisit(
+    visitId: string,
+    partData: any,
+    audit?: BookingAuditContext,
+  ): Promise<SparePartUsage> {
     const payload = { ...partData };
     delete payload._skipSerialAssert;
 
@@ -235,6 +243,32 @@ export class VisitsService {
     await this.syncJobSheet(String(visit.bookingId)).catch((err) => {
       console.error('Job sheet auto-fill failed', err);
     });
+
+    await this.bookingModel
+      .updateOne(
+        { _id: visit.bookingId },
+        {
+          $push: {
+            changeHistory: buildChangeEvent({
+              field: 'parts',
+              previous: null,
+              next: {
+                action: 'add',
+                visitId,
+                usageId: String(usage._id),
+                partName: usage.partName || payload.partName || null,
+                quantity: usage.quantity,
+                cost: usage.cost ?? null,
+              },
+              actorRole: audit?.actorRole || 'ADMIN',
+              actorId: audit?.actorId,
+              reason: audit?.reason,
+            }),
+          },
+        },
+      )
+      .exec();
+
     return usage;
   }
 
@@ -262,12 +296,19 @@ export class VisitsService {
     });
   }
 
-  async removeSparePartFromVisit(visitId: string, usageId: string): Promise<void> {
+  async removeSparePartFromVisit(
+    visitId: string,
+    usageId: string,
+    audit?: BookingAuditContext,
+  ): Promise<void> {
     const usage = await this.sparePartUsageModel.findById(usageId).exec();
     if (!usage) throw new NotFoundException('Spare part usage not found');
     if (String(usage.visitId) !== String(visitId)) {
       throw new NotFoundException('Spare part usage not found on this visit');
     }
+
+    const visit = await this.visitModel.findById(visitId).exec();
+    if (!visit) throw new NotFoundException('Visit not found');
 
     if (usage.stockDeducted && !usage.isThirdParty && usage.sparePartId) {
       const quantity = this.normalizeQuantity(usage.quantity);
@@ -277,10 +318,37 @@ export class VisitsService {
       });
     }
 
+    const snapshot = {
+      action: 'remove',
+      visitId,
+      usageId,
+      partName: usage.partName || null,
+      quantity: usage.quantity,
+      cost: usage.cost ?? null,
+    };
+
     await this.sparePartUsageModel.findByIdAndDelete(usageId).exec();
     await this.visitModel.findByIdAndUpdate(visitId, {
       $pull: { partsUsed: new Types.ObjectId(usageId) },
     });
+
+    await this.bookingModel
+      .updateOne(
+        { _id: visit.bookingId },
+        {
+          $push: {
+            changeHistory: buildChangeEvent({
+              field: 'parts',
+              previous: snapshot,
+              next: null,
+              actorRole: audit?.actorRole || 'ADMIN',
+              actorId: audit?.actorId,
+              reason: audit?.reason,
+            }),
+          },
+        },
+      )
+      .exec();
   }
 
   /**

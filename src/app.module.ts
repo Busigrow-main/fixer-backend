@@ -23,6 +23,7 @@ import { ShopPartHelpModule } from './shop-part-help/shop-part-help.module';
 import { ShopModule } from './shop/shop.module';
 import { GstModule } from './gst/gst.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { OpsModule } from './ops/ops.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { FeedbackModule } from './feedback/feedback.module';
     ShopModule,
     GstModule,
     FeedbackModule,
+    OpsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

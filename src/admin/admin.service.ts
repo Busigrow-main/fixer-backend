@@ -3,6 +3,7 @@ import { UsersService } from '../users/users.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { PartOrdersService } from '../part-orders/part-orders.service';
+import { OpsQueueService } from '../ops/ops-queue.service';
 
 @Injectable()
 export class AdminService {
@@ -11,6 +12,7 @@ export class AdminService {
     private bookingsService: BookingsService,
     private sparePartsService: SparePartsService,
     private partOrdersService: PartOrdersService,
+    private opsQueueService: OpsQueueService,
   ) {}
 
   async getDashboardStats() {
@@ -24,6 +26,7 @@ export class AdminService {
       needsAdminAssignment,
       recentBookings,
       recentApplianceOrders,
+      overdueQueue,
     ] = await Promise.all([
       this.usersService.countAll(),
       this.bookingsService.countAll(),
@@ -34,6 +37,7 @@ export class AdminService {
       this.bookingsService.countNeedsAdminAssignment(),
       this.bookingsService.findAllForAdmin(1, 10),
       this.partOrdersService.findAllForAdmin(1, 10, undefined, 'appliance'),
+      this.opsQueueService.listOverdue(),
     ]);
 
     return {
@@ -42,6 +46,7 @@ export class AdminService {
         total: totalBookings,
         byStatus: bookingsByStatus,
         needsAdminAssignment,
+        overdueOps: overdueQueue.total,
         recent: recentBookings.data,
       },
       spareParts: { total: totalSpareParts },

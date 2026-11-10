@@ -219,6 +219,52 @@ export const QUALITY_REVIEW_STATUSES = [
   'NEEDS_FOLLOW_UP',
 ] as const;
 
+export const OPS_PENDING_REASONS = [
+  'UNASSIGNED',
+  'ACCEPTED_NOT_STARTED',
+  'PARTS_WAIT',
+  'OVERDUE_VISIT',
+  'OVERDUE_REVIEW',
+] as const;
+
+export const BOOKING_CHANGE_ACTOR_ROLES = [
+  'ADMIN',
+  'TECHNICIAN',
+  'SYSTEM',
+  'CUSTOMER',
+] as const;
+
+@Schema({ _id: false })
+export class BookingChangeHistoryEntry {
+  @Prop({ required: true })
+  at: Date;
+
+  @Prop({
+    type: String,
+    enum: BOOKING_CHANGE_ACTOR_ROLES,
+    required: true,
+  })
+  actorRole: (typeof BOOKING_CHANGE_ACTOR_ROLES)[number];
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  actorId?: Types.ObjectId;
+
+  @Prop({ required: true, trim: true })
+  field: string;
+
+  @Prop({ type: Object, default: null })
+  previous: Record<string, unknown> | string | number | boolean | null;
+
+  @Prop({ type: Object, default: null })
+  next: Record<string, unknown> | string | number | boolean | null;
+
+  @Prop({ trim: true, maxlength: 2000 })
+  reason?: string;
+}
+
+export const BookingChangeHistoryEntrySchema =
+  SchemaFactory.createForClass(BookingChangeHistoryEntry);
+
 @Schema({ _id: false })
 export class QualityReviewHistoryEntry {
   @Prop({
@@ -425,6 +471,10 @@ export class Booking {
   @Prop({ type: [QualityReviewHistoryEntrySchema], default: [] })
   reviewHistory: QualityReviewHistoryEntry[];
 
+  /** Append-only audit trail for critical booking changes. Never edit in place. */
+  @Prop({ type: [BookingChangeHistoryEntrySchema], default: [] })
+  changeHistory: BookingChangeHistoryEntry[];
+
   @Prop({ default: false })
   isBilled: boolean;
 
@@ -537,6 +587,34 @@ export class Booking {
     enum: ['TECHNICIAN', 'ADMIN'],
   })
   jobSheetUpdatedBy?: string;
+
+  /** Ops pending/overdue queue — reason may change without resetting age. */
+  @Prop({ type: String, enum: OPS_PENDING_REASONS, index: true })
+  opsPendingReason?: (typeof OPS_PENDING_REASONS)[number];
+
+  @Prop({ trim: true, maxlength: 500 })
+  opsNextAction?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', index: true })
+  opsOwnerId?: Types.ObjectId;
+
+  @Prop()
+  opsDueAt?: Date;
+
+  /** Set once when the job first enters the ops queue; never reset on reason change. */
+  @Prop()
+  opsFirstPendingAt?: Date;
+
+  /** Manual / system parts-wait flag (shop part orders are not booking-linked). */
+  @Prop({ default: false })
+  opsPartsWait?: boolean;
+
+  /** Deduped overdue alert: last reason notified + when. */
+  @Prop()
+  opsAlertReason?: string;
+
+  @Prop()
+  opsAlertSentAt?: Date;
 }
 
 export const BookingSchema =

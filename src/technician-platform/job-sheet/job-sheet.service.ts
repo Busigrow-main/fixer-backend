@@ -376,20 +376,24 @@ export class JobSheetService {
         );
       }
 
-      const usage = await this.visitsService.addSparePartToVisit(visitId, {
-        isThirdParty: false,
-        sparePartId: new Types.ObjectId(partData.sparePartId),
-        quantity, // only the units used on this job — never the full stock
-        partName: spare.name,
-        cost: unitPriceRupees,
-        sourcedBy: 'INVENTORY',
-        platformFeeAmount: 0,
-        platformFeeApplied: false,
-        serialNumber,
-        installedAt,
-        warrantyMonths: warrantyMonths > 0 ? warrantyMonths : undefined,
-        replacedUsageId: partData.replacedUsageId,
-      });
+      const usage = await this.visitsService.addSparePartToVisit(
+        visitId,
+        {
+          isThirdParty: false,
+          sparePartId: new Types.ObjectId(partData.sparePartId),
+          quantity, // only the units used on this job — never the full stock
+          partName: spare.name,
+          cost: unitPriceRupees,
+          sourcedBy: 'INVENTORY',
+          platformFeeAmount: 0,
+          platformFeeApplied: false,
+          serialNumber,
+          installedAt,
+          warrantyMonths: warrantyMonths > 0 ? warrantyMonths : undefined,
+          replacedUsageId: partData.replacedUsageId,
+        },
+        { actorRole: 'TECHNICIAN', actorId: technicianId },
+      );
       await this.afterPartChange(jobId);
       return usage;
     }
@@ -430,21 +434,25 @@ export class JobSheetService {
       serialNumber = await this.warrantiesService.assertSerialAvailable(selfSerial);
     }
 
-    const usage = await this.visitsService.addSparePartToVisit(visitId, {
-      isThirdParty: true,
-      partName: partData.partName.trim(),
-      cost: Number(partData.cost) || 0,
-      vendor: partData.vendor,
-      warrantyInfo: partData.warrantyInfo,
-      quantity,
-      sourcedBy: 'SELF',
-      platformFeeAmount: SELF_PART_PLATFORM_FEE,
-      platformFeeApplied: false,
-      serialNumber,
-      installedAt: serialNumber ? installedAt : undefined,
-      warrantyMonths: selfMonths,
-      replacedUsageId: partData.replacedUsageId,
-    });
+    const usage = await this.visitsService.addSparePartToVisit(
+      visitId,
+      {
+        isThirdParty: true,
+        partName: partData.partName.trim(),
+        cost: Number(partData.cost) || 0,
+        vendor: partData.vendor,
+        warrantyInfo: partData.warrantyInfo,
+        quantity,
+        sourcedBy: 'SELF',
+        platformFeeAmount: SELF_PART_PLATFORM_FEE,
+        platformFeeApplied: false,
+        serialNumber,
+        installedAt: serialNumber ? installedAt : undefined,
+        warrantyMonths: selfMonths,
+        replacedUsageId: partData.replacedUsageId,
+      },
+      { actorRole: 'TECHNICIAN', actorId: technicianId },
+    );
     await this.afterPartChange(jobId);
     return usage;
   }
@@ -467,7 +475,10 @@ export class JobSheetService {
       throw new BadRequestException('Cannot remove part after platform fee was applied');
     }
 
-    await this.visitsService.removeSparePartFromVisit(visitId, usageId);
+    await this.visitsService.removeSparePartFromVisit(visitId, usageId, {
+      actorRole: 'TECHNICIAN',
+      actorId: technicianId,
+    });
     await this.afterPartChange(jobId);
     return { removed: true };
   }

@@ -261,12 +261,18 @@ export class AdminController {
   async updateBookingStatus(
     @Param('id') id: string,
     @Body() body: BookingStatusDto,
+    @Req() req: any,
   ) {
     return this.bookingsService.updateStatus(
       id,
       body.status,
       body.reason,
       body.fixxerCode,
+      {
+        actorRole: 'ADMIN',
+        actorId: req.user?.userId || req.user?.sub,
+        reason: body.reason,
+      },
     );
   }
 
@@ -275,11 +281,20 @@ export class AdminController {
   async assignTechnician(
     @Param('id') id: string,
     @Body() body: AssignTechnicianDto,
+    @Req() req: any,
   ) {
-    return this.bookingsService.assignTechnician(
-      id,
-      body.technicianId,
-    );
+    return this.bookingsService.assignTechnician(id, body.technicianId, {
+      actorRole: 'ADMIN',
+      actorId: req.user?.userId || req.user?.sub,
+    });
+  }
+
+  @Get('bookings/:id/change-history')
+  @ApiOperation({
+    summary: 'List append-only change history for a booking (admin only)',
+  })
+  async getChangeHistory(@Param('id') id: string) {
+    return this.bookingsService.getChangeHistory(id);
   }
 
   @Post('bookings/:id/notes')
@@ -317,22 +332,24 @@ export class AdminController {
   async updateServiceProperties(
     @Param('id') id: string,
     @Body() data: any,
+    @Req() req: any,
   ) {
-    return this.bookingsService.updateServiceProperties(
-      id,
-      data,
-    );
+    return this.bookingsService.updateServiceProperties(id, data, {
+      actorRole: 'ADMIN',
+      actorId: req.user?.userId || req.user?.sub,
+    });
   }
 
   @Put('bookings/:id/invoice-manual')
   async updateInvoiceManual(
     @Param('id') id: string,
     @Body() data: any,
+    @Req() req: any,
   ) {
-    return this.bookingsService.updateInvoiceManual(
-      id,
-      data,
-    );
+    return this.bookingsService.updateInvoiceManual(id, data, {
+      actorRole: 'ADMIN',
+      actorId: req.user?.userId || req.user?.sub,
+    });
   }
 
   @Put('bookings/:id/finalize-invoice')
@@ -340,8 +357,13 @@ export class AdminController {
   async finalizeInvoice(
     @Param('id') id: string,
     @Body() body: FixxerCodeDto,
+    @Req() req: any,
   ) {
-    return this.bookingsService.finalizeInvoice(id, body?.fixxerCode);
+    return this.bookingsService.finalizeInvoice(id, body?.fixxerCode, {
+      actorRole: 'ADMIN',
+      actorId: req.user?.userId || req.user?.sub,
+      reason: 'finalize-invoice',
+    });
   }
 
   @Put('bookings/:id/quality-review')
