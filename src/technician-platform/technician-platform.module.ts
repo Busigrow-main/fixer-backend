@@ -59,6 +59,7 @@ import { TechnicianPlatformAdminController } from './admin/technician-platform-a
 import { TechnicianAdminService } from './admin/technician-admin.service';
 import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.service';
 import { SettlementsModule } from './settlements/settlements.module';
+import { PerformanceSummaryModule } from './performance/performance-summary.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { SettlementsModule } from './settlements/settlements.module';
     WarrantiesModule,
     CustomerAppliancesModule,
     SettlementsModule,
+    PerformanceSummaryModule,
     MongooseModule.forFeature([
       { name: OtpSession.name, schema: OtpSessionSchema },
       { name: RefreshToken.name, schema: RefreshTokenSchema },
