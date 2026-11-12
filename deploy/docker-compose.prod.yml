@@ -1,0 +1,44 @@
+# Data services for the single EC2 box.
+# Elasticsearch is optional: the API falls back to MongoDB search when it's not running.
+# Both bind to 127.0.0.1 only —
+# never expose 27017 / 9200 in the security group.
+services:
+  mongo:
+    image: mongo:7
+    container_name: fixxer-mongo
+    restart: unless-stopped
+    command: ["mongod", "--wiredTigerCacheSizeGB", "${MONGO_CACHE_GB:-0.25}"]   # 0.25 on 2 GB box, 1 on 8 GB
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - /opt/fixxer/data/mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: { driver: json-file, options: { max-size: "20m", max-file: "3" } }
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: fixxer-elasticsearch
+    profiles: ["search"]          # OFF by default (Free plan box). Enable with ENABLE_SEARCH=1
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false          # OK only because it's bound to localhost
+      - xpack.security.enrollment.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g            # use -Xms512m -Xmx512m on a 4 GB box
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - /opt/fixxer/data/es:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    logging: { driver: json-file, options: { max-size: "20m", max-file: "3" } }
