@@ -250,7 +250,7 @@ describe('BookingsService – State Machine', () => {
     const doc = await bookingModel.findById(issued._id).lean().exec();
     expect(doc!.status).toBe('COMPLETED');
     expect(doc!.fixxerCodeVerifiedAt).toBeInstanceOf(Date);
-    expect(doc!.fixxerCode).toBeUndefined();
+    expect((doc as any).fixxerCode).toBeUndefined(); // plaintext code must never be persisted
 
     await service.requireFixxerCode(issued._id.toString());
   });

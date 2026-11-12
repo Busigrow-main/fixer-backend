@@ -162,7 +162,7 @@ describe('VisitsService inventory quantity', () => {
       sparePartId: String(spare2._id),
       quantity: 1,
     });
-    await service.removeSparePartFromVisit(String(visit2._id), String(usage._id));
+    await service.removeSparePartFromVisit(String(visit2._id), String((usage as any)._id));
     const restored = await sparePartModel.findById(spare2._id).lean();
     expect(restored!.stock).toBe(60);
   });
