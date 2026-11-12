@@ -273,6 +273,7 @@ describe('SettlementsService', () => {
 
     await expect(service.recordPayment(prepared!._id.toString(), {
       paymentReference: 'UTR-1',
+      successful: true,
     }, { userId: adminId })).rejects.toThrow();
 
     const approved = await service.approve(prepared!._id.toString(), { userId: adminId });
