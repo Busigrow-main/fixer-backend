@@ -66,7 +66,7 @@ describe('Home page data endpoints', () => {
       image: 'https://example.com/washing-machine.jpg',
       startingPrice: 'â‚¹249',
     });
-    expect(response[0]._id).toBeDefined();
+    expect((response[0] as any)._id).toBeDefined();
   });
 
   it('returns active, in-window offers from MongoDB for frontend audience filtering', async () => {
