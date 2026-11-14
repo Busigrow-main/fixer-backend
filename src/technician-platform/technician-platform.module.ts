@@ -60,6 +60,10 @@ import { TechnicianAdminService } from './admin/technician-admin.service';
 import { OnboardingAnalyticsService } from './analytics/onboarding-analytics.service';
 import { SettlementsModule } from './settlements/settlements.module';
 import { PerformanceSummaryModule } from './performance/performance-summary.module';
+import {
+  PartInventoryTransaction,
+  PartInventoryTransactionSchema,
+} from '../visits/schemas/part-inventory-transaction.schema';
 
 @Module({
   imports: [
@@ -89,6 +93,10 @@ import { PerformanceSummaryModule } from './performance/performance-summary.modu
       { name: Technician.name, schema: TechnicianSchema },
       { name: SparePart.name, schema: SparePartSchema },
       { name: SparePartUsage.name, schema: SparePartUsageSchema },
+      {
+        name: PartInventoryTransaction.name,
+        schema: PartInventoryTransactionSchema,
+      },
     ]),
   ],
   controllers: [

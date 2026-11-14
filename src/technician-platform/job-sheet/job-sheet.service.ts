@@ -316,17 +316,55 @@ export class JobSheetService {
       installedAt?: string;
       warrantyMonths?: number;
       replacedUsageId?: string;
+      idempotencyKey?: string;
     },
   ) {
+    const rawQty = Number(partData.quantity);
+    let quantity: number;
+    let inventoryIdempotencyKey: string | undefined;
+    if (!partData.isThirdParty) {
+      if (
+        partData.quantity === undefined ||
+        partData.quantity === null ||
+        !Number.isInteger(rawQty) ||
+        rawQty <= 0
+      ) {
+        throw new BadRequestException('quantity must be a positive integer');
+      }
+      quantity = rawQty;
+      if (!partData.sparePartId || !Types.ObjectId.isValid(partData.sparePartId)) {
+        throw new BadRequestException('sparePartId must be a valid inventory part id');
+      }
+      // Existing clients may omit a key for compatibility, but such a request
+      // cannot be retried idempotently. Callers must reuse a stable key when
+      // retry protection is required.
+      inventoryIdempotencyKey =
+        partData.idempotencyKey?.trim() || new Types.ObjectId().toString();
+
+      const existingIssue = await this.visitsService.findExistingInventoryIssue({
+        bookingId: jobId,
+        technicianId,
+        visitId,
+        sparePartId: partData.sparePartId,
+        quantity,
+        idempotencyKey: inventoryIdempotencyKey,
+      });
+      if (existingIssue) return existingIssue;
+    } else {
+      quantity = 0;
+    }
+
     await this.getEditableBooking(jobId, technicianId);
     const visit = await this.visitsService.findOne(visitId);
     if (String(visit.bookingId) !== jobId) {
       throw new BadRequestException('Visit does not belong to this job');
     }
 
-    const rawQty = Number(partData.quantity);
-    let quantity = Number.isFinite(rawQty) ? Math.floor(rawQty) : 1;
-    if (quantity < 1) quantity = 1;
+    if (partData.isThirdParty) {
+      // Preserve legacy self-sourced quantity normalization and validation order.
+      quantity = Number.isFinite(rawQty) ? Math.floor(rawQty) : 1;
+      if (quantity < 1) quantity = 1;
+    }
 
     const installedAt = partData.installedAt
       ? new Date(partData.installedAt)
@@ -376,9 +414,14 @@ export class JobSheetService {
         );
       }
 
-      const usage = await this.visitsService.addSparePartToVisit(
+      const usage = await this.visitsService.issueInventoryPartToVisit({
+        bookingId: jobId,
+        technicianId,
         visitId,
-        {
+        sparePartId: partData.sparePartId,
+        quantity,
+        idempotencyKey: inventoryIdempotencyKey!,
+        usage: {
           isThirdParty: false,
           sparePartId: new Types.ObjectId(partData.sparePartId),
           quantity, // only the units used on this job — never the full stock
@@ -392,8 +435,7 @@ export class JobSheetService {
           warrantyMonths: warrantyMonths > 0 ? warrantyMonths : undefined,
           replacedUsageId: partData.replacedUsageId,
         },
-        { actorRole: 'TECHNICIAN', actorId: technicianId },
-      );
+      });
       await this.afterPartChange(jobId);
       return usage;
     }
@@ -471,6 +513,9 @@ export class JobSheetService {
 
     const usage = await this.sparePartUsageModel.findById(usageId).exec();
     if (!usage) throw new NotFoundException('Part usage not found');
+    if (usage.sourcedBy === 'INVENTORY' && usage.stockDeducted) {
+      throw new BadRequestException('Inventory-issued parts must be returned through the return endpoint');
+    }
     if (usage.platformFeeApplied) {
       throw new BadRequestException('Cannot remove part after platform fee was applied');
     }
@@ -481,6 +526,29 @@ export class JobSheetService {
     });
     await this.afterPartChange(jobId);
     return { removed: true };
+  }
+
+  async returnPart(
+    jobId: string,
+    technicianId: string,
+    visitId: string,
+    usageId: string,
+    body: { quantity: number; idempotencyKey: string },
+  ) {
+    const result = await this.visitsService.returnInventoryPart({
+      bookingId: jobId,
+      technicianId,
+      visitId,
+      usageId,
+      quantity: body.quantity,
+      idempotencyKey: body.idempotencyKey,
+    });
+    if (result.replayed) {
+      await this.bookingsService.generateInvoiceData(jobId);
+    } else {
+      await this.afterPartChange(jobId);
+    }
+    return { transaction: result.transaction, usage: result.usage };
   }
 
   async searchInventory(query: {

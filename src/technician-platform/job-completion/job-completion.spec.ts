@@ -20,6 +20,7 @@ import { TechniciansService } from '../../technicians/technicians.service';
 import { TechnicianEngineService } from '../../technician-engine/technician-engine.service';
 import { issueFixxerCode } from '../../bookings/fixxer-code';
 import * as bcrypt from 'bcrypt';
+import { GstService } from '../../gst/gst.service';
 
 process.env.FIXXER_CODE_KEY = Buffer.alloc(32, 7).toString('base64');
 
@@ -69,6 +70,7 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
       providers: [
         JobCompletionService,
         BookingsService,
+        GstService,
         { provide: EarningsService, useValue: mockEarnings },
         { provide: VisitsService, useValue: mockVisits },
         { provide: TechniciansService, useValue: mockTechnicians },
@@ -170,7 +172,8 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
 
     // Invoice should be computed from catalog (₹500)
     expect(result.invoiceData.serviceTotal).toBe(500);
-    expect(result.invoiceData.totalAmount).toBe(500);
+    // Labour is ₹500 before GST; service invoices add 18% GST (₹90).
+    expect(result.invoiceData.totalAmount).toBe(590);
   });
 
   it('recordPayment credits 100% labour, 10% inventory commission, and ₹100 self-part fees', async () => {

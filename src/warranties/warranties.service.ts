@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import { Warranty, WarrantyDocument } from './schemas/warranty.schema';
 import {
   SparePartUsage,
@@ -53,15 +53,23 @@ export class WarrantiesService {
       .exec();
   }
 
-  async assertSerialAvailable(serialRaw: string, excludeUsageId?: string) {
+  async assertSerialAvailable(
+    serialRaw: string,
+    excludeUsageId?: string,
+    session?: ClientSession,
+  ) {
     const serialNumber = WarrantiesService.normalizeSerial(serialRaw);
     if (!serialNumber) {
       throw new BadRequestException('Serial number is required');
     }
 
-    const active = await this.warrantyModel
-      .findOne({ serialNumber, type: 'PART', status: 'ACTIVE' })
-      .exec();
+    const activeQuery = this.warrantyModel.findOne({
+      serialNumber,
+      type: 'PART',
+      status: 'ACTIVE',
+    });
+    if (session) activeQuery.session(session);
+    const active = await activeQuery.exec();
     if (active) {
       throw new ConflictException(
         `An active part warranty already exists for serial ${serialNumber}`,
@@ -72,7 +80,9 @@ export class WarrantiesService {
     if (excludeUsageId) {
       usageFilter._id = { $ne: new Types.ObjectId(excludeUsageId) };
     }
-    const existingUsage = await this.sparePartUsageModel.findOne(usageFilter).exec();
+    const existingUsageQuery = this.sparePartUsageModel.findOne(usageFilter);
+    if (session) existingUsageQuery.session(session);
+    const existingUsage = await existingUsageQuery.exec();
     if (existingUsage) {
       throw new ConflictException(
         `Serial ${serialNumber} is already registered on another spare-part usage`,
@@ -96,6 +106,7 @@ export class WarrantiesService {
 
     for (const visit of visits) {
       for (const usage of (visit.partsUsed || []) as any[]) {
+        if (usage.quantity != null && Number(usage.quantity) <= 0) continue;
         const serialNumber = WarrantiesService.normalizeSerial(usage.serialNumber);
         const months = Number(usage.warrantyMonths);
         if (!serialNumber || !Number.isFinite(months) || months <= 0) continue;
@@ -257,7 +268,7 @@ export class WarrantiesService {
             'Spare part',
           serialNumber: usage.serialNumber || undefined,
           sparePartId: spareId ? String(spareId) : undefined,
-          quantity: usage.quantity || 1,
+          quantity: usage.quantity ?? 1,
           cost: usage.cost,
           installedAt: usage.installedAt,
           warrantyMonths: usage.warrantyMonths,
@@ -329,25 +340,29 @@ export class WarrantiesService {
    * If this original part still has an active warranty, mark it claimed
    * so the replacement is issued at no charge.
    */
-  async applyReplacementCoverage(replacedUsageId: string) {
+  async applyReplacementCoverage(
+    replacedUsageId: string,
+    session?: ClientSession,
+  ) {
     if (!Types.ObjectId.isValid(replacedUsageId)) {
       throw new BadRequestException('replacedUsageId is invalid');
     }
-    const originalUsage = await this.sparePartUsageModel
-      .findById(replacedUsageId)
-      .exec();
+    const originalUsageQuery = this.sparePartUsageModel.findById(replacedUsageId);
+    if (session) originalUsageQuery.session(session);
+    const originalUsage = await originalUsageQuery.exec();
     if (!originalUsage) {
       throw new BadRequestException('Original spare part usage not found');
     }
 
     const now = new Date();
-    const warranty = await this.warrantyModel
+    const warrantyQuery = this.warrantyModel
       .findOne({
         sparePartUsageId: originalUsage._id,
         type: 'PART',
       })
-      .sort({ createdAt: -1 })
-      .exec();
+      .sort({ createdAt: -1 });
+    if (session) warrantyQuery.session(session);
+    const warranty = await warrantyQuery.exec();
 
     let covered = false;
     if (
@@ -358,7 +373,7 @@ export class WarrantiesService {
     ) {
       covered = true;
       warranty.status = 'CLAIMED';
-      await warranty.save();
+      await warranty.save(session ? { session } : undefined);
     } else if (!warranty && originalUsage.warrantyMonths && originalUsage.installedAt) {
       const end = new Date(originalUsage.installedAt);
       end.setMonth(end.getMonth() + Number(originalUsage.warrantyMonths));

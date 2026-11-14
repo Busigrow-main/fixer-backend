@@ -1848,6 +1848,7 @@ export class BookingsService {
       if (!visit.partsUsed) continue;
 
       for (const usage of visit.partsUsed) {
+        if (usage.quantity != null && Number(usage.quantity) <= 0) continue;
         const quantity =
           usage.quantity || 1;
 

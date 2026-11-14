@@ -19,6 +19,7 @@ import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../common/notification-dispatch.service';
 import { ServiceablePincodesService } from '../../serviceable-pincodes/serviceable-pincodes.service';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { GstService } from '../../gst/gst.service';
 
 describe('JobSheetService', () => {
   jest.setTimeout(30000);
@@ -37,6 +38,9 @@ describe('JobSheetService', () => {
     createVisit: jest.fn(),
     updateStatus: jest.fn(),
     addSparePartToVisit: jest.fn(),
+    findExistingInventoryIssue: jest.fn().mockResolvedValue(null),
+    issueInventoryPartToVisit: jest.fn(),
+    returnInventoryPart: jest.fn(),
     removeSparePartFromVisit: jest.fn(),
   };
   const mockSpareParts = { searchParts: jest.fn().mockResolvedValue({ data: [] }) };
@@ -74,6 +78,7 @@ describe('JobSheetService', () => {
       providers: [
         JobSheetService,
         BookingsService,
+        GstService,
         { provide: VisitsService, useValue: mockVisits },
         { provide: SparePartsService, useValue: mockSpareParts },
         { provide: WarrantiesService, useValue: mockWarranties },
@@ -104,6 +109,10 @@ describe('JobSheetService', () => {
   let bookingId: string;
 
   beforeEach(async () => {
+    mockVisits.findExistingInventoryIssue.mockReset().mockResolvedValue(null);
+    mockVisits.issueInventoryPartToVisit.mockReset();
+    mockVisits.returnInventoryPart.mockReset();
+    mockWarranties.resolveInventoryWarrantyMonths.mockReturnValue(12);
     await bookingModel.deleteMany({});
     const serviceModel = module.get<Model<any>>(getModelToken(Service.name));
     await serviceModel.deleteMany({});
@@ -175,6 +184,96 @@ describe('JobSheetService', () => {
   });
 
   describe('addPart serial validation', () => {
+    it('returns an existing issue before job, visit, and stock checks on retry', async () => {
+      const existingUsage = {
+        _id: new Types.ObjectId(),
+        quantity: 10,
+        stockDeducted: true,
+      };
+      const visitId = new Types.ObjectId().toString();
+      const sparePartId = new Types.ObjectId().toString();
+      await bookingModel.findByIdAndUpdate(bookingId, { sheetLockedAt: new Date() });
+      mockVisits.findOne.mockReset();
+      mockVisits.findExistingInventoryIssue.mockResolvedValue(existingUsage);
+
+      const result = await service.addPart(bookingId, techId.toString(), visitId, {
+        sparePartId,
+        quantity: 10,
+        idempotencyKey: 'retry-after-stock-exhausted',
+        isThirdParty: false,
+      });
+
+      expect(result).toBe(existingUsage);
+      expect(mockVisits.findExistingInventoryIssue).toHaveBeenCalledWith({
+        bookingId,
+        technicianId: techId.toString(),
+        visitId,
+        sparePartId,
+        quantity: 10,
+        idempotencyKey: 'retry-after-stock-exhausted',
+      });
+      expect(mockVisits.findOne).not.toHaveBeenCalled();
+      expect(mockVisits.issueInventoryPartToVisit).not.toHaveBeenCalled();
+    });
+
+    it('routes valid inventory part additions through the issue transaction flow', async () => {
+      const spare = await sparePartModel.create({
+        name: 'Filter',
+        sku: 'FLT-ISSUE-001',
+        slug: 'filter-issue-001',
+        applianceTypeSlug: 'ac',
+        price: 12500,
+        stock: 10,
+        warrantyMonths: 0,
+        isActive: true,
+      });
+      const visitId = new Types.ObjectId().toString();
+      mockVisits.findOne.mockResolvedValue({ _id: visitId, bookingId });
+      mockVisits.issueInventoryPartToVisit.mockResolvedValue({
+        _id: new Types.ObjectId(),
+        quantity: 2,
+        stockDeducted: true,
+      });
+      mockWarranties.resolveInventoryWarrantyMonths.mockReturnValue(0);
+
+      await service.addPart(bookingId, techId.toString(), visitId, {
+        sparePartId: String(spare._id),
+        quantity: 2,
+        idempotencyKey: 'mobile-request-123',
+        isThirdParty: false,
+      });
+
+      expect(mockVisits.issueInventoryPartToVisit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bookingId,
+          technicianId: techId.toString(),
+          visitId,
+          sparePartId: String(spare._id),
+          quantity: 2,
+          idempotencyKey: 'mobile-request-123',
+        }),
+      );
+      expect(mockVisits.addSparePartToVisit).not.toHaveBeenCalled();
+      mockWarranties.resolveInventoryWarrantyMonths.mockReturnValue(12);
+    });
+
+    it.each([undefined, 0, -1, 1.5])(
+      'rejects invalid inventory quantity %s',
+      async (quantity) => {
+        const visitId = new Types.ObjectId().toString();
+        mockVisits.findOne.mockResolvedValue({ _id: visitId, bookingId });
+
+        await expect(
+          service.addPart(bookingId, techId.toString(), visitId, {
+            sparePartId: new Types.ObjectId().toString(),
+            quantity,
+            isThirdParty: false,
+          }),
+        ).rejects.toThrow('quantity must be a positive integer');
+        expect(mockVisits.issueInventoryPartToVisit).not.toHaveBeenCalled();
+      },
+    );
+
     it('rejects inventory part without serial when warranty > 0', async () => {
       const spare = await sparePartModel.create({
         name: 'Compressor',
@@ -197,6 +296,42 @@ describe('JobSheetService', () => {
           isThirdParty: false,
         }),
       ).rejects.toThrow('Serial number is required');
+    });
+  });
+
+  describe('inventory returns', () => {
+    it('delegates return ownership and replay to the transaction service and refreshes the invoice', async () => {
+      const visitId = new Types.ObjectId().toString();
+      const usageId = new Types.ObjectId().toString();
+      const result = {
+        transaction: { _id: new Types.ObjectId(), type: 'RETURN' },
+        usage: { _id: usageId, quantity: 3 },
+        replayed: true,
+      };
+      mockVisits.returnInventoryPart.mockResolvedValue(result);
+      const generateInvoice = jest
+        .spyOn(module.get(BookingsService), 'generateInvoiceData')
+        .mockResolvedValue({} as any);
+
+      const response = await service.returnPart(
+        bookingId,
+        techId.toString(),
+        visitId,
+        usageId,
+        { quantity: 2, idempotencyKey: 'return-retry-key' },
+      );
+
+      expect(response).toEqual({ transaction: result.transaction, usage: result.usage });
+      expect(mockVisits.returnInventoryPart).toHaveBeenCalledWith({
+        bookingId,
+        technicianId: techId.toString(),
+        visitId,
+        usageId,
+        quantity: 2,
+        idempotencyKey: 'return-retry-key',
+      });
+      expect(generateInvoice).toHaveBeenCalledWith(bookingId);
+      generateInvoice.mockRestore();
     });
   });
 
