@@ -8,12 +8,20 @@ import { SparePartsModule } from '../spare-parts/spare-parts.module';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 import { SparePartSchema } from '../spare-parts/schemas/spare-part.schema';
 import { WarrantiesModule } from '../warranties/warranties.module';
+import {
+  PartInventoryTransaction,
+  PartInventoryTransactionSchema,
+} from './schemas/part-inventory-transaction.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Visit.name, schema: VisitSchema },
       { name: SparePartUsage.name, schema: SparePartUsageSchema },
+      {
+        name: PartInventoryTransaction.name,
+        schema: PartInventoryTransactionSchema,
+      },
       { name: Booking.name, schema: BookingSchema },
       { name: 'SparePart', schema: SparePartSchema }
     ]),

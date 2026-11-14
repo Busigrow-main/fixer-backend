@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsInt, IsNumber, IsOptional, IsString, Min, MaxLength, IsNotEmpty } from 'class-validator';
 
 export class OnboardingEventDto {
   @ApiProperty()
@@ -41,6 +41,19 @@ export class JobCompletionBodyDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
+}
+
+export class ReturnInventoryPartDto {
+  @ApiProperty({ example: 2, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  quantity: number;
+
+  @ApiProperty({ example: 'stable-client-generated-key', maxLength: 200 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  idempotencyKey: string;
 }
 
 export class OnboardingCallDto {

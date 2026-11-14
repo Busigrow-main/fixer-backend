@@ -13,6 +13,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { TechnicianJobsService } from './technician-jobs.service';
 import { JobCompletionService } from '../job-completion/job-completion.service';
 import { JobSheetService } from '../job-sheet/job-sheet.service';
+import { VisitsService } from '../../visits/visits.service';
 import { TechnicianGuard } from '../common/technician.guard';
 import { RequireActiveTechnician } from '../common/require-active.decorator';
 import { CurrentTechnician } from '../common/decorators';
@@ -26,7 +27,7 @@ import {
   ReasonDto,
   SignatureUrlDto,
 } from '../../common/body.dto';
-import { JobCompletionBodyDto } from '../dtos/technician-api.dto';
+import { JobCompletionBodyDto, ReturnInventoryPartDto } from '../dtos/technician-api.dto';
 
 @ApiTags('Technician jobs')
 @ApiBearerAuth(JWT_AUTH)
@@ -38,6 +39,7 @@ export class TechnicianJobsController {
     private readonly jobsService: TechnicianJobsService,
     private readonly completionService: JobCompletionService,
     private readonly jobSheetService: JobSheetService,
+    private readonly visitsService: VisitsService,
   ) {}
 
   @Get()
@@ -52,6 +54,22 @@ export class TechnicianJobsController {
   @Get('available')
   available(@CurrentTechnician() technician: any) {
     return this.jobsService.listAvailableJobs(technician._id.toString());
+  }
+
+  @Get('part-transactions')
+  @ApiOperation({ summary: 'List the authenticated technician’s inventory part transactions' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  listPartTransactions(
+    @CurrentTechnician() technician: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.visitsService.listPartInventoryTransactions(
+      technician._id.toString(),
+      page,
+      limit,
+    );
   }
 
   @Get(':jobId/job-sheet')
@@ -92,6 +110,24 @@ export class TechnicianJobsController {
       jobId,
       technician._id.toString(),
       visitId,
+      body,
+    );
+  }
+
+  @Post(':jobId/visits/:visitId/parts/:usageId/returns')
+  @ApiOperation({ summary: 'Return unused inventory-issued parts' })
+  returnPart(
+    @CurrentTechnician() technician: any,
+    @Param('jobId') jobId: string,
+    @Param('visitId') visitId: string,
+    @Param('usageId') usageId: string,
+    @Body() body: ReturnInventoryPartDto,
+  ) {
+    return this.jobSheetService.returnPart(
+      jobId,
+      technician._id.toString(),
+      visitId,
+      usageId,
       body,
     );
   }

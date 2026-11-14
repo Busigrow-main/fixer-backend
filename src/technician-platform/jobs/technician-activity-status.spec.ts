@@ -232,6 +232,7 @@ describe('Technician activity + job status flow', () => {
         'IN_PROGRESS',
         undefined,
         undefined,
+        { actorRole: 'TECHNICIAN', actorId: technicianId },
       );
       expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
         availabilityStatus: 'ON_JOB',

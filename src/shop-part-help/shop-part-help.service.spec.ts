@@ -8,6 +8,7 @@ import { PartOrdersService } from '../part-orders/part-orders.service';
 import { Appliance, ApplianceSchema } from '../appliances/schemas/appliance.schema';
 import { SparePart, SparePartDocument, SparePartSchema } from '../spare-parts/schemas/spare-part.schema';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
+import { GstService } from '../gst/gst.service';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { ShopPartHelpRequest, ShopPartHelpRequestDocument, ShopPartHelpRequestSchema } from './schemas/shop-part-help.schema';
@@ -42,6 +43,7 @@ describe('ShopPartHelpService', () => {
       ],
       providers: [
         PartOrdersService,
+        GstService,
         ShopPartHelpService,
         {
           provide: SparePartsService,
