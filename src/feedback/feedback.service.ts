@@ -49,7 +49,7 @@ export class FeedbackService {
             userId: userObjectId,
             rating: dto.rating,
             resolved: dto.resolved,
-            comment: dto.comment?.trim() || undefined,
+            comment: dto.comment?.trim() || '',
           },
           $setOnInsert: {
             bookingId: bookingObjectId,
@@ -115,6 +115,30 @@ export class FeedbackService {
     ]);
 
     return { data, total, page, limit };
+  }
+
+  async listFeedback(page = 1, limit = 20) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(100, Math.max(1, limit));
+    const skip = (safePage - 1) * safeLimit;
+
+    const [data, total] = await Promise.all([
+      this.feedbackModel
+        .find()
+        .populate({ path: 'userId', select: 'fullName phone' })
+        .populate({
+          path: 'bookingId',
+          select: 'status jobClosed addressData serviceId',
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean()
+        .exec(),
+      this.feedbackModel.countDocuments().exec(),
+    ]);
+
+    return { data, total, page: safePage, limit: safeLimit };
   }
 
   async updateFollowUp(id: string, dto: UpdateFeedbackFollowUpDto) {

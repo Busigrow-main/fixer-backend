@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateOfferDto {
-  @ApiProperty({ example: 'Shop 10' })
-  title: string;
+  @ApiPropertyOptional({ example: 'Shop 10' })
+  title?: string;
 
-  @ApiProperty({ example: '10% OFF' })
-  discountText: string;
+  @ApiPropertyOptional({ example: '10% OFF' })
+  discountText?: string;
 
   @ApiPropertyOptional()
   description?: string;

@@ -15,7 +15,7 @@ export class Offer {
   @Prop({ unique: true, sparse: true, trim: true })
   campaignKey?: string;
 
-  @Prop({ required: true, trim: true })
+  @Prop({ default: '', trim: true })
   title: string;
 
   @Prop({ default: '', trim: true })
@@ -24,7 +24,7 @@ export class Offer {
   @Prop({ default: 'Limited time', trim: true })
   badge: string;
 
-  @Prop({ required: true, trim: true })
+  @Prop({ default: '', trim: true })
   discountText: string;
 
   @Prop({ default: '', uppercase: true, trim: true })
