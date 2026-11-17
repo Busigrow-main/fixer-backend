@@ -1,8 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class ReasonDto {
   @ApiProperty({ example: 'Ordered the wrong model' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   reason: string;
 }
 
