@@ -176,6 +176,8 @@ export class PartOrdersService {
       paymentMethod: doc.paymentMethod ?? null,
       courierTracking: doc.courierTracking ?? null,
       cancelledAt: doc.cancelledAt ?? null,
+      cancelledBy: doc.cancelledBy ?? null,
+      cancellationReason: doc.cancellationReason ?? null,
       createdAt: doc.createdAt ?? null,
       updatedAt: doc.updatedAt ?? null,
       canCancel: Boolean(doc.canCancel),
