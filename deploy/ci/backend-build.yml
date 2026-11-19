@@ -1,0 +1,26 @@
+# Compiles the API the same way the server does, on every PR and push to main.
+name: Build check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20        # same as the EC2 server
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Bash syntax check of deploy scripts
+        run: for f in deploy/*.sh; do bash -n "$f"; done

@@ -1,0 +1,29 @@
+# Runs the same production build as the server, on every PR and push to main.
+# A red check here = the server would refuse to deploy it, so fix before merging.
+name: Build check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      NEXT_PUBLIC_API_URL: https://fixxer.in/api/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20        # same as the EC2 server
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Production build (includes TypeScript check)
+        run: npm run build

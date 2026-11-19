@@ -20,6 +20,7 @@ import { TechniciansService } from '../../technicians/technicians.service';
 import { TechnicianEngineService } from '../../technician-engine/technician-engine.service';
 import { issueFixxerCode } from '../../bookings/fixxer-code';
 import * as bcrypt from 'bcrypt';
+import { GstService } from '../../gst/gst.service';
 
 process.env.FIXXER_CODE_KEY = Buffer.alloc(32, 7).toString('base64');
 
@@ -49,7 +50,7 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
     findByBooking: jest.fn().mockResolvedValue([]),
     updateStatus: jest.fn(),
   };
-  const mockWarranties = { findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn(), listInstalledParts: jest.fn().mockResolvedValue([]), listOriginalPartsForClaim: jest.fn().mockResolvedValue([]) };
+  const mockWarranties = { create: jest.fn().mockResolvedValue({}), findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn(), listInstalledParts: jest.fn().mockResolvedValue([]), listOriginalPartsForClaim: jest.fn().mockResolvedValue([]) };
   const mockDispatch = { broadcastJob: jest.fn() };
   const mockNotification = { notify: jest.fn() };
 
@@ -69,6 +70,7 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
       providers: [
         JobCompletionService,
         BookingsService,
+        GstService,
         { provide: EarningsService, useValue: mockEarnings },
         { provide: VisitsService, useValue: mockVisits },
         { provide: TechniciansService, useValue: mockTechnicians },
@@ -168,9 +170,9 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
       images: [],
     });
 
-    // Invoice should be computed from catalog (₹500)
+    // Invoice should be computed from catalog (₹500); service bills add 18% GST on top.
     expect(result.invoiceData.serviceTotal).toBe(500);
-    expect(result.invoiceData.totalAmount).toBe(500);
+    expect(result.invoiceData.totalAmount).toBeCloseTo(590, 2);
   });
 
   it('recordPayment credits 100% labour, 10% inventory commission, and ₹100 self-part fees', async () => {

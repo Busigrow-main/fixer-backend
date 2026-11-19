@@ -25,6 +25,7 @@ describe('Technician engine (core)', () => {
       expect(availabilityForJobEvent('JOB_COMPLETED')).toBe('AVAILABLE');
       expect(availabilityForJobEvent('JOB_PAYMENT_COLLECTED')).toBe('AVAILABLE');
       expect(availabilityForJobEvent('RELEASED')).toBe('AVAILABLE');
+      expect(availabilityForJobEvent('JOB_CANCELLED')).toBe('AVAILABLE');
     });
   });
 

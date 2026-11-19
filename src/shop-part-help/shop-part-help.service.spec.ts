@@ -12,6 +12,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { ShopPartHelpRequest, ShopPartHelpRequestDocument, ShopPartHelpRequestSchema } from './schemas/shop-part-help.schema';
 import { ShopPartHelpService } from './shop-part-help.service';
+import { GstService } from '../gst/gst.service';
 
 describe('ShopPartHelpService', () => {
   jest.setTimeout(60000);
@@ -42,6 +43,7 @@ describe('ShopPartHelpService', () => {
       ],
       providers: [
         PartOrdersService,
+        GstService,
         ShopPartHelpService,
         {
           provide: SparePartsService,

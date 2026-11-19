@@ -1,0 +1,13 @@
+[Unit]
+Description=Fixxer auto-deploy (build + release new commits on main)
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Environment=HOME=/home/ubuntu
+Environment=PM2_HOME=/home/ubuntu/.pm2
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/fixxer/bin/fixxer-autodeploy
+TimeoutStartSec=3600
+Nice=10

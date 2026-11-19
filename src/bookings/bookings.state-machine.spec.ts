@@ -27,7 +27,7 @@ describe('BookingsService – State Machine', () => {
   let mongod: MongoMemoryServer;
   let module: TestingModule;
 
-  const mockWarranties = { findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn(), listInstalledParts: jest.fn().mockResolvedValue([]), listOriginalPartsForClaim: jest.fn().mockResolvedValue([]) };
+  const mockWarranties = { create: jest.fn().mockResolvedValue({}), findByBooking: jest.fn().mockResolvedValue([]), registerPartsForBooking: jest.fn(), listInstalledParts: jest.fn().mockResolvedValue([]), listOriginalPartsForClaim: jest.fn().mockResolvedValue([]) };
   const mockDispatch = { broadcastJob: jest.fn() };
   const mockNotification = { notify: jest.fn() };
   const mockVisits = {
@@ -43,6 +43,11 @@ describe('BookingsService – State Machine', () => {
           availabilityStatus: 'AVAILABLE',
         });
       }
+    }),
+    onJobCancelled: jest.fn().mockImplementation(async (technicianId: string) => {
+      const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
+      await techModel.findByIdAndUpdate(technicianId, { availabilityStatus: 'AVAILABLE' });
+      return 'AVAILABLE';
     }),
     applyJobEvent: jest.fn(),
     applyStatusStepAvailability: jest.fn(),
@@ -332,8 +337,60 @@ describe('BookingsService – State Machine', () => {
     ).rejects.toThrow(/not active and available/i);
 
     const onJob = await createEligibleTech({ availabilityStatus: 'ON_JOB' });
+    await createBooking({ status: 'ASSIGNED', technicianId: onJob._id });
     await expect(
       service.assignTechnician(open._id.toString(), onJob._id.toString()),
     ).rejects.toThrow(/not active and available/i);
+  });
+
+  describe('technician is released when a job is cancelled', () => {
+    const techModel = () => module.get(getModelToken(Technician.name)) as Model<any>;
+    const availability = async (id: Types.ObjectId) =>
+      (await techModel().findById(id).lean().exec())!.availabilityStatus;
+
+    it('admin cancel frees the technician so they can be assigned to the next job', async () => {
+      const tech = await createEligibleTech();
+      const first = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(first._id.toString(), tech._id.toString());
+      expect(await availability(tech._id)).toBe('ON_JOB');
+
+      await service.updateStatus(first._id.toString(), 'CANCELLED', 'Customer not home');
+      expect(await availability(tech._id)).toBe('AVAILABLE');
+
+      const next = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(next._id.toString(), tech._id.toString());
+      const doc = await bookingModel.findById(next._id).lean().exec();
+      expect(String(doc!.technicianId)).toBe(String(tech._id));
+      expect(await availability(tech._id)).toBe('ON_JOB');
+    });
+
+    it('customer cancel frees the technician', async () => {
+      const tech = await createEligibleTech();
+      const userId = new Types.ObjectId();
+      const b = await createBooking({ userId, status: 'CONFIRMED' });
+      await service.assignTechnician(b._id.toString(), tech._id.toString());
+
+      await service.cancelBooking(b._id.toString(), userId.toString(), 'Changed my mind');
+      expect(await availability(tech._id)).toBe('AVAILABLE');
+    });
+
+    it('does not free a technician who is still on another active job', async () => {
+      const tech = await createEligibleTech({ availabilityStatus: 'ON_JOB' });
+      await createBooking({ status: 'IN_PROGRESS', technicianId: tech._id });
+      const cancelled = await createBooking({ status: 'ASSIGNED', technicianId: tech._id });
+
+      await service.updateStatus(cancelled._id.toString(), 'CANCELLED', 'Duplicate booking');
+      expect(await availability(tech._id)).toBe('ON_JOB');
+    });
+
+    it('heals a technician left ON_JOB by an old cancelled job and assigns them', async () => {
+      const tech = await createEligibleTech({ availabilityStatus: 'ON_JOB' });
+      await createBooking({ status: 'CANCELLED', technicianId: tech._id });
+
+      const next = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(next._id.toString(), tech._id.toString());
+      const doc = await bookingModel.findById(next._id).lean().exec();
+      expect(String(doc!.technicianId)).toBe(String(tech._id));
+    });
   });
 });

@@ -7,7 +7,7 @@ import {
   EmailOtpSession,
   EmailOtpSessionDocument,
 } from './schemas/email-otp-session.schema';
-import { AzureEmailService } from './azure-email.service';
+import { EmailService } from './email.service';
 
 @Injectable()
 export class EmailOtpService {
@@ -16,7 +16,7 @@ export class EmailOtpService {
   constructor(
     @InjectModel(EmailOtpSession.name)
     private otpModel: Model<EmailOtpSessionDocument>,
-    private azureEmail: AzureEmailService,
+    private email: EmailService,
   ) {}
 
   async sendOtp(email: string): Promise<{ sent: boolean; devOtp?: string }> {
@@ -28,17 +28,14 @@ export class EmailOtpService {
     await this.otpModel.create({ email, codeHash, expiresAt });
 
     const isProd = process.env.NODE_ENV === 'production';
-    const azureConfigured =
-      !!process.env.AZURE_COMMUNICATION_CONNECTION_STRING &&
-      !!process.env.AZURE_EMAIL_SENDER;
 
-    if (azureConfigured) {
-      await this.azureEmail.sendOtpEmail(email, code);
+    if (this.email.isConfigured()) {
+      await this.email.sendOtpEmail(email, code);
       return { sent: true };
     }
 
     if (isProd) {
-      throw new Error('Azure email is not configured in production');
+      throw new Error('Email is not configured in production (set SES_FROM_EMAIL)');
     }
 
     this.logger.log(`[EMAIL OTP] ${email}: ${code}`);

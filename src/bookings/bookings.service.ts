@@ -45,6 +45,7 @@ import {
   assertAssignableTechnician,
   assertBookingAssignable,
   TechnicianEngineError,
+  TERMINAL_BOOKING_STATUSES,
 } from '../technician-engine/technician-engine';
 import { assertValidCalendarDate } from '../common/calendar-date';
 import { GstService } from '../gst/gst.service';
@@ -192,6 +193,42 @@ export class BookingsService {
       .exec();
 
     return sanitizeTechnicianForCustomer(tech as any);
+  }
+
+  /**
+   * True when the technician is still committed to some booking other than
+   * `excludeBookingId` (not cancelled/completed, and not declined by them).
+   */
+  private async technicianHasOtherActiveJob(
+    technicianId: string,
+    excludeBookingId?: string,
+  ): Promise<boolean> {
+    if (!Types.ObjectId.isValid(technicianId)) return false;
+    const filter: Record<string, unknown> = {
+      technicianId: new Types.ObjectId(technicianId),
+      status: { $nin: [...TERMINAL_BOOKING_STATUSES] },
+      assignmentStatus: { $ne: 'DECLINED' },
+    };
+    if (excludeBookingId && Types.ObjectId.isValid(excludeBookingId)) {
+      filter._id = { $ne: new Types.ObjectId(excludeBookingId) };
+    }
+    return !!(await this.bookingModel.exists(filter).exec());
+  }
+
+  /**
+   * A cancelled booking must hand its technician back to the AVAILABLE pool,
+   * otherwise they stay ON_JOB forever and every later assign fails.
+   */
+  private async releaseTechnicianAfterCancel(booking: {
+    _id?: unknown;
+    technicianId?: unknown;
+  }): Promise<void> {
+    if (!this.technicianEngine || !booking?.technicianId) return;
+    const technicianId = String(booking.technicianId);
+    if (await this.technicianHasOtherActiveJob(technicianId, String(booking._id))) {
+      return;
+    }
+    await this.technicianEngine.onJobCancelled(technicianId);
   }
 
   /** Full booking detail for admin/customer — always includes populated visits/parts. */
@@ -803,6 +840,7 @@ export class BookingsService {
     booking.cancelledBy = 'CUSTOMER';
 
     await booking.save();
+    await this.releaseTechnicianAfterCancel(booking);
 
     return this.populateBookingDetail(id);
   }
@@ -1043,6 +1081,7 @@ export class BookingsService {
       booking.cancelledBy = 'ADMIN';
 
       await booking.save();
+      await this.releaseTechnicianAfterCancel(booking);
       await this.appendChangeHistory(id, [
         {
           field: 'status',
@@ -1194,6 +1233,18 @@ export class BookingsService {
           throw new TechnicianEngineError('Technician is not active and available');
         }
       } else {
+        // Heal a stale ON_JOB left behind by a job that ended without releasing
+        // the technician (e.g. cancelled before cancel released technicians).
+        if (
+          tech?.isActive &&
+          tech.availabilityStatus === 'ON_JOB' &&
+          !(await this.technicianHasOtherActiveJob(String(tech._id), id))
+        ) {
+          await this.technicianModel
+            .updateOne({ _id: tech._id }, { $set: { availabilityStatus: 'AVAILABLE' } })
+            .exec();
+          tech.availabilityStatus = 'AVAILABLE';
+        }
         assertAssignableTechnician(tech);
       }
     } catch (err) {

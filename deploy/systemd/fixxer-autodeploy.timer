@@ -1,0 +1,10 @@
+[Unit]
+Description=Check GitHub for new Fixxer commits every 2 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=2min
+Unit=fixxer-autodeploy.service
+
+[Install]
+WantedBy=timers.target

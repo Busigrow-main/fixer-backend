@@ -8,14 +8,14 @@ Everything (Next.js frontend, NestJS API, MongoDB, Elasticsearch, Nginx + TLS) r
 ```
                 Internet
                    │  80 / 443
-            ┌──────▼──────────────────────────── EC2 t4g.large (Ubuntu 24.04, arm64) ─┐
+            ┌──────▼──────────────────────────── EC2 t4g.small (Ubuntu 24.04, arm64)   ─┐
             │  Nginx + Let's Encrypt                                                    │
             │   ├─ /api/*, /v1/*  ──► NestJS  127.0.0.1:8081   (PM2: fixxer-api)        │
             │   └─ /*             ──► Next.js 127.0.0.1:3000   (PM2: fixxer-web)        │
             │                                                                           │
             │  Docker (localhost only)                                                  │
             │   ├─ mongo:7              127.0.0.1:27017   → /opt/fixxer/data/mongo      │
-            │   └─ elasticsearch:8.13.4 127.0.0.1:9200    → /opt/fixxer/data/es         │
+            │   └─ elasticsearch (optional, off on 2 GB) 127.0.0.1:9200                 │
             └───────────────────────────────────────────────────────────────────────────┘
    External (unchanged): Cloudinary (images), Azure Communication Services (email OTP), Google Sign-In
 ```
@@ -24,7 +24,53 @@ The frontend calls the API on the **same domain** (`https://yourdomain/api/v1`),
 
 ---
 
-## 1. Sizing calculation
+## 0. You're on the AWS **Free plan**: read this first
+
+Your account was created after 15 Jul 2025, so it gets **credits, not free hours**:
+- $100 when you sign up, plus up to $100 more for finishing the onboarding tasks in the console ("Explore AWS"). That's **$200 at most**.
+- The Free plan **ends after 6 months or when the credits run out, whichever comes first**. AWS then **closes the account**, keeps the data for 90 days and deletes it.
+- On the Free plan you can only launch these instance types: **t3.micro, t3.small, t4g.micro, t4g.small, c7i-flex.large, m7i-flex.large**. The t4g.large from the original plan **isn't allowed**, and neither are Reserved Instances or Savings Plans.
+
+### How long the credits last (Mumbai, per month, incl. 30 GB gp3 + public IPv4 + snapshots)
+
+| Instance | RAM | Runs | ≈ $/month | $100 lasts | $200 lasts |
+|---|---|---|---|---|---|
+| **t4g.small** (arm) ✅ | 2 GB | Next + Nest + Mongo, **no Elasticsearch** | **≈ $15** | **6+ months** | 6 months (plan limit) |
+| t3.small (x86) | 2 GB | same | ≈ $23 | ~4 months | 6 months |
+| c7i-flex.large | 4 GB | everything, ES at 512 MB | ≈ $69 | ~1.5 months | ~3 months |
+| m7i-flex.large | 8 GB | everything, comfortably | ≈ $81 | ~1.2 months | ~2.5 months |
+
+### Recommended: **t4g.small, without Elasticsearch**
+
+`SearchService` already handles a missing Elasticsearch. It logs *"Search will fall back to MongoDB"* and the spare-parts suggestions use a Mongo regex instead. That's fine at your catalog size. Without ES the box needs roughly **1.6–1.9 GB**:
+- Mongo, capped at 0.25 GB cache: ~0.5 GB
+- Nest: ~0.35 GB
+- Next: ~0.35 GB
+- OS, Docker, Nginx: ~0.4 GB
+
+4 GB of swap covers builds. A frontend build will take 5–10 min instead of 2. The deploy files are already set up this way:
+- ES is off by default (compose profile `search`)
+- Mongo cache is 0.25 GB
+- each Node process is capped at 384 MB heap
+- the swap file is 4 GB
+
+You can turn search back on later, on a box with ≥ 4 GB:
+```bash
+MONGO_CACHE_GB=1 ENABLE_SEARCH=1 bash deploy.sh   # then POST /api/v1/spare-parts/sync-search as admin
+```
+
+### ⚠️ Before month 6 (or before the credits run out): upgrade to the Paid plan
+
+On the Free plan the **site will go offline and the account will be closed**. That's not acceptable for a live business. Upgrade in **Billing → Free plan → Upgrade**:
+- Leftover credits keep working (up to 12 months from sign-up).
+- After the credits are used up, t4g.small costs **≈ $15/month (~₹1,300 + GST)**.
+- Once you're on Paid, you can move to t4g.medium or t4g.large (§1) whenever traffic needs it. That's a stop, change type, start, about 2 min of downtime.
+
+Set **AWS Budgets** alerts at $5 and $10 per month either way. AWS also emails you at 50/25/10% credits left.
+
+---
+
+## 1. Sizing calculation (Paid plan / later growth)
 
 What the code needs (from `package.json`, `docker-compose.yml`, `main.ts`):
 
@@ -44,7 +90,7 @@ CPU: the load is light (an API backed by a DB, with ES idle most of the time). 2
 
 Disk: OS + Docker images (~3 GB for ES and Mongo) + node_modules + builds (~2 GB) + data + 7 days of local Mongo dumps + logs → **40 GB gp3** gives you plenty of headroom.
 
-### Recommended: **t4g.large** (2 vCPU, 8 GB, Graviton/arm64), region **ap-south-1 (Mumbai)**
+### On the Paid plan: **t4g.large** (2 vCPU, 8 GB, Graviton/arm64), region **ap-south-1 (Mumbai)**
 
 - Mumbai is closest to your users in India.
 - Mongo 7, ES 8.13, Node 20 and `bcrypt` all have arm64 builds, so nothing changes in your code.
@@ -52,9 +98,9 @@ Disk: OS + Docker images (~3 GB for ES and Mongo) + node_modules + builds (~2 GB
 
 ---
 
-## 2. Monthly cost (on-demand, 730 hrs, USD)
+## 2. Monthly cost on the Paid plan (on-demand, 730 hrs, USD)
 
-| Item | Calculation | t4g.medium (4 GB, tight) | **t4g.large (8 GB, recommended)** | t4g.xlarge (16 GB, growth) |
+| Item | Calculation | t4g.medium (4 GB, tight) | **t4g.large (8 GB, recommended on Paid)** | t4g.xlarge (16 GB, growth) |
 |---|---|---|---|---|
 | EC2 | $/hr × 730 | $16.35 | **$32.70** | $65.41 |
 | EBS gp3 40 GB | 40 × $0.0912 | $3.65 | **$3.65** | $3.65 |
@@ -66,7 +112,7 @@ Disk: OS + Docker images (~3 GB for ES and Mongo) + node_modules + builds (~2 GB
 | ≈ INR (at ~₹88/$) | | ~₹2,560 | **~₹4,260** | ~₹7,650 |
 
 Ways to save:
-- **1-year Savings Plan or Reserved Instance (no upfront)** on t4g.large: about $20.66/month for EC2, bringing the subtotal to **≈ $29/month (~$34 with GST)**, roughly 30% cheaper. Buy it after the first month, once you've confirmed the size is right.
+- (Paid plan only) **1-year Savings Plan or Reserved Instance (no upfront)** on t4g.large: about $20.66/month for EC2, bringing the subtotal to **≈ $29/month (~$34 with GST)**, roughly 30% cheaper. Buy it after the first month, once you've confirmed the size is right.
 - Optional extras: Route 53 hosted zone costs $0.50/month (or keep your current DNS provider). S3 for off-box Mongo backups costs a few cents a month.
 - Turn on **AWS Budgets** with an alert at $55 so you hear about a surprise (e.g. T-unlimited CPU surcharge or data transfer above 100 GB) early.
 
@@ -77,9 +123,9 @@ Ways to save:
 1. **Region**: Asia Pacific (Mumbai) `ap-south-1`.
 2. **Launch instance**
    - AMI: **Ubuntu Server 24.04 LTS (64-bit Arm)**
-   - Type: **t4g.large**
+   - Type: **t4g.small** (Free plan; it's labeled *Free tier eligible*). Use t4g.large on Paid if you want search + headroom.
    - Key pair: create one (e.g. `fixxer-prod.pem`) and keep it safe
-   - Storage: **40 GB gp3**, *Delete on termination* = **off**
+   - Storage: **30 GB gp3** (40 GB if you enable Elasticsearch), *Delete on termination* = **off**
    - Credit specification: **Standard** (avoids unlimited-mode charges; switch to Unlimited if you see CPU throttling)
 3. **Security group** `fixxer-prod-sg`, inbound rules:
    | Port | Source |
@@ -185,6 +231,54 @@ If Azure Portal still lists the VM's OS or data disk (or a snapshot of it), you 
 3. Run `mongodump --db fixxer --archive --gzip > fixxer.archive.gz`, then copy the file to EC2.
 4. On EC2, **instead of** running `seed-fresh.sh`, restore the dump with `docker exec -i fixxer-mongo mongorestore --archive --gzip --drop < fixxer.archive.gz`. Then run step 6 of the table above (sync-search) so search works.
 5. In that case put the **old** `FIXXER_CODE_KEY` (from your local `.env`) in the server's `.env`, so existing codes still decrypt.
+
+## Auto-deploy and rollback
+
+**How it works.** Every 2 minutes the server checks `main` on both `Busigrow-main` repos. When there's a new commit it:
+
+1. Builds it in a **new folder**, `/opt/fixxer/releases/<app>/<time>-<sha>/`. The live site isn't touched while it builds.
+2. If the build fails, it **stops there**. The site keeps running the old version, and that commit is skipped until a newer one is merged.
+3. If the build succeeds, it points `/opt/fixxer/current/<app>` at the new folder and restarts the app, which means a few seconds of downtime.
+4. **It runs a health check**: `/api/v1/services` for the API, `/` for the web app.
+5. If the health check fails, it **rolls back automatically** to the previous release and deletes the broken one.
+6. It keeps the last 3 releases of each app, so you can roll back instantly.
+
+```
+merge PR → (≤2 min) server notices → build (~10 min frontend, ~3 min backend) → switch → health check → live
+                                       └ fails → nothing changes            └ fails → auto-rollback
+```
+
+Because the server pulls from GitHub, GitHub never needs SSH access. Port 22 stays locked to your IP, and no server keys are stored in GitHub. The **Build check** GitHub Action runs the same build on every PR, so a red ❌ there means the server would have refused the deploy anyway.
+
+### One-time setup (on the server, as `ubuntu`, no sudo)
+```bash
+cd /opt/fixxer/fixer-backend && git pull
+bash deploy/install-autodeploy.sh
+```
+This moves the `.env` files to `/opt/fixxer/shared/`, builds the first versioned release of both apps, switches PM2 over to them and turns on the 2-minute timer. From then on, `deploy.sh` also goes through the release manager.
+
+### Commands
+| Do this | Command |
+|---|---|
+| See what's live, pending, failed or paused | `fixxer-release status` |
+| Watch a deploy as it happens | `tail -f /var/log/fixxer/deploy.log` |
+| List releases (`*` = live) | `fixxer-release list frontend` |
+| **Roll back** to the previous release | `fixxer-release rollback frontend` |
+| Roll back to a specific release | `fixxer-release rollback backend 20261112-153012-e209073` |
+| Resume auto-deploy after a rollback | `fixxer-release unpin frontend` |
+| Deploy now, without waiting for the timer | `fixxer-release deploy all` |
+| Deploy a specific commit or branch | `fixxer-release deploy frontend <sha-or-branch>` |
+| Rebuild the same commit | `FORCE=1 fixxer-release deploy frontend` |
+| Pause or resume all auto-deploys | `sudo systemctl stop fixxer-autodeploy.timer` / `start` |
+
+**After a manual rollback, auto-deploy is paused for that app.** Otherwise it would immediately redeploy the bad commit that's still on `main`. Fix the problem with a new PR, then run `fixxer-release unpin <app>`. Running `fixxer-release deploy <app>` by hand also unpins it.
+
+**Rollback covers code only.** MongoDB data isn't rolled back. For data, use the nightly dumps in `/opt/fixxer/backups` (§9).
+
+**Changing environment variables:** edit `/opt/fixxer/shared/backend.env` (or `frontend.env.production`), then:
+- backend: `pm2 reload fixxer-api --update-env`
+- frontend: `FORCE=1 fixxer-release deploy frontend`, because `NEXT_PUBLIC_*` values are baked in at build time.
+
 
 ## 9. Backups and housekeeping
 
