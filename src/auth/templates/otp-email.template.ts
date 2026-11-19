@@ -64,7 +64,7 @@ export function buildOtpEmail(code: string, toEmail: string): OtpEmailContent {
     `Warranty Policy: ${warrantyUrl}`,
     '',
     'Cool Air Refrigeration · MLA Colony, Raja Bazar, Patna 800014',
-    'Support: +91 70047 71388 · busigrowindia@gmail.com',
+    'Support: +91 70047 71388 · grow@busigrow.in',
     '© Fixxer. All rights reserved.',
   ].join('\n');
 
@@ -161,7 +161,7 @@ export function buildOtpEmail(code: string, toEmail: string): OtpEmailContent {
                 Support:
                 <a href="tel:+917004771388" style="color:${BRAND.primary};text-decoration:none;">+91 70047 71388</a>
                 ·
-                <a href="mailto:busigrowindia@gmail.com" style="color:${BRAND.primary};text-decoration:none;">busigrowindia@gmail.com</a>
+                <a href="mailto:grow@busigrow.in" style="color:${BRAND.primary};text-decoration:none;">grow@busigrow.in</a>
               </p>
               <p style="margin:0;font-size:11px;color:${BRAND.onSurfaceVariant};">
                 © ${new Date().getFullYear()} Fixxer. All rights reserved.

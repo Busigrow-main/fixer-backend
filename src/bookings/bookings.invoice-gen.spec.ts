@@ -117,6 +117,30 @@ describe('BookingsService – Invoice Generation', () => {
     expect(result.invoiceData.spareParts).toHaveLength(2);
   });
 
+  it('bills only the net inventory quantity retained after a partial return', async () => {
+    const booking = await bookingModel.create({
+      userId: new Types.ObjectId(),
+      serviceId: serviceDoc._id,
+      subCategoryId: serviceDoc.subCategories[0]._id,
+      contactPhone: '9999999999',
+      addressData: { zip: '110001', text: 'Test' },
+      status: 'IN_PROGRESS',
+    });
+    mockVisits.findByBooking.mockResolvedValue([
+      {
+        partsUsed: [
+          { isThirdParty: false, sourcedBy: 'INVENTORY', sparePartId: { name: 'Motor' }, cost: 200, quantity: 3 },
+          { isThirdParty: false, sourcedBy: 'INVENTORY', sparePartId: { name: 'Fully returned relay' }, cost: 80, quantity: 0 },
+        ],
+      },
+    ]);
+
+    const result = await service.generateInvoiceData(booking._id.toString(), { returnDetail: false });
+    expect(result.invoiceData.partsTotal).toBe(600);
+    expect(result.invoiceData.spareParts).toHaveLength(1);
+    expect(result.invoiceData.spareParts[0].quantity).toBe(3);
+  });
+
   it('preserves manualOverride serviceTotal', async () => {
     const booking = await bookingModel.create({
       userId: new Types.ObjectId(),

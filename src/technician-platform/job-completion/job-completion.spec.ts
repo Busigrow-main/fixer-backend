@@ -172,6 +172,7 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
 
     // Invoice should be computed from catalog (₹500); service bills add 18% GST on top.
     expect(result.invoiceData.serviceTotal).toBe(500);
+    // Labour is ₹500 before GST; service invoices add 18% GST (₹90).
     expect(result.invoiceData.totalAmount).toBeCloseTo(590, 2);
   });
 

@@ -66,7 +66,8 @@ export function buildInvoicePdf(input: InvoicePdfInput): Promise<Buffer> {
 
     doc.rect(0, 0, doc.page.width, 92).fill(RED);
     doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(26).text('Fixxer', 48, 28);
-    doc.font('Helvetica').fontSize(10).text('Service bill  ·  Cool Air Refrigeration, Patna', 48, 58);
+    doc.font('Helvetica').fontSize(10).text('Cool Air Refrigeration · MLA Colony, Raja Bazar, Patna 800014, Bihar', 48, 58);
+    doc.font('Helvetica').fontSize(9).text('GSTIN: 10AHKPR1007K2ZM · +91 70047 71388', 48, 73);
 
     doc.fillColor(INK).font('Helvetica-Bold').fontSize(16).text('Service bill', 48, 112);
     doc.font('Helvetica').fontSize(10).fillColor(MUTED);
@@ -221,11 +222,12 @@ export function buildInvoicePdf(input: InvoicePdfInput): Promise<Buffer> {
       );
     }
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(INK).text('For Fixxer', 380, y);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(INK).text('For Cool Air Refrigeration', 380, y);
     doc.font('Helvetica').fontSize(9).fillColor(MUTED).text('Authorised signatory', 380, y + 36);
     doc.text('Cool Air Refrigeration', 380, y + 50);
     doc.text('MLA Colony, Raja Bazar, Patna 800014', 380, y + 64);
     doc.text('+91 70047 71388', 380, y + 78);
+    doc.text('GSTIN: 10AHKPR1007K2ZM', 380, y + 92);
 
     doc.end();
   });
