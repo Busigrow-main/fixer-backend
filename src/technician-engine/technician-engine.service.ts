@@ -54,6 +54,11 @@ export class TechnicianEngineService {
     return this.applyJobEvent(technicianId, 'RELEASED');
   }
 
+  /** Booking was cancelled — the assigned technician goes back to the AVAILABLE pool. */
+  async onJobCancelled(technicianId: string) {
+    return this.applyJobEvent(technicianId, 'JOB_CANCELLED');
+  }
+
   /**
    * Release previous tech (if any) back to AVAILABLE and put the new tech ON_JOB.
    */

@@ -1,35 +1,40 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
+import { LeadsService } from './leads.service';
+import { Lead } from './schemas/lead.schema';
 
-import {
-  Lead,
-  LeadDocument,
-} from './schemas/lead.schema';
+describe('LeadsService', () => {
+  let service: LeadsService;
+  const exec = jest.fn();
+  const sort = jest.fn(() => ({ exec }));
+  const leadModel = {
+    create: jest.fn(async (doc: unknown) => doc),
+    find: jest.fn(() => ({ sort })),
+  };
 
-import { CreateLeadDto } from './dto/create-lead.dto';
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [LeadsService, { provide: getModelToken(Lead.name), useValue: leadModel }],
+    }).compile();
 
-@Injectable()
-export class LeadsService {
-  constructor(
-    @InjectModel(Lead.name)
-    private readonly leadModel: Model<LeadDocument>,
-  ) {}
+    service = module.get(LeadsService);
+  });
 
-  async create(
-    createLeadDto: CreateLeadDto,
-    userId: string,
-  ): Promise<Lead> {
-    return this.leadModel.create({
-      ...createLeadDto,
-      userId,
-    });
-  }
+  it('creates a lead owned by the given user', async () => {
+    const dto = { name: 'Test Lead' } as any;
+    const result = await service.create(dto, 'user-1');
 
-  async findAll(): Promise<Lead[]> {
-    return this.leadModel
-      .find()
-      .sort({ createdAt: -1 })
-      .exec();
-  }
-}
+    expect(leadModel.create).toHaveBeenCalledWith({ name: 'Test Lead', userId: 'user-1' });
+    expect(result).toEqual({ name: 'Test Lead', userId: 'user-1' });
+  });
+
+  it('lists leads newest first', async () => {
+    exec.mockResolvedValueOnce([{ name: 'b' }, { name: 'a' }]);
+    const result = await service.findAll();
+
+    expect(leadModel.find).toHaveBeenCalledWith();
+    expect(sort).toHaveBeenCalledWith({ createdAt: -1 });
+    expect(result).toEqual([{ name: 'b' }, { name: 'a' }]);
+  });
+});

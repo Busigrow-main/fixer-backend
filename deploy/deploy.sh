@@ -2,6 +2,8 @@
 # Build + (re)start everything. Safe to rerun for every release.
 # Usage: bash /opt/fixxer/fixer-backend/deploy/deploy.sh [backend|frontend|all]
 set -euo pipefail
+# After install-autodeploy.sh, all deploys go through the versioned release manager.
+if [[ -x /opt/fixxer/bin/fixxer-release ]]; then exec /opt/fixxer/bin/fixxer-release deploy "${1:-all}"; fi
 TARGET=${1:-all}
 ROOT=/opt/fixxer
 DEPLOY="$ROOT/fixer-backend/deploy"

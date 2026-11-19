@@ -22,6 +22,7 @@
     "seed:shop-appliances": "ts-node -r tsconfig-paths/register src/scripts/seed-shop-appliances.ts",
     "seed:shop-catalog": "ts-node -r tsconfig-paths/register src/scripts/seed-shop-catalog.ts",
     "seed:offers": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-offers.ts",
+    "technicians:release-stale": "ts-node -r tsconfig-paths/register src/scripts/release-stale-technicians.ts",
     "earnings:recalc": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
     "db:adapt": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
     "ac:scrape": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/scrape-product-images.ts",

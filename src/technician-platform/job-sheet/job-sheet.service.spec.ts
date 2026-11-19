@@ -19,6 +19,7 @@ import { JobDispatchService } from '../dispatch/job-dispatch.service';
 import { NotificationDispatchService } from '../common/notification-dispatch.service';
 import { ServiceablePincodesService } from '../../serviceable-pincodes/serviceable-pincodes.service';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { GstService } from '../../gst/gst.service';
 
 describe('JobSheetService', () => {
   jest.setTimeout(30000);
@@ -74,6 +75,7 @@ describe('JobSheetService', () => {
       providers: [
         JobSheetService,
         BookingsService,
+        GstService,
         { provide: VisitsService, useValue: mockVisits },
         { provide: SparePartsService, useValue: mockSpareParts },
         { provide: WarrantiesService, useValue: mockWarranties },

@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import axios from 'axios';
 import { Booking, BookingDocument } from './schemas/booking.schema';
-import { AzureEmailService } from '../auth/azure-email.service';
+import { EmailService } from '../auth/email.service';
 import { buildInvoicePdf } from './invoice-pdf';
 import { buildBillEmail, buildConfirmationEmail, buildAssignmentEmail } from './templates/bill-email.template';
 import { EmailLine, formatInr } from '../mail/email-layout';
@@ -16,7 +16,7 @@ export class BillEmailService {
   constructor(
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<BookingDocument>,
-    private readonly azureEmail: AzureEmailService,
+    private readonly email: EmailService,
   ) {}
 
   async sendConfirmation(bookingId: string): Promise<{ sent: boolean; reason?: string }> {
@@ -32,7 +32,7 @@ export class BillEmailService {
 
     const view = this.confirmationView(booking);
     const message = buildConfirmationEmail(view);
-    await this.azureEmail.sendMessage({
+    await this.email.sendMessage({
       to: email,
       subject: message.subject,
       plainText: message.plainText,
@@ -60,7 +60,7 @@ export class BillEmailService {
 
     const view = this.confirmationView(booking);
     const message = buildAssignmentEmail({ ...view, fixxerCode });
-    await this.azureEmail.sendMessage({
+    await this.email.sendMessage({
       to: email,
       subject: message.subject,
       plainText: message.plainText,
@@ -116,7 +116,7 @@ export class BillEmailService {
     });
 
     const message = buildBillEmail(view);
-    await this.azureEmail.sendMessage({
+    await this.email.sendMessage({
       to: email,
       subject: message.subject,
       plainText: message.plainText,

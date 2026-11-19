@@ -41,7 +41,7 @@ export function assertAvailabilityStatus(value: string): AvailabilityStatus {
 
 /**
  * Core rule: putting a technician on a job removes them from the AVAILABLE pool.
- * Completing the job (or payment / reject / release) returns them to AVAILABLE.
+ * Completing the job (or payment / reject / cancel / release) returns them to AVAILABLE.
  */
 export function availabilityForJobEvent(
   event: TechnicianJobEvent,
@@ -55,6 +55,7 @@ export function availabilityForJobEvent(
     case 'REJECTED':
     case 'JOB_COMPLETED':
     case 'JOB_PAYMENT_COLLECTED':
+    case 'JOB_CANCELLED':
     case 'RELEASED':
       return 'AVAILABLE';
     default:

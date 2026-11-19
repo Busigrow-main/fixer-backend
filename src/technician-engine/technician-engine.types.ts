@@ -42,4 +42,5 @@ export type TechnicianJobEvent =
   | 'JOB_IN_PROGRESS'
   | 'JOB_COMPLETED'
   | 'JOB_PAYMENT_COLLECTED'
+  | 'JOB_CANCELLED'
   | 'RELEASED';

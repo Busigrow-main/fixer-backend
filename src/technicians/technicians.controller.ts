@@ -30,11 +30,18 @@ export class TechniciansController {
 
   @Post()
   create(@Body() createData: any) {
+    // An admin adding a technician is the approval + verification step, so the
+    // technician must pass every isActive/idVerified gate (technician app,
+    // dispatch, open-job claims) — not just the admin assign dropdown.
+    const now = new Date();
     return this.techniciansService.create({
       ...createData,
-      onboardingStatus: 'APPROVED',
+      onboardingStatus: 'COMPLETED',
+      onboardingCompletedAt: now,
+      verificationStatus: 'VERIFIED',
+      idVerified: true,
       isActive: true,
-      approvedAt: new Date(),
+      approvedAt: now,
     });
   }
 

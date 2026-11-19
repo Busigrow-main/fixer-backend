@@ -18,6 +18,7 @@ import { CheckoutService } from './checkout.service';
 import { InstallationService } from './installation.service';
 import { ShopCart, ShopCartSchema } from './schemas/cart.schema';
 import { ShopService } from './shop.service';
+import { GstService } from '../gst/gst.service';
 
 describe('Fixxer shop APIs', () => {
   jest.setTimeout(60000);
@@ -55,6 +56,7 @@ describe('Fixxer shop APIs', () => {
         AppliancesService,
         OffersService,
         PartOrdersService,
+        GstService,
         ServiceablePincodesService,
         InstallationService,
         CartService,

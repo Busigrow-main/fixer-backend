@@ -6,7 +6,7 @@
 set -euo pipefail
 : "${ADMIN_PHONE:?set ADMIN_PHONE}"; : "${ADMIN_PASSWORD:?set ADMIN_PASSWORD}"
 ADMIN_NAME=${ADMIN_NAME:-"Fixxer Admin"}
-cd /opt/fixxer/fixer-backend
+cd /opt/fixxer/current/backend 2>/dev/null || cd /opt/fixxer/fixer-backend
 set -a; source .env; set +a          # MONGO_URI=mongodb://127.0.0.1:27017/fixxer
 
 COUNT=$(docker exec fixxer-mongo mongosh fixxer --quiet --eval 'db.getCollectionNames().length')
@@ -27,7 +27,7 @@ node seed.js ./MARUTI_SPARE_2025.xlsx
 echo "==> 4/6 AC appliances (ac-stock-2026.json + Cloudinary images)"
 npm run ac:seed
 
-echo "==> 5/6 Allowed technician pincodes"
+echo "==> 5/6 Serviceable + technician pincodes (800014, 800025)"
 npx ts-node -r tsconfig-paths/register -r dotenv/config src/scripts/seed-allowed-pincodes.ts
 
 if [ "${DEMO:-0}" = "1" ]; then

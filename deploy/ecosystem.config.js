@@ -1,9 +1,10 @@
-// PM2 process file — run from /opt/fixxer:  pm2 start fixer-backend/deploy/ecosystem.config.js
+// PM2 process file. Apps run from /opt/fixxer/current/<app> (symlink to the live release).
+// Managed by fixxer-release — don't pm2 start it by hand.
 module.exports = {
   apps: [
     {
       name: 'fixxer-api',
-      cwd: '/opt/fixxer/fixer-backend',
+      cwd: '/opt/fixxer/current/backend',
       script: 'dist/main.js',
       instances: 1,              // keep 1: @Cron jobs (ops queue sync) must not run twice
       exec_mode: 'fork',
@@ -16,7 +17,7 @@ module.exports = {
     },
     {
       name: 'fixxer-web',
-      cwd: '/opt/fixxer/fixer-frontend',
+      cwd: '/opt/fixxer/current/frontend',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3000 -H 127.0.0.1',
       instances: 1,

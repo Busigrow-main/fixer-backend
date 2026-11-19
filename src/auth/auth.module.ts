@@ -10,6 +10,7 @@ import { AuthController } from './auth.controller';
 import { RolesGuard } from './guards/roles.guard';
 import { EmailOtpService } from './email-otp.service';
 import { AzureEmailService } from './azure-email.service';
+import { EmailService } from './email.service';
 import {
   EmailOtpSession,
   EmailOtpSessionSchema,
@@ -37,8 +38,9 @@ import { QuickLoginRateLimitGuard } from './guards/quick-login-rate-limit.guard'
     QuickLoginRateLimitGuard,
     EmailOtpService,
     AzureEmailService,
+    EmailService,
   ],
   controllers: [AuthController],
-  exports: [AuthService, RolesGuard, JwtModule, AzureEmailService],
+  exports: [AuthService, RolesGuard, JwtModule, AzureEmailService, EmailService],
 })
 export class AuthModule {}
