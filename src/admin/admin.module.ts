@@ -10,9 +10,39 @@ import { WarrantiesModule } from '../warranties/warranties.module';
 import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
 import { ShopModule } from '../shop/shop.module';
 import { OpsModule } from '../ops/ops.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
+import {
+  CustomerAppliance,
+  CustomerApplianceSchema,
+} from '../customer-appliances/schemas/customer-appliance.schema';
+import { Visit, VisitSchema } from '../visits/schemas/visit.schema';
+import {
+  PartInventoryTransaction,
+  PartInventoryTransactionSchema,
+} from '../visits/schemas/part-inventory-transaction.schema';
+import { Feedback, FeedbackSchema } from '../feedback/schemas/feedback.schema';
+import {
+  Warranty,
+  WarrantySchema,
+} from '../warranties/schemas/warranty.schema';
+import { CustomerServiceHistoryService } from './customer-service-history.service';
 
 @Module({
   imports: [
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+      { name: Booking.name, schema: BookingSchema },
+      { name: CustomerAppliance.name, schema: CustomerApplianceSchema },
+      { name: Visit.name, schema: VisitSchema },
+      {
+        name: PartInventoryTransaction.name,
+        schema: PartInventoryTransactionSchema,
+      },
+      { name: Feedback.name, schema: FeedbackSchema },
+      { name: Warranty.name, schema: WarrantySchema },
+    ]),
     AuthModule,
     UsersModule,
     BookingsModule,
@@ -24,6 +54,6 @@ import { OpsModule } from '../ops/ops.module';
     OpsModule,
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, CustomerServiceHistoryService],
 })
 export class AdminModule {}
