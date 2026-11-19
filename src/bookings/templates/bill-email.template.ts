@@ -97,7 +97,7 @@ export function buildConfirmationEmail(input: ConfirmationMailInput) {
     ...links.map(([label, href]) => `${label}: ${href}`),
     '',
     'Cool Air Refrigeration · MLA Colony, Raja Bazar, Patna 800014',
-    '+91 70047 71388 · busigrowindia@gmail.com',
+    '+91 70047 71388 · grow@busigrow.in',
   ]
     .filter((line) => line !== '')
     .join('\n');
@@ -166,7 +166,7 @@ export function buildAssignmentEmail(
     'Give this code only to your Fixxer technician, or to Fixxer support, when the job is finished. The job cannot be closed without it.',
     '',
     'Cool Air Refrigeration · MLA Colony, Raja Bazar, Patna 800014',
-    '+91 70047 71388 · busigrowindia@gmail.com',
+    '+91 70047 71388 · grow@busigrow.in',
   ]
     .filter((line) => line !== '')
     .join('\n');
@@ -221,7 +221,7 @@ export function buildBillEmail(input: BookingMailInput) {
     'Keep this email with the attached bill.',
     '',
     'Cool Air Refrigeration · MLA Colony, Raja Bazar, Patna 800014',
-    '+91 70047 71388 · busigrowindia@gmail.com',
+    '+91 70047 71388 · grow@busigrow.in',
   ].join('\n');
 
   const html = renderEmail({

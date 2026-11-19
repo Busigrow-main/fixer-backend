@@ -4,12 +4,14 @@ services:
   mongo:
     image: mongo:7
     container_name: fixxer-mongo
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+      - ./deploy/init-mongo-replica-set.js:/docker-entrypoint-initdb.d/replica-set.js:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.hello().isWritablePrimary ? 0 : quit(1)"]
       interval: 10s
       timeout: 5s
       retries: 10

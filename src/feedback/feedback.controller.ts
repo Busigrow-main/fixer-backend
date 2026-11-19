@@ -52,6 +52,13 @@ export class FeedbackController {
   }
 
   @Roles('ADMIN')
+  @Get('admin/feedback')
+  @ApiOperation({ summary: 'List all customer feedback' })
+  listFeedback(@Query() query: FeedbackFollowUpQueryDto) {
+    return this.feedbackService.listFeedback(query.page, query.limit);
+  }
+
+  @Roles('ADMIN')
   @Get('admin/feedback-follow-ups')
   @ApiOperation({ summary: 'List unhappy-customer recovery follow-ups' })
   listFollowUps(@Query() query: FeedbackFollowUpQueryDto) {

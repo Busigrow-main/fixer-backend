@@ -13,7 +13,7 @@ import {
   OfferDocument,
 } from './schemas/offer.schema';
 
-type OfferInput = Partial<Offer> & Pick<Offer, 'title' | 'discountText'>;
+type OfferInput = Partial<Offer>;
 
 @Injectable()
 export class OffersService {
@@ -65,14 +65,6 @@ export class OffersService {
   private normalize(input: OfferInput) {
     const title = this.cleanText(input.title, 90);
     const discountText = this.cleanText(input.discountText, 40);
-
-    if (!title) {
-      throw new BadRequestException('Offer title is required');
-    }
-
-    if (!discountText) {
-      throw new BadRequestException('Discount text is required');
-    }
 
     const startsAt = this.cleanDate(input.startsAt);
     const endsAt = this.cleanDate(input.endsAt);
