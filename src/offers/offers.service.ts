@@ -41,12 +41,12 @@ export class OffersService {
   private cleanImageUrl(value: unknown): string {
     const url = this.cleanText(value, 1000);
 
-    if (!url || /^https:\/\/[^ ]+$/i.test(url)) {
+    if (/^https:\/\/[^ ]+$/i.test(url)) {
       return url;
     }
 
     throw new BadRequestException(
-      'Background image must use an HTTPS URL',
+      'Background image is required and must use an HTTPS URL',
     );
   }
 
