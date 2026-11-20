@@ -45,7 +45,7 @@ import {
   assertAssignableTechnician,
   assertBookingAssignable,
   TechnicianEngineError,
-  TERMINAL_BOOKING_STATUSES,
+  activeJobQuery,
 } from '../technician-engine/technician-engine';
 import { assertValidCalendarDate } from '../common/calendar-date';
 import { GstService } from '../gst/gst.service';
@@ -205,9 +205,8 @@ export class BookingsService {
   ): Promise<boolean> {
     if (!Types.ObjectId.isValid(technicianId)) return false;
     const filter: Record<string, unknown> = {
+      ...activeJobQuery(),
       technicianId: new Types.ObjectId(technicianId),
-      status: { $nin: [...TERMINAL_BOOKING_STATUSES] },
-      assignmentStatus: { $ne: 'DECLINED' },
     };
     if (excludeBookingId && Types.ObjectId.isValid(excludeBookingId)) {
       filter._id = { $ne: new Types.ObjectId(excludeBookingId) };
@@ -1241,7 +1240,10 @@ export class BookingsService {
           !(await this.technicianHasOtherActiveJob(String(tech._id), id))
         ) {
           await this.technicianModel
-            .updateOne({ _id: tech._id }, { $set: { availabilityStatus: 'AVAILABLE' } })
+            .updateOne(
+              { _id: tech._id, availabilityStatus: 'ON_JOB' },
+              { $set: { availabilityStatus: 'AVAILABLE' } },
+            )
             .exec();
           tech.availabilityStatus = 'AVAILABLE';
         }

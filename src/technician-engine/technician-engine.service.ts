@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { TechniciansService } from '../technicians/technicians.service';
 import {
   assertAssignableTechnician,
-  assertAvailabilityStatus,
+  assertManualAvailabilityChange,
   assertBookingAssignable as assertBookingNotTerminal,
   assertCanAcceptAssignment,
   assertCanClaimJob,
@@ -40,6 +40,11 @@ export class TechnicianEngineService {
   ): Promise<AvailabilityStatus | null> {
     const next = availabilityForJobEvent(event);
     if (!next) return null;
+    if (next === 'AVAILABLE') {
+      // Only free a technician who is ON_JOB — never override UNAVAILABLE (off duty).
+      await this.techniciansService.releaseFromJob(technicianId);
+      return next;
+    }
     await this.techniciansService.update(technicianId, {
       availabilityStatus: next,
     });
@@ -134,9 +139,13 @@ export class TechnicianEngineService {
     }
   }
 
-  assertManualAvailability(status: string): AvailabilityStatus {
+  /** Technician's own switch — see assertManualAvailabilityChange for the rules. */
+  assertManualAvailability(
+    status: string,
+    hasActiveJob = false,
+  ): AvailabilityStatus {
     try {
-      return assertAvailabilityStatus(status);
+      return assertManualAvailabilityChange(status, hasActiveJob);
     } catch (err) {
       toHttp(err);
     }
@@ -168,12 +177,12 @@ export class TechnicianEngineService {
     if (event === 'JOB_PAYMENT_COLLECTED') {
       const tech = await this.techniciansService.findOne(technicianId);
       await this.techniciansService.update(technicianId, {
-        availabilityStatus: 'AVAILABLE',
         totalCompletedJobs:
           opts?.totalCompletedJobs != null
             ? opts.totalCompletedJobs
             : Number(tech.totalCompletedJobs || 0) + 1,
       });
+      await this.techniciansService.releaseFromJob(technicianId);
       return;
     }
 

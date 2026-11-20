@@ -76,6 +76,7 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
     const techniciansService: any = {
       findOne: jest.fn().mockResolvedValue(tech),
       update: jest.fn(),
+      releaseFromJob: jest.fn().mockResolvedValue(true),
     };
     const jobDispatch: any = {
       expireIfNeeded: jest.fn().mockResolvedValue(false),
@@ -171,8 +172,6 @@ describe('TechnicianJobsService claim + available (mocked)', () => {
     expect(update.$unset.fixxerCodeAuthTag).toBe(1);
     expect(update.$unset.fixxerCodeVerifiedAt).toBe(1);
     expect(update.$set.technicianId).toBeNull();
-    expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
-      availabilityStatus: 'AVAILABLE',
-    });
+    expect(techniciansService.releaseFromJob).toHaveBeenCalledWith(technicianId);
   });
 });

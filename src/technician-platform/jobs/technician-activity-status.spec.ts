@@ -100,6 +100,8 @@ describe('Technician activity + job status flow', () => {
       update: jest.fn().mockImplementation((_id: string, patch: any) =>
         Promise.resolve({ ...tech, ...patch }),
       ),
+      releaseFromJob: jest.fn().mockResolvedValue(true),
+      hasActiveJob: jest.fn().mockResolvedValue(false),
     };
 
     const jobDispatch: any = {
@@ -194,9 +196,7 @@ describe('Technician activity + job status flow', () => {
         }),
         expect.any(Object),
       );
-      expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
-        availabilityStatus: 'AVAILABLE',
-      });
+      expect(techniciansService.releaseFromJob).toHaveBeenCalledWith(technicianId);
       expect(jobDispatch.broadcastJob).toHaveBeenCalledWith(jobId);
     });
   });
@@ -247,10 +247,10 @@ describe('Technician activity + job status flow', () => {
 
       await service.updateStatus(technicianId, jobId, 'PAYMENT_COLLECTED');
 
-      expect(techniciansService.update).toHaveBeenCalledWith(
-        technicianId,
-        expect.objectContaining({ availabilityStatus: 'AVAILABLE' }),
-      );
+      expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
+        totalCompletedJobs: 5,
+      });
+      expect(techniciansService.releaseFromJob).toHaveBeenCalledWith(technicianId);
     });
   });
 
@@ -325,27 +325,80 @@ describe('Technician activity + job status flow', () => {
     });
   });
 
-  describe('profile availability override (breakpoint)', () => {
-    it('allows forcing AVAILABLE with no check against active IN_PROGRESS jobs', async () => {
+  describe('technician availability switch', () => {
+    function buildProfile(hasActiveJob: boolean) {
       const techniciansService: any = {
-        update: jest.fn().mockResolvedValue({ availabilityStatus: 'AVAILABLE' }),
+        update: jest.fn().mockImplementation((_id: string, patch: any) =>
+          Promise.resolve(patch),
+        ),
+        hasActiveJob: jest.fn().mockResolvedValue(hasActiveJob),
       };
       const engine = new TechnicianEngineService(techniciansService);
       const profile = new TechnicianProfileService(techniciansService, engine);
+      return { profile, techniciansService };
+    }
+
+    it('allows going AVAILABLE when the technician has no open job', async () => {
+      const { profile, techniciansService } = buildProfile(false);
 
       await profile.updateAvailability(technicianId, 'AVAILABLE');
 
+      expect(techniciansService.hasActiveJob).toHaveBeenCalledWith(technicianId);
       expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
         availabilityStatus: 'AVAILABLE',
       });
     });
 
-    it('rejects unknown availability values', () => {
-      const techniciansService: any = { update: jest.fn() };
-      const engine = new TechnicianEngineService(techniciansService);
-      const profile = new TechnicianProfileService(techniciansService, engine);
-      expect(() => profile.updateAvailability(technicianId, 'ONLINE')).toThrow(
+    it('blocks going AVAILABLE while on an open job (prevents double booking)', async () => {
+      const { profile, techniciansService } = buildProfile(true);
+
+      await expect(profile.updateAvailability(technicianId, 'AVAILABLE')).rejects.toThrow(
+        /Finish your current job/,
+      );
+      expect(techniciansService.update).not.toHaveBeenCalled();
+    });
+
+    it('always allows going UNAVAILABLE, even mid-job, without querying jobs', async () => {
+      const { profile, techniciansService } = buildProfile(true);
+
+      await profile.updateAvailability(technicianId, 'UNAVAILABLE');
+
+      expect(techniciansService.hasActiveJob).not.toHaveBeenCalled();
+      expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
+        availabilityStatus: 'UNAVAILABLE',
+      });
+    });
+
+    it('does not let a technician set ON_JOB by hand', async () => {
+      const { profile, techniciansService } = buildProfile(false);
+
+      await expect(profile.updateAvailability(technicianId, 'ON_JOB')).rejects.toBeInstanceOf(
         BadRequestException,
+      );
+      expect(techniciansService.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects unknown availability values', async () => {
+      const { profile } = buildProfile(false);
+      await expect(profile.updateAvailability(technicianId, 'ONLINE')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('engine release never overrides UNAVAILABLE', () => {
+    it('frees via releaseFromJob (ON_JOB -> AVAILABLE only), not a blind update', async () => {
+      const { service, techniciansService } = buildJobsService({
+        booking: { assignmentStatus: 'PENDING_ACCEPTANCE' },
+        tech: { availabilityStatus: 'UNAVAILABLE' },
+      });
+
+      await service.rejectJob(technicianId, jobId, 'Off duty');
+
+      expect(techniciansService.releaseFromJob).toHaveBeenCalledWith(technicianId);
+      expect(techniciansService.update).not.toHaveBeenCalledWith(
+        technicianId,
+        expect.objectContaining({ availabilityStatus: 'AVAILABLE' }),
       );
     });
   });
