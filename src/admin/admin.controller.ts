@@ -48,6 +48,7 @@ import {
   TrackingDto,
 } from '../common/body.dto';
 import { ShopSettingsService } from '../shop/shop-settings.service';
+import { CustomerServiceHistoryService } from './customer-service-history.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const csv = require('csv-parser');
@@ -82,6 +83,7 @@ export class AdminController {
     private readonly warrantiesService: WarrantiesService,
     private readonly serviceablePincodesService: ServiceablePincodesService,
     private readonly shopSettingsService: ShopSettingsService,
+    private readonly customerServiceHistoryService: CustomerServiceHistoryService,
   ) {}
 
   // ─── Dashboard ────────────────────────────────────────────
@@ -147,6 +149,20 @@ export class AdminController {
     return this.adminService.getUsers(
       parseInt(page),
       parseInt(limit),
+    );
+  }
+
+  @Get('customers/:customerId/service-history')
+  @ApiOperation({ summary: 'Get a customer profile with paginated booking and service history' })
+  async getCustomerServiceHistory(
+    @Param('customerId') customerId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.customerServiceHistoryService.getCustomerServiceHistory(
+      customerId,
+      Number(page),
+      Number(limit),
     );
   }
 
