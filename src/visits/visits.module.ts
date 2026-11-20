@@ -3,11 +3,15 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { VisitsController } from './visits.controller';
 import { VisitsService } from './visits.service';
 import { Visit, VisitSchema } from './schemas/visit.schema';
-import { SparePartUsage, SparePartUsageSchema } from './schemas/spare-part-usage.schema';
+import {
+  SparePartUsage,
+  SparePartUsageSchema,
+} from './schemas/spare-part-usage.schema';
 import { SparePartsModule } from '../spare-parts/spare-parts.module';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 import { SparePartSchema } from '../spare-parts/schemas/spare-part.schema';
 import { WarrantiesModule } from '../warranties/warranties.module';
+import { AuthModule } from '../auth/auth.module';
 import {
   PartInventoryTransaction,
   PartInventoryTransactionSchema,
@@ -23,10 +27,11 @@ import {
         schema: PartInventoryTransactionSchema,
       },
       { name: Booking.name, schema: BookingSchema },
-      { name: 'SparePart', schema: SparePartSchema }
+      { name: 'SparePart', schema: SparePartSchema },
     ]),
     SparePartsModule,
     WarrantiesModule,
+    AuthModule,
   ],
   controllers: [VisitsController],
   providers: [VisitsService],
