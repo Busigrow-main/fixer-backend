@@ -4,6 +4,8 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Model, Types } from 'mongoose';
 
 import { Booking, BookingDocument, BookingSchema } from '../../bookings/schemas/booking.schema';
+import { Feedback, FeedbackDocument, FeedbackSchema } from '../../feedback/schemas/feedback.schema';
+import { Visit, VisitDocument, VisitSchema } from '../../visits/schemas/visit.schema';
 import { Earning, EarningDocument, EarningSchema } from '../schemas/earning.schema';
 import {
   Settlement,
@@ -12,6 +14,7 @@ import {
   SettlementSchema,
   SettlementStatus,
 } from '../settlements/schemas/settlement.schema';
+import { SettlementItem, SettlementItemDocument, SettlementItemSchema } from '../settlements/schemas/settlement-item.schema';
 import { PerformanceSummaryService } from './performance-summary.service';
 import {
   PerformanceSummaryGenerationStatus,
@@ -30,6 +33,9 @@ describe('PerformanceSummaryService', () => {
   let earningModel: Model<EarningDocument>;
   let settlementModel: Model<SettlementDocument>;
   let summaryModel: Model<ServicePerformanceSummaryDocument>;
+  let feedbackModel: Model<FeedbackDocument>;
+  let visitModel: Model<VisitDocument>;
+  let settlementItemModel: Model<SettlementItemDocument>;
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
@@ -40,6 +46,9 @@ describe('PerformanceSummaryService', () => {
           { name: Booking.name, schema: BookingSchema },
           { name: Earning.name, schema: EarningSchema },
           { name: Settlement.name, schema: SettlementSchema },
+          { name: SettlementItem.name, schema: SettlementItemSchema },
+          { name: Feedback.name, schema: FeedbackSchema },
+          { name: Visit.name, schema: VisitSchema },
           {
             name: ServicePerformanceSummary.name,
             schema: ServicePerformanceSummarySchema,
@@ -54,6 +63,9 @@ describe('PerformanceSummaryService', () => {
     earningModel = moduleRef.get(getModelToken(Earning.name));
     settlementModel = moduleRef.get(getModelToken(Settlement.name));
     summaryModel = moduleRef.get(getModelToken(ServicePerformanceSummary.name));
+    feedbackModel = moduleRef.get(getModelToken(Feedback.name));
+    visitModel = moduleRef.get(getModelToken(Visit.name));
+    settlementItemModel = moduleRef.get(getModelToken(SettlementItem.name));
   });
 
   beforeEach(async () => {
@@ -62,6 +74,9 @@ describe('PerformanceSummaryService', () => {
       earningModel.deleteMany({}),
       settlementModel.deleteMany({}),
       summaryModel.deleteMany({}),
+      feedbackModel.deleteMany({}),
+      visitModel.deleteMany({}),
+      settlementItemModel.deleteMany({}),
     ]);
   });
 
@@ -92,6 +107,7 @@ describe('PerformanceSummaryService', () => {
         createdAt: new Date('2026-11-10T19:00:00.000Z'),
         jobClosed: true,
         jobClosedAt: new Date('2026-11-11T04:00:00.000Z'),
+        jobClosedByTechnicianId: technicianId,
       }),
       bookingData({
         technicianId,
@@ -113,6 +129,7 @@ describe('PerformanceSummaryService', () => {
         createdAt: new Date('2026-11-09T10:00:00.000Z'),
         jobClosed: true,
         jobClosedAt: new Date('2026-11-11T06:00:00.000Z'),
+        jobClosedByTechnicianId: technicianId,
       }),
     ]);
     await earningModel.create([
@@ -232,6 +249,128 @@ describe('PerformanceSummaryService', () => {
     expect(String(second._id)).toBe(String(first._id));
     expect(await summaryModel.countDocuments({ businessDate: '2026-11-11' })).toBe(1);
     expect(second.generationStatus).toBe(PerformanceSummaryGenerationStatus.COMPLETED);
+  });
+
+  it('calculates the revised metric cohorts from explicit event sources and leaves legacy parts-wait flags unavailable', async () => {
+    const technicianId = new Types.ObjectId();
+    const serviceId = new Types.ObjectId();
+    const subCategoryId = new Types.ObjectId();
+    const start = new Date('2026-11-10T18:30:00.000Z');
+    const createdAt = new Date('2026-11-10T19:30:00.000Z');
+    const parent = await bookingModel.create(bookingData({
+      serviceId,
+      subCategoryId,
+      serviceType: 'REPAIR',
+      status: 'COMPLETED',
+      productDetails: { serialNumber: 'UNIT-1' },
+      jobClosed: true,
+      jobClosedAt: new Date('2026-11-10T17:00:00.000Z'),
+      createdAt: new Date('2026-11-09T10:00:00.000Z'),
+    }));
+    const repeated = await bookingModel.create(bookingData({
+      technicianId,
+      serviceId,
+      subCategoryId,
+      serviceType: 'REPAIR',
+      status: 'COMPLETED',
+      productDetails: { serialNumber: 'UNIT-1' },
+      parentId: parent._id,
+      jobClosed: true,
+      jobClosedAt: new Date('2026-11-11T04:00:00.000Z'),
+      acceptedAt: new Date('2026-11-10T20:00:00.000Z'),
+      createdAt,
+      firstAssignedAt: new Date('2026-11-10T21:30:00.000Z'),
+      firstAssignedTechnicianId: technicianId,
+    }));
+    const unlinkedRepeatCandidate = await bookingModel.create(bookingData({
+      technicianId,
+      serviceId,
+      subCategoryId,
+      serviceType: 'REPAIR',
+      status: 'COMPLETED',
+      productDetails: { serialNumber: 'UNIT-1' },
+      jobClosed: true,
+      jobClosedAt: new Date('2026-11-11T05:00:00.000Z'),
+      acceptedAt: new Date('2026-11-10T20:00:00.000Z'),
+      createdAt,
+    }));
+    const openWithEvents = await bookingModel.create(bookingData({
+      technicianId,
+      serviceType: 'REPAIR',
+      status: 'IN_PROGRESS',
+      createdAt,
+      partsWaitEvents: [
+        { event: 'WAIT_STARTED', at: new Date('2026-11-10T20:00:00.000Z') },
+        { event: 'PARTS_AVAILABLE', at: new Date('2026-11-11T01:00:00.000Z') },
+        { event: 'WAIT_STARTED', at: new Date('2026-11-11T02:00:00.000Z') },
+        { event: 'PARTS_AVAILABLE', at: new Date('2026-11-11T03:00:00.000Z') },
+      ],
+    }));
+    await bookingModel.create(bookingData({
+      technicianId,
+      serviceType: 'REPAIR',
+      status: 'IN_PROGRESS',
+      opsPartsWait: true,
+      createdAt,
+      partsWaitEvents: [],
+    }));
+    const visit = await visitModel.create({
+      bookingId: repeated._id,
+      technicianId,
+      visitOrder: 1,
+      status: 'COMPLETED',
+    });
+    repeated.visits = [visit._id as Types.ObjectId];
+    await repeated.save();
+    // Submitted after the reporting day — still counts for the job closed that day.
+    await feedbackModel.create({
+      bookingId: repeated._id,
+      userId: new Types.ObjectId(),
+      rating: 5,
+      resolved: true,
+      createdAt: new Date('2026-11-12T06:00:00.000Z'),
+    } as any);
+    // Feedback in-window for a job that closed outside the reporting day — excluded.
+    const closedEarlier = await bookingModel.create(bookingData({
+      technicianId,
+      serviceType: 'INSTALLATION',
+      status: 'COMPLETED',
+      jobClosed: true,
+      jobClosedAt: new Date('2026-11-09T12:00:00.000Z'),
+      createdAt: new Date('2026-11-08T10:00:00.000Z'),
+    }));
+    await feedbackModel.create({
+      bookingId: closedEarlier._id,
+      userId: new Types.ObjectId(),
+      rating: 1,
+      resolved: true,
+      createdAt: new Date('2026-11-11T08:00:00.000Z'),
+    } as any);
+
+    const summary = await service.generateForDate('2026-11-11');
+    expect(summary.backlogAgeJobs).toBeGreaterThanOrEqual(2);
+    expect(summary.assignmentDelayJobs).toBe(1);
+    expect(summary.assignmentDelayAverageMs).toBe(2 * 60 * 60 * 1000);
+    expect(summary.completionTimeJobs).toBe(2);
+    expect(summary.completionTimeAverageMs).toBe(8.5 * 60 * 60 * 1000);
+    expect(summary.partsWaitJobs).toBe(1);
+    expect(summary.partsWaitIntervals).toBe(2);
+    expect(summary.partsWaitAverageMs).toBe(6 * 60 * 60 * 1000);
+    expect(summary.repeatRepairEligibleJobs).toBe(2);
+    expect(summary.repeatRepairJobs).toBe(1);
+    expect(summary.repeatRepairRate).toBe(50);
+    expect(summary.firstVisitEligibleJobs).toBe(1);
+    expect(summary.firstVisitCompletedJobs).toBe(1);
+    expect(summary.firstVisitCompletionRate).toBe(100);
+    expect(summary.averageFeedbackRating).toBe(5);
+    expect(summary.feedbackRatingCount).toBe(1);
+
+    const filtered = await service.getByDate('2026-11-11', { technicianId: String(technicianId) });
+    expect(filtered.assignmentDelayJobs).toBe(1);
+    expect(filtered.totalJobs).toBeGreaterThan(0);
+    expect(String(openWithEvents._id)).not.toBe(String(repeated._id));
+    expect(String(unlinkedRepeatCandidate._id)).not.toBe(String(repeated._id));
+    expect(start.getTime()).toBeLessThan(createdAt.getTime());
   });
 
   it('recovers a failed summary after its previous lease has expired', async () => {

@@ -131,6 +131,7 @@ describe('VisitsService inventory quantity', () => {
       sparePartId: String(spare._id),
       quantity: 2,
       idempotencyKey: `issue-${new Types.ObjectId()}`,
+      approvedPartRequestId: new Types.ObjectId().toString(),
       usage: { cost: 757.5, partName: spare.name },
       spare,
       booking,
@@ -276,23 +277,6 @@ describe('VisitsService inventory quantity', () => {
     expect((await visitModel.findById(input.visit._id).lean())!.partsUsed).toHaveLength(1);
   });
 
-  async function issueAndReturnInput(issuedQuantity = 5) {
-    const input = await issueInput({ quantity: issuedQuantity });
-    const issued = await service.issueInventoryPartToVisit(input);
-    return {
-      input,
-      issued,
-      returnInput: {
-        bookingId: input.bookingId,
-        technicianId: input.technicianId,
-        visitId: input.visitId,
-        usageId: String(issued._id),
-        quantity: 2,
-        idempotencyKey: `return-${new Types.ObjectId()}`,
-      },
-    };
-  }
-
   async function issueForTechnician(technicianId: Types.ObjectId, quantity = 1) {
     const { booking, visit } = await seedAssignedJob(technicianId);
     const spare = await seedPart(10);
@@ -303,25 +287,69 @@ describe('VisitsService inventory quantity', () => {
       sparePartId: String(spare._id),
       quantity,
       idempotencyKey: `history-issue-${new Types.ObjectId()}`,
+      approvedPartRequestId: new Types.ObjectId().toString(),
       usage: { cost: 757.5, partName: spare.name },
     };
     return service.issueInventoryPartToVisit(input);
   }
 
+  async function directIssueAndReturnInput(issuedQuantity = 5, technicianId?: Types.ObjectId) {
+    const { booking, visit, technicianId: techId } = await seedAssignedJob(technicianId);
+    const spare = await seedPart(10);
+    const usage = await usageModel.create({
+      visitId: visit._id,
+      isThirdParty: false,
+      sourcedBy: 'INVENTORY',
+      sparePartId: spare._id,
+      quantity: issuedQuantity,
+      stockDeducted: true,
+      partName: spare.name,
+      cost: 757.5,
+    });
+    await sparePartModel.updateOne({ _id: spare._id }, { $inc: { stock: -issuedQuantity } });
+    const issueTransaction = await transactionModel.create({
+      technicianId: techId,
+      bookingId: booking._id,
+      visitId: visit._id,
+      sparePartId: spare._id,
+      sparePartUsageId: usage._id,
+      quantity: issuedQuantity,
+      type: 'ISSUE',
+      idempotencyKey: `direct-issue-${new Types.ObjectId()}`,
+    });
+    return {
+      input: {
+        bookingId: String(booking._id),
+        technicianId: String(techId),
+        visitId: String(visit._id),
+        sparePartId: String(spare._id),
+        spare,
+        booking,
+        quantity: issuedQuantity,
+      },
+      issued: usage,
+      issueTransaction,
+      returnInput: {
+        bookingId: String(booking._id),
+        technicianId: String(techId),
+        visitId: String(visit._id),
+        usageId: String(usage._id),
+        quantity: 2,
+        idempotencyKey: `return-${new Types.ObjectId()}`,
+      },
+      spare,
+      booking,
+      visit,
+      technicianId: techId,
+    };
+  }
+
   describe('technician transaction history', () => {
     it('returns ISSUE and RETURN transactions with related records and newest first', async () => {
       const technicianId = new Types.ObjectId();
-      const usage = await issueForTechnician(technicianId, 3);
-      const issue = await transactionModel.findOne({ sparePartUsageId: usage._id });
-      const spare = await sparePartModel.findById(issue.sparePartId);
-      const result = await service.returnInventoryPart({
-        bookingId: String(issue.bookingId),
-        technicianId: String(technicianId),
-        visitId: String(issue.visitId),
-        usageId: String(usage._id),
-        quantity: 3,
-        idempotencyKey: `history-return-${new Types.ObjectId()}`,
-      });
+      const { issued, returnInput, issueTransaction, spare, input } = await directIssueAndReturnInput(3, technicianId);
+      const result = await service.returnInventoryPart({ ...returnInput, quantity: 3 });
+      const issue = issueTransaction;
 
       const history = await service.listPartInventoryTransactions(String(technicianId));
       expect(history.data.map((row) => row.type)).toEqual(['RETURN', 'ISSUE']);
@@ -368,7 +396,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('returns part of an inventory issue, restores stock and links the append-only RETURN', async () => {
-    const { input, issued, returnInput } = await issueAndReturnInput(5);
+    const { input, issued, returnInput } = await directIssueAndReturnInput(5);
     const result = await service.returnInventoryPart(returnInput);
 
     expect(result.usage.quantity).toBe(3);
@@ -383,14 +411,14 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('supports a full return and leaves the usage at zero billable quantity', async () => {
-    const { input, returnInput } = await issueAndReturnInput(3);
+    const { input, returnInput } = await directIssueAndReturnInput(3);
     const result = await service.returnInventoryPart({ ...returnInput, quantity: 3 });
     expect(result.usage.quantity).toBe(0);
     expect((await sparePartModel.findById(input.spare._id).lean())!.stock).toBe(10);
   });
 
   it('allows multiple partial returns up to the original issue and rejects any further amount', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     await service.returnInventoryPart(returnInput);
     const second = await service.returnInventoryPart({
       ...returnInput,
@@ -408,7 +436,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('rejects returns above the remaining issued quantity', async () => {
-    const { input, returnInput } = await issueAndReturnInput(2);
+    const { input, returnInput } = await directIssueAndReturnInput(2);
     await expect(service.returnInventoryPart({ ...returnInput, quantity: 3 })).rejects.toThrow(
       BadRequestException,
     );
@@ -419,7 +447,7 @@ describe('VisitsService inventory quantity', () => {
   it.each([undefined, null, 0, -1, 1.5])(
     'rejects invalid return quantity %s',
     async (quantity) => {
-      const { input, returnInput } = await issueAndReturnInput(5);
+      const { input, returnInput } = await directIssueAndReturnInput(5);
       await expect(service.returnInventoryPart({ ...returnInput, quantity: quantity as any })).rejects.toThrow(
         'quantity must be a positive integer',
       );
@@ -429,7 +457,7 @@ describe('VisitsService inventory quantity', () => {
   );
 
   it('rejects a return by a different technician', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     await expect(service.returnInventoryPart({
       ...returnInput,
       technicianId: new Types.ObjectId().toString(),
@@ -457,7 +485,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('replays the same return without adding a second ledger entry or stock', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     const first = await service.returnInventoryPart(returnInput);
     const retry = await service.returnInventoryPart(returnInput);
     expect(retry.replayed).toBe(true);
@@ -468,7 +496,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('deduplicates concurrent returns with the same idempotency key', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     const results = await Promise.all([
       service.returnInventoryPart(returnInput),
       service.returnInventoryPart(returnInput),
@@ -479,7 +507,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('rejects a return key reused with a different payload', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     await service.returnInventoryPart(returnInput);
     await expect(service.returnInventoryPart({ ...returnInput, quantity: 1 })).rejects.toThrow(
       ConflictException,
@@ -493,7 +521,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('does not expose or let another technician reuse an existing return key', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     await service.returnInventoryPart(returnInput);
     await expect(service.returnInventoryPart({
       ...returnInput,
@@ -504,7 +532,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('prevents concurrent returns from exceeding the outstanding issue quantity', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     const outcomes = await Promise.allSettled([
       service.returnInventoryPart({ ...returnInput, quantity: 3 }),
       service.returnInventoryPart({
@@ -521,7 +549,7 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('rolls back stock, usage, ledger and booking history when return ledger insert fails', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     const historyBefore = (await bookingModel.findById(input.booking._id).lean())!.changeHistory;
     const createFailure = jest
       .spyOn(transactionModel, 'create')
@@ -540,14 +568,14 @@ describe('VisitsService inventory quantity', () => {
   });
 
   it('does not deduct returned inventory again when the visit completes', async () => {
-    const { input, returnInput } = await issueAndReturnInput(5);
+    const { input, returnInput } = await directIssueAndReturnInput(5);
     await service.returnInventoryPart({ ...returnInput, quantity: 2 });
     await service.updateStatus(input.visitId, { status: 'COMPLETED' });
     expect((await sparePartModel.findById(input.spare._id).lean())!.stock).toBe(7);
   });
 
   it('prevents deleting a ledger-backed issue through the legacy part removal path', async () => {
-    const { input, issued } = await issueAndReturnInput(2);
+    const { input, issued } = await directIssueAndReturnInput(2);
     await expect(
       service.removeSparePartFromVisit(input.visitId, String(issued._id)),
     ).rejects.toThrow('Inventory-issued parts must be returned through the return endpoint');
@@ -615,7 +643,7 @@ describe('VisitsService inventory quantity', () => {
       quantity: 1,
       cost: 0,
       serialNumber: 'UNIT-SERIAL-001',
-    });
+    }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() });
 
     expect(usage.quantity).toBe(1);
     expect(usage.cost).toBe(757.5);
@@ -636,7 +664,7 @@ describe('VisitsService inventory quantity', () => {
     const usage = await service.addSparePartToVisit(String(visit._id), {
       isThirdParty: false,
       sparePartId: String(spare._id),
-    });
+    }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() });
 
     expect(usage.quantity).toBe(1);
     const untouched = await sparePartModel.findById(spare._id).lean();
@@ -660,7 +688,7 @@ describe('VisitsService inventory quantity', () => {
         isThirdParty: false,
         sparePartId: String(spare._id),
         quantity: 60,
-      }),
+      }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() }),
     ).resolves.toMatchObject({ quantity: 60, stockDeducted: true });
 
     const empty = await sparePartModel.findById(spare._id).lean();
@@ -673,14 +701,14 @@ describe('VisitsService inventory quantity', () => {
         isThirdParty: false,
         sparePartId: String(spare2._id),
         quantity: 61,
-      }),
+      }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() }),
     ).rejects.toThrow(/cannot exceed available stock \(60\)/);
 
     const usage = await service.addSparePartToVisit(String(visit2._id), {
       isThirdParty: false,
       sparePartId: String(spare2._id),
       quantity: 1,
-    });
+    }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() });
     await service.removeSparePartFromVisit(String(visit2._id), String((usage as any)._id));
     const restored = await sparePartModel.findById(spare2._id).lean();
     expect(restored!.stock).toBe(60);

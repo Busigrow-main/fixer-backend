@@ -94,6 +94,8 @@ export class OpsQueueService {
 
     const $set: Record<string, unknown> = {};
     const $unset: Record<string, 1> = {};
+    const $push: Record<string, unknown> = {};
+    let partsWaitChanged = false;
 
     if (input.reason !== undefined) {
       if (input.reason === null) {
@@ -135,7 +137,14 @@ export class OpsQueueService {
     }
 
     if (typeof input.partsWait === 'boolean') {
+      partsWaitChanged = input.partsWait !== Boolean(booking.opsPartsWait);
       $set.opsPartsWait = input.partsWait;
+      if (partsWaitChanged) {
+        $push.partsWaitEvents = {
+          event: input.partsWait ? 'WAIT_STARTED' : 'PARTS_AVAILABLE',
+          at: new Date(),
+        };
+      }
       if (input.partsWait && input.reason === undefined) {
         $set.opsPendingReason = 'PARTS_WAIT';
         $set.opsNextAction = NEXT_ACTION.PARTS_WAIT;
@@ -150,14 +159,22 @@ export class OpsQueueService {
     const update: Record<string, unknown> = {};
     if (Object.keys($set).length) update.$set = $set;
     if (Object.keys($unset).length) update.$unset = $unset;
+    if (Object.keys($push).length) update.$push = $push;
     if (!Object.keys(update).length) {
       return booking;
     }
 
-    return this.bookingModel
-      .findByIdAndUpdate(bookingId, update, { returnDocument: 'after' })
+    const transitionGuard = partsWaitChanged
+      ? { opsPartsWait: booking.opsPartsWait === true ? true : { $ne: true } }
+      : {};
+    const updated = await this.bookingModel
+      .findOneAndUpdate({ _id: bookingId, ...transitionGuard }, update, { returnDocument: 'after' })
       .populate('opsOwnerId', '-passwordHash')
       .exec();
+    if (!updated) {
+      throw new BadRequestException('Parts-wait state changed while updating. Refresh and try again.');
+    }
+    return updated;
   }
 
   /**

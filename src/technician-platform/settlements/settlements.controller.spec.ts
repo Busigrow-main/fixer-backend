@@ -112,8 +112,8 @@ describe('SettlementsController API', () => {
       .send(body)
       .expect(201);
 
-    expect(first.body).toHaveLength(1);
-    expect(second.body).toHaveLength(1);
+    expect(first.body.settlements).toHaveLength(1);
+    expect(second.body.settlements).toHaveLength(1);
     expect(await settlementModel.countDocuments()).toBe(1);
     expect(await settlementItemModel.countDocuments()).toBe(1);
     await expect(settlementModel.findOne().lean()).resolves.toMatchObject({
@@ -175,7 +175,7 @@ describe('SettlementsController API', () => {
       .send({ cutoffAt: '2026-11-10T16:00:00.000Z' })
       .expect(201);
     const byTechnician = new Map(
-      prepared.body.map((settlement: { technicianId: string; _id: string }) => [
+      prepared.body.settlements.map((settlement: { technicianId: string; _id: string }) => [
         settlement.technicianId,
         settlement._id,
       ]),
@@ -197,9 +197,15 @@ describe('SettlementsController API', () => {
       .expect(201);
 
     await request(app.getHttpServer())
+      .post(`/v1/admin/settlements/${paidId}/payable`)
+      .set('x-test-role', 'ADMIN')
+      .send({ notes: 'Ready for payout' })
+      .expect(201);
+
+    await request(app.getHttpServer())
       .post(`/v1/admin/settlements/${paidId}/payment`)
       .set('x-test-role', 'ADMIN')
-      .send({ paymentReference: 'UTR-FAILED', successful: false })
+      .send({ paymentReference: 'UTR-FAILED', successful: false, failureReason: 'Insufficient funds' })
       .expect(201);
 
     await request(app.getHttpServer())

@@ -158,9 +158,25 @@ export class AdminController {
     @Param('customerId') customerId: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
+    @Query('phone') phone?: string,
   ) {
     return this.customerServiceHistoryService.getCustomerServiceHistory(
       customerId,
+      Number(page),
+      Number(limit),
+      phone,
+    );
+  }
+
+  @Get('appliance-mappings/by-serial/:serial/timeline')
+  @ApiOperation({ summary: 'Get an appliance mapping with its paginated service timeline' })
+  async getApplianceServiceTimeline(
+    @Param('serial') serial: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.customerServiceHistoryService.getApplianceServiceTimeline(
+      serial,
       Number(page),
       Number(limit),
     );

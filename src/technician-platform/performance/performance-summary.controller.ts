@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  Post,
   Query,
   UseGuards,
   UsePipes,
@@ -31,7 +32,12 @@ export class PerformanceSummaryController {
   }
 
   @Get(':date')
-  getByDate(@Param('date') date: string) {
-    return this.summaryService.getByDate(date);
+  getByDate(@Param('date') date: string, @Query() query: PerformanceSummaryQueryDto) {
+    return this.summaryService.getByDate(date, query);
+  }
+
+  @Post(':date/generate')
+  generate(@Param('date') date: string) {
+    return this.summaryService.generateForDate(date);
   }
 }

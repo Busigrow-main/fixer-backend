@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { BookingsService } from '../../bookings/bookings.service';
@@ -231,7 +231,12 @@ export class JobCompletionService {
 
     const closed = await this.bookingModel.findByIdAndUpdate(
       jobId,
-      { jobClosed: true, jobClosedAt: new Date(), isBilled: true },
+      {
+        jobClosed: true,
+        jobClosedAt: new Date(),
+        jobClosedByTechnicianId: new Types.ObjectId(technicianId),
+        isBilled: true,
+      },
       { returnDocument: 'after' },
     );
 

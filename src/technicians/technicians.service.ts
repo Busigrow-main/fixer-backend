@@ -90,6 +90,7 @@ export class TechniciansService {
     return this.update(id, {
       onboardingStatus: 'APPROVED',
       isActive: true,
+      idVerified: true,
       approvedAt: new Date(),
       rejectionReason: undefined,
     });
@@ -216,7 +217,7 @@ export class TechniciansService {
   }
 
   async activate(id: string) {
-    return this.update(id, { isActive: true });
+    return this.update(id, { isActive: true, idVerified: true });
   }
 
   async deactivate(id: string) {

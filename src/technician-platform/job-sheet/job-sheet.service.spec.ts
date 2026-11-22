@@ -216,7 +216,7 @@ describe('JobSheetService', () => {
       expect(mockVisits.issueInventoryPartToVisit).not.toHaveBeenCalled();
     });
 
-    it('routes valid inventory part additions through the issue transaction flow', async () => {
+    it('rejects inventory part additions through addPart; inventory parts require the part request workflow', async () => {
       const spare = await sparePartModel.create({
         name: 'Filter',
         sku: 'FLT-ISSUE-001',
@@ -229,36 +229,22 @@ describe('JobSheetService', () => {
       });
       const visitId = new Types.ObjectId().toString();
       mockVisits.findOne.mockResolvedValue({ _id: visitId, bookingId });
-      mockVisits.issueInventoryPartToVisit.mockResolvedValue({
-        _id: new Types.ObjectId(),
-        quantity: 2,
-        stockDeducted: true,
-      });
-      mockWarranties.resolveInventoryWarrantyMonths.mockReturnValue(0);
 
-      await service.addPart(bookingId, techId.toString(), visitId, {
-        sparePartId: String(spare._id),
-        quantity: 2,
-        idempotencyKey: 'mobile-request-123',
-        isThirdParty: false,
-      });
-
-      expect(mockVisits.issueInventoryPartToVisit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          bookingId,
-          technicianId: techId.toString(),
-          visitId,
+      await expect(
+        service.addPart(bookingId, techId.toString(), visitId, {
           sparePartId: String(spare._id),
           quantity: 2,
           idempotencyKey: 'mobile-request-123',
+          isThirdParty: false,
         }),
-      );
+      ).rejects.toThrow('Request Fixxer inventory parts and wait for admin approval before recording consumption');
+      expect(mockVisits.issueInventoryPartToVisit).not.toHaveBeenCalled();
       expect(mockVisits.addSparePartToVisit).not.toHaveBeenCalled();
       mockWarranties.resolveInventoryWarrantyMonths.mockReturnValue(12);
     });
 
     it.each([undefined, 0, -1, 1.5])(
-      'rejects invalid inventory quantity %s',
+      'rejects inventory part additions through addPart regardless of quantity %s',
       async (quantity) => {
         const visitId = new Types.ObjectId().toString();
         mockVisits.findOne.mockResolvedValue({ _id: visitId, bookingId });
@@ -274,7 +260,7 @@ describe('JobSheetService', () => {
       },
     );
 
-    it('rejects inventory part without serial when warranty > 0', async () => {
+    it('rejects inventory part additions through addPart when warranty serial is missing', async () => {
       const spare = await sparePartModel.create({
         name: 'Compressor',
         sku: 'CMP-001',
@@ -295,7 +281,7 @@ describe('JobSheetService', () => {
           quantity: 1,
           isThirdParty: false,
         }),
-      ).rejects.toThrow('Serial number is required');
+      ).rejects.toThrow('Request Fixxer inventory parts and wait for admin approval before recording consumption');
     });
   });
 

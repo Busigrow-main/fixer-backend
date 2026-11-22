@@ -107,6 +107,7 @@ export class VisitsService {
         .populate({ path: 'bookingId', select: 'status serviceId createdAt' })
         .populate({ path: 'visitId', select: 'status visitOrder scheduledDate' })
         .populate({ path: 'relatedTransactionId', select: 'type quantity createdAt' })
+        .populate({ path: 'partRequestId', select: 'status requestedQuantity approvedQuantity' })
         .lean()
         .exec(),
       this.partInventoryTransactionModel.countDocuments(filter).exec(),
@@ -129,6 +130,8 @@ export class VisitsService {
         relatedIssue: transaction.type === 'RETURN'
           ? this.partTransactionReference(transaction.relatedTransactionId, ['type', 'quantity', 'createdAt'])
           : null,
+        partRequest: this.partTransactionReference(transaction.partRequestId, ['status', 'requestedQuantity', 'approvedQuantity']),
+        returnCondition: transaction.returnCondition || null,
         timestamp: transaction.createdAt,
       })),
       total,
@@ -208,10 +211,20 @@ export class VisitsService {
     visitId: string,
     partData: any,
     audit?: BookingAuditContext,
-    options: { session?: ClientSession; stockAlreadyDeducted?: boolean } = {},
+    options: { session?: ClientSession; stockAlreadyDeducted?: boolean; approvedPartRequestId?: string } = {},
   ): Promise<SparePartUsage> {
     const payload = { ...partData };
     delete payload._skipSerialAssert;
+
+    if (!payload.isThirdParty && !options.approvedPartRequestId) {
+      throw new BadRequestException('Fixxer inventory parts require an approved technician part request');
+    }
+    if (options.approvedPartRequestId) {
+      if (!Types.ObjectId.isValid(options.approvedPartRequestId)) {
+        throw new BadRequestException('Invalid approved part request reference');
+      }
+      payload.partRequestId = new Types.ObjectId(options.approvedPartRequestId);
+    }
 
     if (payload.warrantyMonths != null) {
       const warrantyMonths = Number(payload.warrantyMonths);
@@ -443,6 +456,7 @@ export class VisitsService {
     sparePartId: string;
     quantity: number;
     idempotencyKey: string;
+    approvedPartRequestId?: string;
     usage: Record<string, unknown>;
   }): Promise<SparePartUsageDocument> {
     const { bookingId, technicianId, visitId, sparePartId, quantity } = input;
@@ -465,6 +479,9 @@ export class VisitsService {
     let issuedUsage: SparePartUsageDocument | null = null;
     try {
       await session.withTransaction(async () => {
+        if (!input.approvedPartRequestId) {
+          throw new BadRequestException('Fixxer inventory parts require an approved technician part request');
+        }
         const retry = await findPrevious(session);
         if (retry) {
           issuedUsage = retry as SparePartUsageDocument;
@@ -535,7 +552,7 @@ export class VisitsService {
             sourcedBy: 'INVENTORY',
           },
           { actorRole: 'TECHNICIAN', actorId: technicianId },
-          { session, stockAlreadyDeducted: true },
+          { session, stockAlreadyDeducted: true, approvedPartRequestId: input.approvedPartRequestId },
         ) as SparePartUsageDocument;
 
         await this.partInventoryTransactionModel.create(
@@ -640,6 +657,9 @@ export class VisitsService {
           !usage.sparePartId
         ) {
           throw new BadRequestException('Only inventory-issued parts can be returned');
+        }
+        if (usage.partRequestId) {
+          throw new BadRequestException('Request-linked parts must use the part request return workflow');
         }
 
         const issue = await this.partInventoryTransactionModel.findOne({
@@ -801,7 +821,7 @@ export class VisitsService {
     }
 
     const inventoryIssue = await this.partInventoryTransactionModel
-      .findOne({ type: 'ISSUE', sparePartUsageId: usage._id })
+      .findOne({ type: { $in: ['ISSUE', 'CONSUME'] }, sparePartUsageId: usage._id })
       .exec();
     if (inventoryIssue) {
       throw new BadRequestException('Inventory-issued parts must be returned through the return endpoint');

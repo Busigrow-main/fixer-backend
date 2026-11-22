@@ -56,7 +56,7 @@ export class TechnicianAdminService {
   }
 
   activate(id: string) {
-    return this.techniciansService.update(id, { isActive: true });
+    return this.techniciansService.update(id, { isActive: true, idVerified: true });
   }
 
   deactivate(id: string) {

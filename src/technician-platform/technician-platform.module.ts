@@ -45,6 +45,7 @@ import { TechnicianVerificationService } from './verification/technician-verific
 import { TechnicianDashboardController } from './dashboard/technician-dashboard.controller';
 import { TechnicianDashboardService } from './dashboard/technician-dashboard.service';
 import { TechnicianJobsController } from './jobs/technician-jobs.controller';
+import { TechnicianPartRequestsController } from './jobs/technician-part-requests.controller';
 import { TechnicianJobsService } from './jobs/technician-jobs.service';
 import { JobCompletionService } from './job-completion/job-completion.service';
 import { JobSheetService } from './job-sheet/job-sheet.service';
@@ -105,6 +106,7 @@ import {
     TechnicianVerificationController,
     TechnicianDashboardController,
     TechnicianJobsController,
+    TechnicianPartRequestsController,
     TechnicianSparePartsController,
     NotificationsController,
     EarningsController,

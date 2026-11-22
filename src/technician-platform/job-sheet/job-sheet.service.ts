@@ -341,6 +341,8 @@ export class JobSheetService {
       inventoryIdempotencyKey =
         partData.idempotencyKey?.trim() || new Types.ObjectId().toString();
 
+      // Check for an existing issue before enforcing the part-request workflow,
+      // so idempotent retries return the prior result.
       const existingIssue = await this.visitsService.findExistingInventoryIssue({
         bookingId: jobId,
         technicianId,
@@ -350,6 +352,8 @@ export class JobSheetService {
         idempotencyKey: inventoryIdempotencyKey,
       });
       if (existingIssue) return existingIssue;
+
+      throw new BadRequestException('Request Fixxer inventory parts and wait for admin approval before recording consumption');
     } else {
       quantity = 0;
     }
@@ -513,6 +517,9 @@ export class JobSheetService {
 
     const usage = await this.sparePartUsageModel.findById(usageId).exec();
     if (!usage) throw new NotFoundException('Part usage not found');
+    if (usage.partRequestId) {
+      throw new BadRequestException('Request-linked inventory parts cannot be removed; use the part request workflow');
+    }
     if (usage.sourcedBy === 'INVENTORY' && usage.stockDeducted) {
       throw new BadRequestException('Inventory-issued parts must be returned through the return endpoint');
     }

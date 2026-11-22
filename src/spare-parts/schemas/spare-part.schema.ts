@@ -73,6 +73,14 @@ export class SparePart {
   @Prop({ default: 0 })
   stock: number;
 
+  /** Units reserved for technician requests; `stock` remains shop-saleable stock. */
+  @Prop({ default: 0, min: 0, validate: Number.isInteger })
+  reservedStock: number;
+
+  /** Defective returns kept outside the saleable inventory balance. */
+  @Prop({ default: 0, min: 0, validate: Number.isInteger })
+  quarantinedStock: number;
+
   @Prop({ default: true, index: true })
   isInStock: boolean;
 

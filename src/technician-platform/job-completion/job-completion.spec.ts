@@ -22,6 +22,7 @@ import { issueFixxerCode } from '../../bookings/fixxer-code';
 import * as bcrypt from 'bcrypt';
 import { GstService } from '../../gst/gst.service';
 
+process.env.NODE_ENV = 'test';
 process.env.FIXXER_CODE_KEY = Buffer.alloc(32, 7).toString('base64');
 
 describe('JobCompletionService – No Dual-Source Writes', () => {

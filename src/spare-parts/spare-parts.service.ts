@@ -314,10 +314,8 @@ export class SparePartsService {
   ): Promise<true | false | 'unlimited'> {
     if (!Types.ObjectId.isValid(id) || quantity < 1) return false;
     const part = await this.sparePartModel.findById(id).exec();
-    if (!part || part.isActive === false || part.isInStock === false) return false;
-    const stock = Number(part.stock);
+    if (!part || part.isActive === false) return false;
     if (part.stock == null) return 'unlimited';
-    if (!(stock > 0) || stock < quantity) return false;
     const updated = await this.sparePartModel
       .findOneAndUpdate(
         { _id: id, isActive: true, stock: { $gte: quantity } },

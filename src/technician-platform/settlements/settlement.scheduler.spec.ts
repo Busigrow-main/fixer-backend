@@ -5,7 +5,7 @@ import { SettlementScheduler } from './settlement.scheduler';
 describe('SettlementScheduler', () => {
   it('uses 21:00 Asia/Kolkata and delegates preparation', async () => {
     const settlementsService = {
-      prepareAll: jest.fn().mockResolvedValue([]),
+      prepareAll: jest.fn().mockResolvedValue({ settlements: [], errors: [], settlementDate: '2026-11-10' }),
     };
     const scheduler = new SettlementScheduler(settlementsService as never);
     const cronOptions = Reflect.getMetadata(

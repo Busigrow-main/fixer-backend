@@ -1,7 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export const PART_INVENTORY_TRANSACTION_TYPES = ['ISSUE', 'RETURN'] as const;
+export const PART_INVENTORY_TRANSACTION_TYPES = [
+  'RESERVE',
+  'RELEASE',
+  'ISSUE',
+  'CONSUME',
+  'RETURN',
+] as const;
 export type PartInventoryTransactionType =
   (typeof PART_INVENTORY_TRANSACTION_TYPES)[number];
 
@@ -25,10 +31,12 @@ export class PartInventoryTransaction {
   @Prop({
     type: Types.ObjectId,
     ref: 'SparePartUsage',
-    required: true,
     index: true,
   })
-  sparePartUsageId: Types.ObjectId;
+  sparePartUsageId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'TechnicianPartRequest', index: true })
+  partRequestId?: Types.ObjectId;
 
   @Prop({ required: true, min: 1, validate: Number.isInteger })
   quantity: number;
@@ -43,6 +51,18 @@ export class PartInventoryTransaction {
 
   @Prop({ type: Types.ObjectId, ref: 'PartInventoryTransaction' })
   relatedTransactionId?: Types.ObjectId;
+
+  @Prop({ type: String, enum: ['UNUSED', 'DEFECTIVE'] })
+  returnCondition?: 'UNUSED' | 'DEFECTIVE';
+
+  @Prop({ type: String, enum: ['ADMIN', 'TECHNICIAN', 'SYSTEM'] })
+  actorRole?: 'ADMIN' | 'TECHNICIAN' | 'SYSTEM';
+
+  @Prop({ type: Types.ObjectId })
+  actorId?: Types.ObjectId;
+
+  @Prop({ type: String, trim: true, maxlength: 500 })
+  reason?: string;
 
   @Prop({ required: true, unique: true, trim: true })
   idempotencyKey: string;

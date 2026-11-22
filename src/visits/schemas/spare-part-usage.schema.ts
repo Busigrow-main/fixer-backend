@@ -15,6 +15,9 @@ export class SparePartUsage {
   @Prop({ type: Types.ObjectId, ref: 'SparePart' })
   sparePartId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'TechnicianPartRequest', index: true })
+  partRequestId?: Types.ObjectId;
+
   @Prop()
   quantity?: number;
 

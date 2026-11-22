@@ -414,6 +414,48 @@ describe('Fixxer shop APIs', () => {
     expect(orders).toHaveLength(1);
   });
 
+  it('prevents shop purchase of technician-reserved stock', async () => {
+    // part starts with stock=4. Simulate technician reservation: 2 units reserved,
+    // leaving only 2 sellable units.
+    await sparePartModel.updateOne(
+      { _id: part._id },
+      { $set: { stock: 2, reservedStock: 2 } },
+    ).exec();
+
+    // Verify stock reflects reservation
+    const refreshed = await sparePartModel.findById(part._id).exec();
+    expect(refreshed?.stock).toBe(2);
+    expect(refreshed?.reservedStock).toBe(2);
+
+    // Trying to buy 3 units should fail (only 2 sellable)
+    await expect(
+      cartService.addItem(userId, {
+        productType: 'part',
+        productId: String(part._id),
+        quantity: 3,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // Buying 1 unit should succeed
+    await cartService.addItem(userId, {
+      productType: 'part',
+      productId: String(part._id),
+      quantity: 1,
+    });
+
+    const contact = {
+      pincode: '800001' as const,
+      paymentMethod: 'COD' as const,
+      contactData: { name: 'Asha', phone: '9876543210', address: 'Patna' },
+    };
+    const placed = await checkoutService.checkout(userId, contact);
+    expect(placed.orders).toHaveLength(1);
+
+    const after = await sparePartModel.findById(part._id).exec();
+    expect(after?.stock).toBe(1);
+    expect(after?.reservedStock).toBe(2);
+  });
+
   it('merges parallel adds of the same part into one cart line', async () => {
     const payload = {
       productType: 'part' as const,

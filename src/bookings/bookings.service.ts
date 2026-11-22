@@ -1257,6 +1257,7 @@ export class BookingsService {
     const keepCode =
       sameTechnician && !!existing.fixxerCodeCiphertext;
     const issued = keepCode ? null : this.prepareAssignmentCode();
+    const assignedAt = new Date();
 
     const updatedBooking =
       await this.bookingModel
@@ -1267,11 +1268,17 @@ export class BookingsService {
               technicianId: new Types.ObjectId(technicianId),
               status: 'ASSIGNED',
               assignmentStatus: 'PENDING_ACCEPTANCE',
-              assignedAt: new Date(),
+              assignedAt,
               acceptedAt: null,
               declinedAt: null,
               declineReason: null,
               dispatchStatus: 'ADMIN_ASSIGNED',
+              ...(!previousTechnicianId
+                ? {
+                    firstAssignedAt: assignedAt,
+                    firstAssignedTechnicianId: new Types.ObjectId(technicianId),
+                  }
+                : {}),
               ...(issued
                 ? { ...issued.fields, fixxerCodeVerifiedAt: null }
                 : {}),

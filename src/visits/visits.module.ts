@@ -16,6 +16,12 @@ import {
   PartInventoryTransaction,
   PartInventoryTransactionSchema,
 } from './schemas/part-inventory-transaction.schema';
+import {
+  TechnicianPartRequest,
+  TechnicianPartRequestSchema,
+} from './schemas/technician-part-request.schema';
+import { TechnicianPartRequestsService } from './technician-part-requests.service';
+import { AdminPartRequestsController } from './part-requests-admin.controller';
 
 @Module({
   imports: [
@@ -26,6 +32,7 @@ import {
         name: PartInventoryTransaction.name,
         schema: PartInventoryTransactionSchema,
       },
+      { name: TechnicianPartRequest.name, schema: TechnicianPartRequestSchema },
       { name: Booking.name, schema: BookingSchema },
       { name: 'SparePart', schema: SparePartSchema },
     ]),
@@ -33,8 +40,8 @@ import {
     WarrantiesModule,
     AuthModule,
   ],
-  controllers: [VisitsController],
-  providers: [VisitsService],
-  exports: [VisitsService],
+  controllers: [VisitsController, AdminPartRequestsController],
+  providers: [VisitsService, TechnicianPartRequestsService],
+  exports: [VisitsService, TechnicianPartRequestsService],
 })
 export class VisitsModule {}
