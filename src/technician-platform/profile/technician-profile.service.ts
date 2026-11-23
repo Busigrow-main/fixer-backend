@@ -32,8 +32,16 @@ export class TechnicianProfileService {
     });
   }
 
-  updateAvailability(technicianId: string, status: string) {
-    const availabilityStatus = this.technicianEngine.assertManualAvailability(status);
+  async updateAvailability(technicianId: string, status: string) {
+    // Only going AVAILABLE needs the open-job check; going offline is always allowed.
+    const hasActiveJob =
+      status === 'AVAILABLE'
+        ? await this.techniciansService.hasActiveJob(technicianId)
+        : false;
+    const availabilityStatus = this.technicianEngine.assertManualAvailability(
+      status,
+      hasActiveJob,
+    );
     return this.techniciansService.update(technicianId, {
       availabilityStatus,
     });

@@ -46,6 +46,7 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
       totalCompletedJobs: 3,
     }),
     update: jest.fn().mockResolvedValue({}),
+    releaseFromJob: jest.fn().mockResolvedValue(true),
   };
   const mockVisits = {
     findByBooking: jest.fn().mockResolvedValue([]),
@@ -234,13 +235,10 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
     expect(commissionCall[0].amount).toBe(100); // 10% of ₹1000
     expect(selfPartsCall[0].amount).toBe(200);
     expect(feeCall[0].amount).toBe(-100);
-    expect(mockTechnicians.update).toHaveBeenCalledWith(
-      techId,
-      expect.objectContaining({
-        availabilityStatus: 'AVAILABLE',
-        totalCompletedJobs: 4,
-      }),
-    );
+    expect(mockTechnicians.update).toHaveBeenCalledWith(techId, {
+      totalCompletedJobs: 4,
+    });
+    expect(mockTechnicians.releaseFromJob).toHaveBeenCalledWith(techId);
   });
 
   it('recordPayment does not re-credit labour/parts if payout already exists', async () => {

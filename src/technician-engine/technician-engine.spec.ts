@@ -4,6 +4,7 @@ import {
   assertCanClaimJob,
   assertJobStatusTransition,
   assertAvailabilityStatus,
+  assertManualAvailabilityChange,
   availabilityForJobEvent,
   canEditJobSheet,
   jobEventForStatusStep,
@@ -26,6 +27,21 @@ describe('Technician engine (core)', () => {
       expect(availabilityForJobEvent('JOB_PAYMENT_COLLECTED')).toBe('AVAILABLE');
       expect(availabilityForJobEvent('RELEASED')).toBe('AVAILABLE');
       expect(availabilityForJobEvent('JOB_CANCELLED')).toBe('AVAILABLE');
+    });
+  });
+
+  describe('manual availability switch', () => {
+    it('allows UNAVAILABLE always and AVAILABLE only without an open job', () => {
+      expect(assertManualAvailabilityChange('UNAVAILABLE', true)).toBe('UNAVAILABLE');
+      expect(assertManualAvailabilityChange('AVAILABLE', false)).toBe('AVAILABLE');
+      expect(() => assertManualAvailabilityChange('AVAILABLE', true)).toThrow(
+        /Finish your current job/,
+      );
+    });
+
+    it('never allows ON_JOB or unknown values by hand', () => {
+      expect(() => assertManualAvailabilityChange('ON_JOB', false)).toThrow(TechnicianEngineError);
+      expect(() => assertManualAvailabilityChange('ONLINE', false)).toThrow(TechnicianEngineError);
     });
   });
 

@@ -63,6 +63,28 @@ export function availabilityForJobEvent(
   }
 }
 
+/**
+ * Technician's own status switch. They may always go offline (UNAVAILABLE);
+ * they may go AVAILABLE only with no open booking; ON_JOB is engine-owned.
+ */
+export function assertManualAvailabilityChange(
+  requested: string,
+  hasActiveJob: boolean,
+): AvailabilityStatus {
+  const status = assertAvailabilityStatus(requested);
+  if (status === 'ON_JOB') {
+    throw new TechnicianEngineError(
+      'ON_JOB is set automatically when you take a job',
+    );
+  }
+  if (status === 'AVAILABLE' && hasActiveJob) {
+    throw new TechnicianEngineError(
+      'Finish your current job before marking yourself available',
+    );
+  }
+  return status;
+}
+
 /** Marketplace claim requires an active, AVAILABLE technician. */
 export function assertCanClaimJob(input: {
   isActive?: boolean;
@@ -82,6 +104,18 @@ export const TERMINAL_BOOKING_STATUSES = [
   'COMPLETED',
   'PAYMENT_COLLECTED',
 ] as const;
+
+/**
+ * Mongo filter for bookings that still hold a technician (not cancelled/completed,
+ * not declined). Callers add `technicianId` (and optionally exclude a booking `_id`).
+ * Single definition so every "is this technician busy?" check agrees.
+ */
+export function activeJobQuery(): Record<string, unknown> {
+  return {
+    status: { $nin: [...TERMINAL_BOOKING_STATUSES] },
+    assignmentStatus: { $ne: 'DECLINED' },
+  };
+}
 
 export function assertBookingAssignable(status?: string | null): void {
   const code = String(status || '').toUpperCase();

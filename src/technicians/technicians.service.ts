@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Technician, TechnicianDocument } from './schemas/technician.schema';
 import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
+import { activeJobQuery } from '../technician-engine/technician-engine';
 import {
   VerificationDocument,
   VerificationDocumentDocument,
@@ -78,6 +79,30 @@ export class TechniciansService {
       throw new NotFoundException('Technician not found');
     }
     return existingTechnician;
+  }
+
+  /** Put an ON_JOB technician back to AVAILABLE. Leaves UNAVAILABLE (off duty) untouched. */
+  async releaseFromJob(technicianId: string): Promise<boolean> {
+    const res = await this.technicianModel
+      .updateOne(
+        { _id: technicianId, availabilityStatus: 'ON_JOB' },
+        { $set: { availabilityStatus: 'AVAILABLE' } },
+      )
+      .exec();
+    return res.modifiedCount > 0;
+  }
+
+  /** True when the technician still holds an open booking (optionally ignoring one). */
+  async hasActiveJob(technicianId: string, excludeBookingId?: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(technicianId)) return false;
+    const filter: Record<string, unknown> = {
+      ...activeJobQuery(),
+      technicianId: new Types.ObjectId(technicianId),
+    };
+    if (excludeBookingId && Types.ObjectId.isValid(excludeBookingId)) {
+      filter._id = { $ne: new Types.ObjectId(excludeBookingId) };
+    }
+    return !!(await this.bookingModel.exists(filter).exec());
   }
 
   async approveApplication(id: string): Promise<Technician> {
