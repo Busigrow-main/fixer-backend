@@ -23,6 +23,7 @@
     "seed:shop-catalog": "ts-node -r tsconfig-paths/register src/scripts/seed-shop-catalog.ts",
     "seed:offers": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-offers.ts",
     "seed:performance-test": "ts-node -r tsconfig-paths/register src/scripts/seed-performance-test-data.ts",
+    "seed:settlement-test": "ts-node -r tsconfig-paths/register src/scripts/seed-settlement-test-data.ts",
     "technicians:release-stale": "ts-node -r tsconfig-paths/register src/scripts/release-stale-technicians.ts",
     "earnings:recalc": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
     "db:adapt": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
