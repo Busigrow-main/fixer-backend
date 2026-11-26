@@ -44,6 +44,8 @@ export class JobDispatchService {
         isActive: true,
         availabilityStatus: 'AVAILABLE',
         idVerified: true,
+        // Fixxer staff are admin-scheduled; marketplace broadcasts reach partners only.
+        employmentType: { $ne: 'FIXXER_STAFF' },
         $or: [{ serviceAreas: zip }, { pincode: zip }],
         $and: [
           {

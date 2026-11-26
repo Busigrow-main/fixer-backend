@@ -13,6 +13,7 @@ export const BOOKING_AUDIT_FIELDS = [
   'paymentStatus',
   'serviceType',
   'reviewStatus',
+  'schedule',
 ] as const;
 
 export type BookingAuditField = (typeof BOOKING_AUDIT_FIELDS)[number];

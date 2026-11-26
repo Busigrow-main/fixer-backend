@@ -102,6 +102,7 @@ describe('Technician activity + job status flow', () => {
       ),
       releaseFromJob: jest.fn().mockResolvedValue(true),
       hasActiveJob: jest.fn().mockResolvedValue(false),
+      recountCompletedJobs: jest.fn().mockResolvedValue(5),
     };
 
     const jobDispatch: any = {
@@ -247,9 +248,7 @@ describe('Technician activity + job status flow', () => {
 
       await service.updateStatus(technicianId, jobId, 'PAYMENT_COLLECTED');
 
-      expect(techniciansService.update).toHaveBeenCalledWith(technicianId, {
-        totalCompletedJobs: 5,
-      });
+      expect(techniciansService.recountCompletedJobs).toHaveBeenCalledWith(technicianId);
       expect(techniciansService.releaseFromJob).toHaveBeenCalledWith(technicianId);
     });
   });

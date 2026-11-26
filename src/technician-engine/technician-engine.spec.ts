@@ -4,6 +4,8 @@ import {
   assertCanClaimJob,
   assertJobStatusTransition,
   assertAvailabilityStatus,
+  activeJobQuery,
+  assertBookingStatusTransition,
   assertManualAvailabilityChange,
   availabilityForJobEvent,
   canEditJobSheet,
@@ -27,6 +29,28 @@ describe('Technician engine (core)', () => {
       expect(availabilityForJobEvent('JOB_PAYMENT_COLLECTED')).toBe('AVAILABLE');
       expect(availabilityForJobEvent('RELEASED')).toBe('AVAILABLE');
       expect(availabilityForJobEvent('JOB_CANCELLED')).toBe('AVAILABLE');
+    });
+  });
+
+  describe('booking status transitions', () => {
+    it('allows the normal job flow and admin shortcuts', () => {
+      expect(() => assertBookingStatusTransition('ASSIGNED', 'EN_ROUTE')).not.toThrow();
+      expect(() => assertBookingStatusTransition('ASSIGNED', 'IN_PROGRESS')).not.toThrow();
+      expect(() => assertBookingStatusTransition('IN_PROGRESS', 'COMPLETED')).not.toThrow();
+      expect(() => assertBookingStatusTransition('COMPLETED', 'PAYMENT_COLLECTED')).not.toThrow();
+      expect(() => assertBookingStatusTransition('RESCHEDULED', 'ASSIGNED')).not.toThrow();
+      expect(() => assertBookingStatusTransition('IN_PROGRESS', 'IN_PROGRESS')).not.toThrow();
+    });
+
+    it('refuses reopening finished jobs and skipping to payment', () => {
+      expect(() => assertBookingStatusTransition('COMPLETED', 'IN_PROGRESS')).toThrow(TechnicianEngineError);
+      expect(() => assertBookingStatusTransition('IN_PROGRESS', 'PAYMENT_COLLECTED')).toThrow(TechnicianEngineError);
+      expect(() => assertBookingStatusTransition('PAYMENT_COLLECTED', 'COMPLETED')).toThrow(/no longer change/);
+      expect(() => assertBookingStatusTransition('CANCELLED', 'CONFIRMED')).toThrow(/no longer change/);
+    });
+
+    it('rescheduled bookings do not count as occupying a technician', () => {
+      expect((activeJobQuery().status as any).$nin).toContain('RESCHEDULED');
     });
   });
 

@@ -3,6 +3,15 @@ import { Document, Types } from 'mongoose';
 
 export type TechnicianDocument = Technician & Document;
 
+/**
+ * PARTNER: independent technician — self-signs up in the app, claims marketplace jobs,
+ * one job at a time. FIXXER_STAFF: Fixxer-employed, admin-scheduled into time slots.
+ * Schema default stays PARTNER so legacy docs (missing the field) don't silently become staff;
+ * the admin create path sets FIXXER_STAFF explicitly.
+ */
+export const EMPLOYMENT_TYPES = ['PARTNER', 'FIXXER_STAFF'] as const;
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+
 @Schema({ _id: false })
 export class BankDetails {
   @Prop() accountName?: string;
@@ -34,6 +43,13 @@ export class Technician {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ type: String, enum: EMPLOYMENT_TYPES, default: 'PARTNER', index: true })
+  employmentType: EmploymentType;
+
+  /** Bumped inside the slot-assignment transaction so concurrent assigns serialize. */
+  @Prop({ default: 0 })
+  scheduleVersion: number;
 
   @Prop({
     type: String,

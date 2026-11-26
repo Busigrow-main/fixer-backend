@@ -16,6 +16,7 @@ import { TechnicianEngineModule } from '../technician-engine/technician-engine.m
 import { GstModule } from '../gst/gst.module';
 import { BillEmailService } from './bill-email.service';
 import { EmailPreviewController } from './email-preview.controller';
+import { BookingSlotShiftScheduler } from './booking-slot-shift.scheduler';
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { EmailPreviewController } from './email-preview.controller';
     GstModule,
   ],
   controllers: [BookingsController, EmailPreviewController],
-  providers: [BookingsService, BillEmailService],
+  providers: [BookingsService, BillEmailService, BookingSlotShiftScheduler],
   exports: [BookingsService],
 })
 export class BookingsModule {}

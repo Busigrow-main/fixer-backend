@@ -38,6 +38,7 @@ import {
 import { JWT_AUTH } from '../common/swagger';
 import {
   AssignTechnicianDto,
+  BookingSlotDto,
   BookingStatusDto,
   FixxerCodeDto,
   NoteDto,
@@ -48,6 +49,11 @@ import {
   TrackingDto,
 } from '../common/body.dto';
 import { ShopSettingsService } from '../shop/shop-settings.service';
+import { TechnicianScheduleService } from '../technician-engine/technician-schedule.service';
+// Import the pure files directly — the technician-engine index also re-exports the Nest
+// module, which would pull AuthModule (and its JWT_SECRET check) into this file's imports.
+import { TechnicianEngineError } from '../technician-engine/technician-engine';
+import { assertValidSlot } from '../technician-engine/technician-schedule';
 import { CustomerServiceHistoryService } from './customer-service-history.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -84,6 +90,7 @@ export class AdminController {
     private readonly serviceablePincodesService: ServiceablePincodesService,
     private readonly shopSettingsService: ShopSettingsService,
     private readonly customerServiceHistoryService: CustomerServiceHistoryService,
+    private readonly technicianSchedule: TechnicianScheduleService,
   ) {}
 
   // ─── Dashboard ────────────────────────────────────────────
@@ -299,7 +306,98 @@ export class AdminController {
     @Body() body: AssignTechnicianDto,
     @Req() req: any,
   ) {
-    return this.bookingsService.assignTechnician(id, body.technicianId, {
+    return this.bookingsService.assignTechnician(
+      id,
+      body.technicianId,
+      {
+        actorRole: 'ADMIN',
+        actorId: req.user?.userId || req.user?.sub,
+        reason: body.reason,
+      },
+      body.scheduledStart || body.scheduledEnd
+        ? { start: body.scheduledStart, end: body.scheduledEnd, override: !!body.override }
+        : undefined,
+    );
+  }
+
+  @Put('bookings/:id/slot')
+  @ApiOperation({ summary: 'Change the time slot of a not-started Fixxer-staff booking' })
+  async rescheduleSlot(
+    @Param('id') id: string,
+    @Body() body: BookingSlotDto,
+    @Req() req: any,
+  ) {
+    return this.bookingsService.rescheduleSlot(
+      id,
+      { start: body.scheduledStart, end: body.scheduledEnd, override: !!body.override },
+      {
+        actorRole: 'ADMIN',
+        actorId: req.user?.userId || req.user?.sub,
+        reason: body.reason,
+      },
+    );
+  }
+
+  // ─── Fixxer staff schedule ────────────────────────────────
+  @Get('schedule')
+  @ApiOperation({ summary: 'Day board: staff technicians, their slots, unassigned bookings' })
+  async getDaySchedule(@Query('date') date?: string) {
+    return this.technicianSchedule.daySchedule(parseServiceDay(date));
+  }
+
+  @Get('schedule/free-technicians')
+  @ApiOperation({ summary: 'Fixxer staff free for the whole window [start, end)' })
+  async getFreeTechnicians(
+    @Query('start') start: string,
+    @Query('end') end: string,
+    @Query('excludeBookingId') excludeBookingId?: string,
+  ) {
+    const window = toSlot(start, end);
+    const eligibility = excludeBookingId
+      ? await this.bookingsService.slotEligibilityFor(excludeBookingId)
+      : undefined;
+    return this.technicianSchedule.freeStaffFor(window, undefined, excludeBookingId, eligibility);
+  }
+
+  @Get('schedule/check')
+  @ApiOperation({ summary: 'Clash check for one technician + window (no write)' })
+  async checkSlot(
+    @Query('technicianId') technicianId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+    @Query('excludeBookingId') excludeBookingId?: string,
+  ) {
+    if (!technicianId) throw new BadRequestException('technicianId is required');
+    const eligibility = excludeBookingId
+      ? await this.bookingsService.slotEligibilityFor(excludeBookingId)
+      : undefined;
+    return this.technicianSchedule.checkSlot(
+      technicianId,
+      toSlot(start, end),
+      excludeBookingId,
+      undefined,
+      eligibility,
+    );
+  }
+
+  @Get('schedule/technicians/:id/free-slots')
+  @ApiOperation({ summary: 'Free gaps (8 AM–9 PM IST) that fit `duration` minutes' })
+  async getFreeSlots(
+    @Param('id') id: string,
+    @Query('date') date: string,
+    @Query('duration') duration: string,
+  ) {
+    const minutes = Number(duration);
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      throw new BadRequestException('duration (minutes) must be greater than zero');
+    }
+    return this.technicianSchedule.freeSlotsFor(id, parseServiceDay(date), minutes);
+  }
+
+  @Put('bookings/:id/unassign')
+  @ApiOperation({ summary: 'Remove the technician from a booking without a replacement' })
+  async unassignTechnician(@Param('id') id: string, @Req() req: any) {
+    return this.bookingsService.unassignTechnician(id, {
       actorRole: 'ADMIN',
       actorId: req.user?.userId || req.user?.sub,
     });
@@ -735,5 +833,23 @@ export class AdminController {
     @Param('id') id: string,
   ) {
     return this.serviceablePincodesService.remove(id);
+  }
+}
+
+/** `YYYY-MM-DD` (IST) → an instant inside that day; defaults to today. */
+function parseServiceDay(date?: string): Date {
+  if (!date) return new Date();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new BadRequestException('date must be YYYY-MM-DD');
+  }
+  return new Date(`${date}T12:00:00.000+05:30`);
+}
+
+function toSlot(start: string, end: string) {
+  try {
+    return assertValidSlot({ start, end });
+  } catch (err) {
+    if (err instanceof TechnicianEngineError) throw new BadRequestException(err.message);
+    throw err;
   }
 }

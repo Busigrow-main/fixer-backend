@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Technician, TechnicianDocument } from './schemas/technician.schema';
+import { EMPLOYMENT_TYPES, Technician, TechnicianDocument } from './schemas/technician.schema';
 import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
 import { activeJobQuery } from '../technician-engine/technician-engine';
 import {
@@ -27,10 +27,20 @@ export class TechniciansService {
     return this.technicianModel.find().exec();
   }
 
-  /** Active technicians currently AVAILABLE (technician-engine assign pool). */
+  /**
+   * Assign pool: active partners that are AVAILABLE, plus active Fixxer staff that are
+   * not switched off (staff are scheduled into slots, so being on a job now doesn't
+   * hide them — the slot check decides).
+   */
   async findAvailable(): Promise<Technician[]> {
     return this.technicianModel
-      .find({ isActive: true, availabilityStatus: 'AVAILABLE' })
+      .find({
+        isActive: true,
+        $or: [
+          { availabilityStatus: 'AVAILABLE' },
+          { employmentType: 'FIXXER_STAFF', availabilityStatus: { $ne: 'UNAVAILABLE' } },
+        ],
+      })
       .exec();
   }
 
@@ -92,7 +102,9 @@ export class TechniciansService {
     return res.modifiedCount > 0;
   }
 
-  /** True when the technician still holds an open booking (optionally ignoring one). */
+  /**
+   * True when the technician still holds an open booking (optionally ignoring one).
+   */
   async hasActiveJob(technicianId: string, excludeBookingId?: string): Promise<boolean> {
     if (!Types.ObjectId.isValid(technicianId)) return false;
     const filter: Record<string, unknown> = {
@@ -103,6 +115,56 @@ export class TechniciansService {
       filter._id = { $ne: new Types.ObjectId(excludeBookingId) };
     }
     return !!(await this.bookingModel.exists(filter).exec());
+  }
+
+  /**
+   * totalCompletedJobs is derived from bookings, never incremented in place, so it
+   * can't drift (admin-closed jobs count too; repeated calls are harmless).
+   */
+  async recountCompletedJobs(technicianId: string): Promise<number> {
+    if (!Types.ObjectId.isValid(technicianId)) return 0;
+    const total = await this.bookingModel
+      .countDocuments({
+        technicianId: new Types.ObjectId(technicianId),
+        status: { $in: ['COMPLETED', 'PAYMENT_COLLECTED'] },
+      })
+      .exec();
+    await this.technicianModel
+      .updateOne({ _id: technicianId }, { $set: { totalCompletedJobs: total } })
+      .exec();
+    return total;
+  }
+
+  /** A technician holding an open job can't be deactivated — they'd lose app access mid-job. */
+  async assertCanDeactivate(technicianId: string): Promise<void> {
+    if (await this.hasActiveJob(technicianId)) {
+      throw new BadRequestException(
+        'This technician has an open job. Reassign or unassign it before deactivating.',
+      );
+    }
+  }
+
+  /**
+   * PARTNER ↔ FIXXER_STAFF. Moving staff to PARTNER while they still hold scheduled,
+   * not-finished jobs would leave slots no one manages — move/reassign those first.
+   */
+  async assertCanChangeEmploymentType(technicianId: string, next: unknown): Promise<void> {
+    if (!(EMPLOYMENT_TYPES as readonly unknown[]).includes(next)) {
+      throw new BadRequestException(`employmentType must be ${EMPLOYMENT_TYPES.join(' or ')}`);
+    }
+    if (next !== 'PARTNER' || !Types.ObjectId.isValid(technicianId)) return;
+    const holdsSlots = await this.bookingModel
+      .exists({
+        ...activeJobQuery(),
+        technicianId: new Types.ObjectId(technicianId),
+        scheduledStart: { $ne: null },
+      })
+      .exec();
+    if (holdsSlots) {
+      throw new BadRequestException(
+        'This technician still has scheduled jobs. Reassign or finish them before switching to Partner.',
+      );
+    }
   }
 
   async approveApplication(id: string): Promise<Technician> {
@@ -245,6 +307,7 @@ export class TechniciansService {
   }
 
   async deactivate(id: string) {
+    await this.assertCanDeactivate(id);
     return this.update(id, { isActive: false });
   }
 }

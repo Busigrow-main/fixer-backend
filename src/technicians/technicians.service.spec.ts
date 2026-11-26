@@ -9,9 +9,13 @@ describe('TechniciansService – availability helpers', () => {
       updateOne: jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
       }),
+      findByIdAndUpdate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: technicianId, isActive: false }),
+      }),
     };
     const bookingModel: any = {
       exists: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+      countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(7) }),
     };
     const service = new TechniciansService(technicianModel, bookingModel, {} as any);
     return { service, technicianModel, bookingModel };
@@ -28,7 +32,7 @@ describe('TechniciansService – availability helpers', () => {
     );
   });
 
-  it('hasActiveJob ignores cancelled/completed/declined bookings and can exclude one booking', async () => {
+  it('hasActiveJob ignores cancelled/completed/rescheduled/declined bookings and can exclude one booking', async () => {
     const { service, bookingModel } = build();
     const excludeId = new Types.ObjectId().toString();
 
@@ -36,7 +40,12 @@ describe('TechniciansService – availability helpers', () => {
 
     const filter = bookingModel.exists.mock.calls[0][0];
     expect(String(filter.technicianId)).toBe(technicianId);
-    expect(filter.status.$nin).toEqual(['CANCELLED', 'COMPLETED', 'PAYMENT_COLLECTED']);
+    expect(filter.status.$nin).toEqual([
+      'CANCELLED',
+      'COMPLETED',
+      'PAYMENT_COLLECTED',
+      'RESCHEDULED',
+    ]);
     expect(filter.assignmentStatus).toEqual({ $ne: 'DECLINED' });
     expect(String(filter._id.$ne)).toBe(excludeId);
   });
@@ -48,5 +57,40 @@ describe('TechniciansService – availability helpers', () => {
     });
 
     await expect(service.hasActiveJob(technicianId)).resolves.toBe(true);
+  });
+
+  it('recountCompletedJobs stores the real number of completed bookings', async () => {
+    const { service, technicianModel, bookingModel } = build();
+
+    await expect(service.recountCompletedJobs(technicianId)).resolves.toBe(7);
+
+    const filter = bookingModel.countDocuments.mock.calls[0][0];
+    expect(filter.status).toEqual({ $in: ['COMPLETED', 'PAYMENT_COLLECTED'] });
+    expect(technicianModel.updateOne).toHaveBeenCalledWith(
+      { _id: technicianId },
+      { $set: { totalCompletedJobs: 7 } },
+    );
+  });
+
+  it('deactivate is refused while the technician holds an open job', async () => {
+    const { service, technicianModel, bookingModel } = build();
+    bookingModel.exists.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({ _id: new Types.ObjectId() }),
+    });
+
+    await expect(service.deactivate(technicianId)).rejects.toThrow(/open job/);
+    expect(technicianModel.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('deactivate works when the technician has no open job', async () => {
+    const { service, technicianModel } = build();
+
+    await service.deactivate(technicianId);
+
+    expect(technicianModel.findByIdAndUpdate).toHaveBeenCalledWith(
+      technicianId,
+      { isActive: false },
+      expect.any(Object),
+    );
   });
 });

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -38,6 +39,13 @@ export class TechnicianAuthService {
     let user = await this.usersService.findOneByPhone(phone);
     let technician = await this.technicianModel.findOne({ phone }).exec();
     let isNew = false;
+
+    // Fixxer staff are fully admin-managed and have no app access.
+    if (technician?.employmentType === 'FIXXER_STAFF') {
+      throw new ForbiddenException(
+        'Fixxer staff jobs are managed by the Fixxer admin — the technician app is for partner technicians.',
+      );
+    }
 
     if (!user) {
       isNew = true;

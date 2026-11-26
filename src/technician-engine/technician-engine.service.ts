@@ -10,6 +10,7 @@ import {
   assertCanRejectAssignment,
   assertJobStatusTransition,
   availabilityForJobEvent,
+  isPreArrivalJobEvent,
   jobEventForStatusStep,
   TechnicianEngineError,
 } from './technician-engine';
@@ -38,8 +39,14 @@ export class TechnicianEngineService {
     technicianId: string,
     event: TechnicianJobEvent,
   ): Promise<AvailabilityStatus | null> {
-    const next = availabilityForJobEvent(event);
+    let next = availabilityForJobEvent(event);
     if (!next) return null;
+    if (isPreArrivalJobEvent(event)) {
+      // Staff stay AVAILABLE while holding future slots — needs the technician's type.
+      const tech = await this.techniciansService.findOne(technicianId);
+      next = availabilityForJobEvent(event, tech?.employmentType);
+      if (!next) return null;
+    }
     if (next === 'AVAILABLE') {
       // Only free a technician who is ON_JOB — never override UNAVAILABLE (off duty).
       await this.techniciansService.releaseFromJob(technicianId);
@@ -169,21 +176,12 @@ export class TechnicianEngineService {
   async applyStatusStepAvailability(
     technicianId: string,
     nextStatus: TechnicianJobStatus,
-    opts?: { totalCompletedJobs?: number },
   ) {
     const event = jobEventForStatusStep(nextStatus);
     if (!event) return;
 
-    if (event === 'JOB_PAYMENT_COLLECTED') {
-      const tech = await this.techniciansService.findOne(technicianId);
-      await this.techniciansService.update(technicianId, {
-        totalCompletedJobs:
-          opts?.totalCompletedJobs != null
-            ? opts.totalCompletedJobs
-            : Number(tech.totalCompletedJobs || 0) + 1,
-      });
-      await this.techniciansService.releaseFromJob(technicianId);
-      return;
+    if (event === 'JOB_COMPLETED' || event === 'JOB_PAYMENT_COLLECTED') {
+      await this.techniciansService.recountCompletedJobs(technicianId);
     }
 
     await this.applyJobEvent(technicianId, event);

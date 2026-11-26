@@ -45,7 +45,13 @@ export function assertAvailabilityStatus(value: string): AvailabilityStatus {
  */
 export function availabilityForJobEvent(
   event: TechnicianJobEvent,
+  employmentType?: string | null,
 ): AvailabilityStatus | null {
+  // Fixxer staff are scheduled into future slots: being assigned / accepting a job
+  // does not take them off the board. They are ON_JOB only once actually working.
+  if (employmentType === 'FIXXER_STAFF' && isPreArrivalJobEvent(event)) {
+    return null;
+  }
   switch (event) {
     case 'CLAIMED':
     case 'ADMIN_ASSIGNED':
@@ -61,6 +67,11 @@ export function availabilityForJobEvent(
     default:
       return null;
   }
+}
+
+/** Events that happen before the technician is on the way / on site. */
+export function isPreArrivalJobEvent(event: TechnicianJobEvent): boolean {
+  return event === 'CLAIMED' || event === 'ADMIN_ASSIGNED' || event === 'ACCEPTED';
 }
 
 /**
@@ -106,15 +117,83 @@ export const TERMINAL_BOOKING_STATUSES = [
 ] as const;
 
 /**
- * Mongo filter for bookings that still hold a technician (not cancelled/completed,
- * not declined). Callers add `technicianId` (and optionally exclude a booking `_id`).
- * Single definition so every "is this technician busy?" check agrees.
+ * Rescheduled bookings keep their technician linked but do NOT occupy them —
+ * the technician is free for other work until the booking is re-activated.
+ */
+export const NON_OCCUPYING_BOOKING_STATUSES = [
+  ...TERMINAL_BOOKING_STATUSES,
+  'RESCHEDULED',
+] as const;
+
+/** Statuses in which a booking occupies its technician right now. */
+export const TECH_OCCUPYING_STATUSES = ['ASSIGNED', 'EN_ROUTE', 'IN_PROGRESS'] as const;
+
+export function isTechOccupyingStatus(status?: string | null): boolean {
+  return (TECH_OCCUPYING_STATUSES as readonly string[]).includes(
+    String(status || '').toUpperCase(),
+  );
+}
+
+/**
+ * Mongo filter for bookings that occupy a technician (not cancelled/completed/
+ * rescheduled, not declined). Callers add `technicianId` (and optionally exclude a
+ * booking `_id`). Single definition so every "is this technician busy?" check agrees.
  */
 export function activeJobQuery(): Record<string, unknown> {
   return {
-    status: { $nin: [...TERMINAL_BOOKING_STATUSES] },
+    status: { $nin: [...NON_OCCUPYING_BOOKING_STATUSES] },
     assignmentStatus: { $ne: 'DECLINED' },
   };
+}
+
+/** Statuses in which a technician is physically on a job (on the way / on site). */
+export const LIVE_JOB_STATUSES = ['EN_ROUTE', 'IN_PROGRESS'] as const;
+
+/**
+ * Mongo filter for a job the technician is working right now. Fixxer staff hold many
+ * future ASSIGNED slots, so for them "busy now" means only this (see technician-schedule).
+ */
+export function liveJobQuery(): Record<string, unknown> {
+  return {
+    status: { $in: [...LIVE_JOB_STATUSES] },
+    assignmentStatus: { $ne: 'DECLINED' },
+  };
+}
+
+/**
+ * Allowed booking status moves (admin console + technician app). Cancellation has
+ * its own path. No way back once COMPLETED — a finished job is not reopened.
+ * EN_ROUTE may be skipped (admin has no EN_ROUTE option).
+ */
+export const BOOKING_STATUS_TRANSITIONS: Record<string, readonly string[]> = {
+  PENDING: ['CONFIRMED', 'ASSIGNED', 'RESCHEDULED'],
+  CONFIRMED: ['PENDING', 'ASSIGNED', 'RESCHEDULED'],
+  ASSIGNED: ['PENDING', 'CONFIRMED', 'EN_ROUTE', 'IN_PROGRESS', 'RESCHEDULED'],
+  EN_ROUTE: ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'RESCHEDULED'],
+  IN_PROGRESS: ['PENDING', 'CONFIRMED', 'COMPLETED', 'RESCHEDULED'],
+  RESCHEDULED: ['PENDING', 'CONFIRMED', 'ASSIGNED', 'IN_PROGRESS'],
+  COMPLETED: ['PAYMENT_COLLECTED'],
+  PAYMENT_COLLECTED: [],
+  CANCELLED: [],
+};
+
+export function assertBookingStatusTransition(
+  from: string | null | undefined,
+  to: string,
+): void {
+  const current = String(from || '').toUpperCase();
+  const next = String(to || '').toUpperCase();
+  if (current === next) return;
+  const allowed = BOOKING_STATUS_TRANSITIONS[current];
+  // Unknown/legacy current status: don't block (nothing to reason about).
+  if (!allowed) return;
+  if (!allowed.includes(next)) {
+    throw new TechnicianEngineError(
+      allowed.length
+        ? `Cannot move a ${current} booking to ${next}. Allowed: ${allowed.join(', ')}`
+        : `A ${current} booking can no longer change status`,
+    );
+  }
 }
 
 export function assertBookingAssignable(status?: string | null): void {

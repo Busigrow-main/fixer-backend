@@ -44,6 +44,19 @@ describe('BookingsService – State Machine', () => {
         });
       }
     }),
+    markAvailable: jest.fn().mockImplementation(async (technicianId: string) => {
+      const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
+      await techModel.updateOne(
+        { _id: technicianId, availabilityStatus: 'ON_JOB' },
+        { availabilityStatus: 'AVAILABLE' },
+      );
+      return 'AVAILABLE';
+    }),
+    markOnJob: jest.fn().mockImplementation(async (technicianId: string) => {
+      const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
+      await techModel.findByIdAndUpdate(technicianId, { availabilityStatus: 'ON_JOB' });
+      return 'ON_JOB';
+    }),
     onJobCancelled: jest.fn().mockImplementation(async (technicianId: string) => {
       const techModel = module.get(getModelToken(Technician.name)) as Model<any>;
       await techModel.findByIdAndUpdate(technicianId, { availabilityStatus: 'AVAILABLE' });
@@ -391,6 +404,122 @@ describe('BookingsService – State Machine', () => {
       await service.assignTechnician(next._id.toString(), tech._id.toString());
       const doc = await bookingModel.findById(next._id).lean().exec();
       expect(String(doc!.technicianId)).toBe(String(tech._id));
+    });
+  });
+
+  describe('admin-managed flows keep technician availability correct', () => {
+    const techModel = () => module.get(getModelToken(Technician.name)) as Model<any>;
+    const availability = async (id: Types.ObjectId) =>
+      (await techModel().findById(id).lean().exec())!.availabilityStatus;
+
+    it('RESCHEDULED frees the technician but keeps them linked to the booking', async () => {
+      const tech = await createEligibleTech();
+      const b = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(b._id.toString(), tech._id.toString());
+
+      await service.updateStatus(b._id.toString(), 'RESCHEDULED', 'Customer moved to next week');
+
+      expect(await availability(tech._id)).toBe('AVAILABLE');
+      const doc = await bookingModel.findById(b._id).lean().exec();
+      expect(String(doc!.technicianId)).toBe(String(tech._id));
+
+      // ...and is assignable to other work meanwhile.
+      const other = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(other._id.toString(), tech._id.toString());
+      expect(await availability(tech._id)).toBe('ON_JOB');
+    });
+
+    it('re-activating a RESCHEDULED booking marks the technician busy if they are free', async () => {
+      const tech = await createEligibleTech();
+      const b = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(b._id.toString(), tech._id.toString());
+      await service.updateStatus(b._id.toString(), 'RESCHEDULED', 'Moved');
+
+      await service.updateStatus(b._id.toString(), 'ASSIGNED');
+
+      expect(await availability(tech._id)).toBe('ON_JOB');
+    });
+
+    it('re-activating a RESCHEDULED booking fails while its technician is on another job', async () => {
+      const tech = await createEligibleTech();
+      const b = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(b._id.toString(), tech._id.toString());
+      await service.updateStatus(b._id.toString(), 'RESCHEDULED', 'Moved');
+      const other = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(other._id.toString(), tech._id.toString());
+
+      await expect(service.updateStatus(b._id.toString(), 'ASSIGNED')).rejects.toThrow(
+        /another job/i,
+      );
+      // Re-selecting them in the dropdown is refused too.
+      await expect(
+        service.assignTechnician(b._id.toString(), tech._id.toString()),
+      ).rejects.toThrow(/not active and available/i);
+    });
+
+    it('reassigning a rescheduled booking does not free the old technician who is on another job', async () => {
+      const oldTech = await createEligibleTech();
+      const newTech = await createEligibleTech();
+      const b = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(b._id.toString(), oldTech._id.toString());
+      await service.updateStatus(b._id.toString(), 'RESCHEDULED', 'Moved');
+      const other = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(other._id.toString(), oldTech._id.toString());
+
+      await service.assignTechnician(b._id.toString(), newTech._id.toString());
+
+      expect(await availability(oldTech._id)).toBe('ON_JOB');
+      expect(await availability(newTech._id)).toBe('ON_JOB');
+    });
+
+    it('moving an assigned job back to CONFIRMED unassigns and frees the technician', async () => {
+      const tech = await createEligibleTech();
+      const b = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(b._id.toString(), tech._id.toString());
+
+      await service.updateStatus(b._id.toString(), 'CONFIRMED');
+
+      const doc = await bookingModel.findById(b._id).lean().exec();
+      expect(doc!.technicianId).toBeNull();
+      expect(doc!.status).toBe('CONFIRMED');
+      expect(doc!.fixxerCodeCiphertext).toBeUndefined();
+      expect(await availability(tech._id)).toBe('AVAILABLE');
+    });
+
+    it('unassignTechnician frees the technician without cancelling the booking', async () => {
+      const tech = await createEligibleTech();
+      const b = await createBooking({ status: 'CONFIRMED' });
+      await service.assignTechnician(b._id.toString(), tech._id.toString());
+
+      await service.unassignTechnician(b._id.toString(), { actorRole: 'ADMIN' });
+
+      const doc = await bookingModel.findById(b._id).lean().exec();
+      expect(doc!.technicianId).toBeNull();
+      expect(doc!.status).toBe('CONFIRMED');
+      expect(doc!.dispatchStatus).toBe('NEEDS_ADMIN');
+      expect(await availability(tech._id)).toBe('AVAILABLE');
+      await expect(service.unassignTechnician(b._id.toString())).rejects.toThrow(
+        /No technician/,
+      );
+    });
+
+    it('unassign is refused on finished jobs', async () => {
+      const done = await createBooking({ status: 'COMPLETED', technicianId: new Types.ObjectId() });
+      await expect(service.unassignTechnician(done._id.toString())).rejects.toThrow(
+        /cancelled or completed/,
+      );
+    });
+
+    it('blocks reopening a finished job and skipping straight to PAYMENT_COLLECTED', async () => {
+      const done = await createBooking({ status: 'COMPLETED', technicianId: new Types.ObjectId() });
+      await expect(service.updateStatus(done._id.toString(), 'IN_PROGRESS')).rejects.toThrow(
+        /Cannot move a COMPLETED booking to IN_PROGRESS/,
+      );
+
+      const running = await createBooking({ status: 'IN_PROGRESS', technicianId: new Types.ObjectId() });
+      await expect(
+        service.updateStatus(running._id.toString(), 'PAYMENT_COLLECTED'),
+      ).rejects.toThrow(/Cannot move a IN_PROGRESS booking to PAYMENT_COLLECTED/);
     });
   });
 });

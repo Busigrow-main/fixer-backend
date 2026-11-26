@@ -51,7 +51,10 @@ export class TechnicianAdminService {
     return this.techniciansService.getTechnicianWithJobs(id);
   }
 
-  updateTechnician(id: string, data: any) {
+  async updateTechnician(id: string, data: any) {
+    if (data?.isActive === false) {
+      await this.techniciansService.assertCanDeactivate(id);
+    }
     return this.techniciansService.update(id, data);
   }
 
@@ -60,7 +63,7 @@ export class TechnicianAdminService {
   }
 
   deactivate(id: string) {
-    return this.techniciansService.update(id, { isActive: false });
+    return this.techniciansService.deactivate(id);
   }
 
   async assignJob(technicianId: string, bookingId: string) {

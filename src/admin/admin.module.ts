@@ -10,6 +10,7 @@ import { WarrantiesModule } from '../warranties/warranties.module';
 import { ServiceablePincodesModule } from '../serviceable-pincodes/serviceable-pincodes.module';
 import { ShopModule } from '../shop/shop.module';
 import { OpsModule } from '../ops/ops.module';
+import { TechnicianEngineModule } from '../technician-engine/technician-engine.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
@@ -52,6 +53,7 @@ import { CustomerServiceHistoryService } from './customer-service-history.servic
     ServiceablePincodesModule,
     ShopModule,
     OpsModule,
+    TechnicianEngineModule,
   ],
   controllers: [AdminController],
   providers: [AdminService, CustomerServiceHistoryService],

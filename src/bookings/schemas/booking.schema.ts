@@ -315,6 +315,16 @@ export class Booking {
   @Prop()
   declineReason?: string;
 
+  /**
+   * Admin-planned time slot (Fixxer staff technicians). Pre-arrival: the booking stays
+   * ASSIGNED; EN_ROUTE / IN_PROGRESS still mean the technician is on site / on the way.
+   */
+  @Prop()
+  scheduledStart?: Date;
+
+  @Prop()
+  scheduledEnd?: Date;
+
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
   serviceId: Types.ObjectId;
 
@@ -619,6 +629,8 @@ export class Booking {
 
 export const BookingSchema =
   SchemaFactory.createForClass(Booking);
+
+BookingSchema.index({ technicianId: 1, scheduledStart: 1 });
 
 BookingSchema.index({
   dispatchStatus: 1,

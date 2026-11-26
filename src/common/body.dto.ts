@@ -56,6 +56,38 @@ export class ShopSettingsDto {
 export class AssignTechnicianDto {
   @ApiProperty()
   technicianId: string;
+
+  @ApiPropertyOptional({
+    description: 'Slot start (ISO). Required for Fixxer staff technicians.',
+    example: '2026-11-24T06:30:00.000Z',
+  })
+  scheduledStart?: string;
+
+  @ApiPropertyOptional({
+    description: 'Slot end (ISO). Required for Fixxer staff technicians.',
+    example: '2026-11-24T08:30:00.000Z',
+  })
+  scheduledEnd?: string;
+
+  @ApiPropertyOptional({ description: 'Assign even if the technician is busy in that slot' })
+  override?: boolean;
+
+  @ApiPropertyOptional({ description: 'Required when override is true' })
+  reason?: string;
+}
+
+export class BookingSlotDto {
+  @ApiProperty({ example: '2026-11-24T06:30:00.000Z' })
+  scheduledStart: string;
+
+  @ApiProperty({ example: '2026-11-24T08:30:00.000Z' })
+  scheduledEnd: string;
+
+  @ApiPropertyOptional()
+  override?: boolean;
+
+  @ApiPropertyOptional()
+  reason?: string;
 }
 
 export class BookingIdDto {

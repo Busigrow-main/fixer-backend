@@ -31,6 +31,13 @@ export class TechnicianGuard implements CanActivate {
       throw new ForbiddenException('Technician profile not found');
     }
 
+    // Also covers sessions issued before a technician was switched to Fixxer staff.
+    if (technician.employmentType === 'FIXXER_STAFF') {
+      throw new ForbiddenException(
+        'Fixxer staff jobs are managed by the Fixxer admin — the technician app is for partner technicians.',
+      );
+    }
+
     const requireActive = this.reflector.getAllAndOverride<boolean>(
       REQUIRE_ACTIVE_KEY,
       [context.getHandler(), context.getClass()],

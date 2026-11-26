@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -34,8 +35,12 @@ export class TechniciansController {
     // technician must pass every isActive/idVerified gate (technician app,
     // dispatch, open-job claims) — not just the admin assign dropdown.
     const now = new Date();
+    // Admin-added technicians are Fixxer staff unless the admin explicitly picks PARTNER.
+    const employmentType =
+      createData?.employmentType === 'PARTNER' ? 'PARTNER' : 'FIXXER_STAFF';
     return this.techniciansService.create({
       ...createData,
+      employmentType,
       onboardingStatus: 'COMPLETED',
       onboardingCompletedAt: now,
       verificationStatus: 'VERIFIED',
@@ -133,7 +138,20 @@ export class TechniciansController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateData: any) {
+  async update(@Param('id') id: string, @Body() updateData: any) {
+    if (updateData?.isActive === false) {
+      await this.techniciansService.assertCanDeactivate(id);
+    }
+    // Admin "off duty" toggle. ON_JOB is engine-owned (set by live jobs), never by hand.
+    if (
+      updateData?.availabilityStatus !== undefined &&
+      !['AVAILABLE', 'UNAVAILABLE'].includes(updateData.availabilityStatus)
+    ) {
+      throw new BadRequestException('availabilityStatus must be AVAILABLE or UNAVAILABLE');
+    }
+    if (updateData?.employmentType !== undefined) {
+      await this.techniciansService.assertCanChangeEmploymentType(id, updateData.employmentType);
+    }
     return this.techniciansService.update(id, updateData);
   }
 

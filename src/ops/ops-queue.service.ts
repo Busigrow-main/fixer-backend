@@ -269,18 +269,23 @@ export class OpsQueueService {
     const acceptedCutoff = new Date(
       now.getTime() - thresholds.acceptedNotStartedHours * 60 * 60 * 1000,
     );
+    // Scheduled (Fixxer staff) jobs are timed from their slot start, not from accept —
+    // a 4 PM job accepted at 8 AM is not "not started" all day.
     const acceptedNotStarted = await this.bookingModel
       .find({
         assignmentStatus: 'ACCEPTED',
         status: 'ASSIGNED',
-        acceptedAt: { $lte: acceptedCutoff },
+        $or: [
+          { scheduledStart: { $lte: acceptedCutoff } },
+          { scheduledStart: null, acceptedAt: { $lte: acceptedCutoff } },
+        ],
       })
       .populate('opsOwnerId', 'fullName phone')
       .lean()
       .exec();
     for (const booking of acceptedNotStarted as any[]) {
       const dueAt = new Date(
-        new Date(booking.acceptedAt).getTime() +
+        new Date(booking.scheduledStart || booking.acceptedAt).getTime() +
           thresholds.acceptedNotStartedHours * 60 * 60 * 1000,
       );
       add(this.toRow(booking, 'ACCEPTED_NOT_STARTED', now, { dueAt }));

@@ -46,6 +46,7 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
     }),
     update: jest.fn().mockResolvedValue({}),
     releaseFromJob: jest.fn().mockResolvedValue(true),
+    recountCompletedJobs: jest.fn().mockResolvedValue(4),
   };
   const mockVisits = {
     findByBooking: jest.fn().mockResolvedValue([]),
@@ -234,9 +235,7 @@ describe('JobCompletionService – No Dual-Source Writes', () => {
     expect(commissionCall[0].amount).toBe(100); // 10% of ₹1000
     expect(selfPartsCall[0].amount).toBe(200);
     expect(feeCall[0].amount).toBe(-100);
-    expect(mockTechnicians.update).toHaveBeenCalledWith(techId, {
-      totalCompletedJobs: 4,
-    });
+    expect(mockTechnicians.recountCompletedJobs).toHaveBeenCalledWith(techId);
     expect(mockTechnicians.releaseFromJob).toHaveBeenCalledWith(techId);
   });
 

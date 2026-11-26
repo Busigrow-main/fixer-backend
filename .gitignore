@@ -41,3 +41,8 @@ lerna-debug.log*
 # AC pipeline scraped images (local only)
 src/scripts/ac-pipeline/images/*
 !src/scripts/ac-pipeline/images/.gitkeep
+
+# graphify (machine-local)
+graphify-out/cache/
+graphify-out/.graphify_root
+.claude/settings.local.json

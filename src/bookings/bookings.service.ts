@@ -2,10 +2,11 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import { Booking, BookingDocument } from './schemas/booking.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
@@ -46,7 +47,28 @@ import {
   assertBookingAssignable,
   TechnicianEngineError,
   activeJobQuery,
+  liveJobQuery,
+  assertBookingStatusTransition,
+  isTechOccupyingStatus,
 } from '../technician-engine/technician-engine';
+import {
+  SlotWindow,
+  assertNotInPast,
+  assertValidSlot,
+  isWithinWorkingHours,
+  describeSlotClash,
+  isFixxerStaff,
+  planOverrunShift,
+  planPushAfter,
+  SlotShift,
+} from '../technician-engine/technician-schedule';
+import {
+  SlotCheck,
+  SlotEligibility,
+  TechnicianScheduleService,
+  slotCheckHasClash,
+} from '../technician-engine/technician-schedule.service';
+import { LIVE_JOB_STATUSES } from '../technician-engine/technician-engine';
 import { assertValidCalendarDate } from '../common/calendar-date';
 import { GstService } from '../gst/gst.service';
 import {
@@ -58,6 +80,14 @@ import {
   buildChangeEvent,
   type BookingChangeEventInput,
 } from './booking-change-history';
+
+/** Admin-entered staff slot (ISO strings from the API or Dates). */
+export type AssignSlotInput = {
+  start?: string | Date;
+  end?: string | Date;
+  /** Assign even though the technician is busy / off duty (needs audit.reason). */
+  override?: boolean;
+};
 
 const BOOKING_LEAD_TIME_MINUTES = 2 * 60;
 const SLOT_END_MINUTES: Record<string, number> = {
@@ -108,6 +138,7 @@ export class BookingsService {
     private gstService: GstService,
     @Optional() private billEmail?: BillEmailService,
     @Optional() private technicianEngine?: TechnicianEngineService,
+    @Optional() private technicianSchedule?: TechnicianScheduleService,
   ) {}
 
   /** Save the booking contact number on a Google account that has no phone yet. */
@@ -204,8 +235,13 @@ export class BookingsService {
     excludeBookingId?: string,
   ): Promise<boolean> {
     if (!Types.ObjectId.isValid(technicianId)) return false;
+    const tech = await this.technicianModel
+      .findById(technicianId, { employmentType: 1 })
+      .lean()
+      .exec();
+    // Fixxer staff hold future ASSIGNED slots; only a job they are working now keeps them busy.
     const filter: Record<string, unknown> = {
-      ...activeJobQuery(),
+      ...(isFixxerStaff(tech) ? liveJobQuery() : activeJobQuery()),
       technicianId: new Types.ObjectId(technicianId),
     };
     if (excludeBookingId && Types.ObjectId.isValid(excludeBookingId)) {
@@ -215,19 +251,157 @@ export class BookingsService {
   }
 
   /**
-   * A cancelled booking must hand its technician back to the AVAILABLE pool,
-   * otherwise they stay ON_JOB forever and every later assign fails.
+   * When a booking stops occupying its technician (cancelled, rescheduled,
+   * unassigned, reassigned) hand them back to the AVAILABLE pool — unless they
+   * still hold another open job. Otherwise they stay ON_JOB and every later
+   * assign fails.
    */
-  private async releaseTechnicianAfterCancel(booking: {
-    _id?: unknown;
-    technicianId?: unknown;
-  }): Promise<void> {
+  private async releaseTechnicianIfIdle(
+    booking: { _id?: unknown; technicianId?: unknown },
+    reason: 'CANCELLED' | 'RELEASED',
+  ): Promise<void> {
     if (!this.technicianEngine || !booking?.technicianId) return;
     const technicianId = String(booking.technicianId);
     if (await this.technicianHasOtherActiveJob(technicianId, String(booking._id))) {
       return;
     }
-    await this.technicianEngine.onJobCancelled(technicianId);
+    if (reason === 'CANCELLED') {
+      await this.technicianEngine.onJobCancelled(technicianId);
+    } else {
+      await this.technicianEngine.markAvailable(technicianId);
+    }
+  }
+
+  /**
+   * Technician must be active and AVAILABLE to take `bookingId`. Heals a stale
+   * ON_JOB (left behind by a job that ended without releasing them) first.
+   * Throws TechnicianEngineError.
+   */
+  private async assertTechnicianFreeFor(
+    tech: TechnicianDocument | null,
+    bookingId: string,
+  ): Promise<void> {
+    if (
+      tech?.isActive &&
+      tech.availabilityStatus === 'ON_JOB' &&
+      !(await this.technicianHasOtherActiveJob(String(tech._id), bookingId))
+    ) {
+      await this.technicianModel
+        .updateOne(
+          { _id: tech._id, availabilityStatus: 'ON_JOB' },
+          { $set: { availabilityStatus: 'AVAILABLE' } },
+        )
+        .exec();
+      tech.availabilityStatus = 'AVAILABLE';
+    }
+    assertAssignableTechnician(tech);
+  }
+
+  /**
+   * Take the technician off a booking: booking goes to `nextStatus`, the
+   * assignment + FIXXER code are cleared, and the technician is freed.
+   */
+  private async detachTechnician(
+    existing: BookingDocument,
+    nextStatus: string,
+    actor: BookingAuditContext,
+  ): Promise<any> {
+    const id = String(existing._id);
+    const previousTechnicianId = String(existing.technicianId);
+    const previousStatus = String(existing.status || '').toUpperCase();
+
+    await this.bookingModel
+      .findByIdAndUpdate(id, {
+        $set: {
+          technicianId: null,
+          assignmentStatus: null,
+          assignedAt: null,
+          acceptedAt: null,
+          status: nextStatus,
+          dispatchStatus: 'NEEDS_ADMIN',
+        },
+        $unset: {
+          scheduledStart: 1,
+          scheduledEnd: 1,
+          ...(existing.scheduledStart ? { expectedArrivalAt: 1 } : {}),
+          fixxerCodeCiphertext: 1,
+          fixxerCodeIv: 1,
+          fixxerCodeAuthTag: 1,
+          fixxerCodeIssuedAt: 1,
+          fixxerCodeVerifiedAt: 1,
+          assignmentEmailSentAt: 1,
+        },
+      })
+      .exec();
+
+    await this.releaseTechnicianIfIdle(
+      { _id: id, technicianId: previousTechnicianId },
+      'RELEASED',
+    );
+
+    try {
+      const previousTech = await this.technicianModel
+        .findById(previousTechnicianId, { employmentType: 1 })
+        .lean()
+        .exec();
+      // Fixxer staff have no app access — nothing to notify.
+      if (!isFixxerStaff(previousTech)) {
+        await this.notificationDispatch.notify(
+          previousTechnicianId,
+          'JOB_UNASSIGNED',
+          'Job unassigned',
+          'You have been removed from a service job.',
+          { bookingId: id },
+        );
+      }
+    } catch (err) {
+      console.error('Unassign notification failed:', err);
+    }
+
+    await this.appendChangeHistory(id, [
+      {
+        field: 'technicianId',
+        previous: previousTechnicianId,
+        next: null,
+        actorRole: actor.actorRole,
+        actorId: actor.actorId,
+        reason: actor.reason,
+      },
+      ...(previousStatus !== nextStatus
+        ? [
+            {
+              field: 'status' as const,
+              previous: previousStatus,
+              next: nextStatus,
+              actorRole: actor.actorRole,
+              actorId: actor.actorId,
+              reason: actor.reason,
+            },
+          ]
+        : []),
+    ]);
+
+    return this.populateBookingDetail(id);
+  }
+
+  /** Admin: remove the technician from a booking without assigning a replacement. */
+  async unassignTechnician(id: string, audit?: BookingAuditContext): Promise<any> {
+    const existing = await this.bookingModel.findById(id).exec();
+    if (!existing) {
+      throw new NotFoundException('Booking not found');
+    }
+    if (!existing.technicianId) {
+      throw new BadRequestException('No technician is assigned to this booking');
+    }
+    const status = String(existing.status || '').toUpperCase();
+    if (['CANCELLED', 'COMPLETED', 'PAYMENT_COLLECTED'].includes(status)) {
+      throw new BadRequestException(
+        'Cannot change the technician on a cancelled or completed job',
+      );
+    }
+    // Keep PENDING / RESCHEDULED as they are; an active job goes back to CONFIRMED.
+    const nextStatus = status === 'PENDING' || status === 'RESCHEDULED' ? status : 'CONFIRMED';
+    return this.detachTechnician(existing, nextStatus, audit || { actorRole: 'ADMIN' });
   }
 
   /** Full booking detail for admin/customer — always includes populated visits/parts. */
@@ -839,7 +1013,7 @@ export class BookingsService {
     booking.cancelledBy = 'CUSTOMER';
 
     await booking.save();
-    await this.releaseTechnicianAfterCancel(booking);
+    await this.releaseTechnicianIfIdle(booking, 'CANCELLED');
 
     return this.populateBookingDetail(id);
   }
@@ -1080,7 +1254,7 @@ export class BookingsService {
       booking.cancelledBy = 'ADMIN';
 
       await booking.save();
-      await this.releaseTechnicianAfterCancel(booking);
+      await this.releaseTechnicianIfIdle(booking, 'CANCELLED');
       await this.appendChangeHistory(id, [
         {
           field: 'status',
@@ -1106,10 +1280,56 @@ export class BookingsService {
 
     const previousStatus = String(existing.status || '').toUpperCase();
 
+    try {
+      assertBookingStatusTransition(previousStatus, nextStatus);
+    } catch (err) {
+      if (err instanceof TechnicianEngineError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
+
     if (statusRequiresTechnician(nextStatus) && !existing.technicianId) {
       throw new BadRequestException(
         'Assign a technician before setting this status. Use the Assigned Technician control — ASSIGNED requires a real technician on the booking.',
       );
+    }
+
+    // Moving back to PENDING / CONFIRMED means the job is no longer assigned:
+    // take the technician off it and free them.
+    if (
+      (nextStatus === 'PENDING' || nextStatus === 'CONFIRMED') &&
+      existing.technicianId &&
+      previousStatus !== nextStatus
+    ) {
+      return this.detachTechnician(existing, nextStatus, {
+        ...actor,
+        reason: actor.reason || reason,
+      });
+    }
+
+    // Re-activating a booking whose technician is not currently held by it
+    // (e.g. RESCHEDULED -> ASSIGNED): the technician must be free again.
+    const reservesTechnician =
+      !!existing.technicianId &&
+      isTechOccupyingStatus(nextStatus) &&
+      !isTechOccupyingStatus(previousStatus);
+    if (reservesTechnician) {
+      const tech = await this.technicianModel.findById(existing.technicianId).exec();
+      if (isFixxerStaff(tech)) {
+        await this.assertStaffSlotStillFree(existing);
+      } else {
+        try {
+          await this.assertTechnicianFreeFor(tech, id);
+        } catch (err) {
+          if (err instanceof TechnicianEngineError) {
+            throw new BadRequestException(
+              `${err.message}. They may be on another job now — assign a different technician.`,
+            );
+          }
+          throw err;
+        }
+      }
     }
 
     if (nextStatus === 'COMPLETED' && previousStatus !== 'COMPLETED') {
@@ -1133,6 +1353,15 @@ export class BookingsService {
       throw new NotFoundException(
         'Booking not found',
       );
+    }
+
+    if (reservesTechnician && this.technicianEngine) {
+      await this.technicianEngine.markOnJob(String(existing.technicianId));
+    }
+
+    // Rescheduled: technician stays linked but is free for other work meanwhile.
+    if (nextStatus === 'RESCHEDULED' && previousStatus !== 'RESCHEDULED') {
+      await this.releaseTechnicianIfIdle(updatedBooking, 'RELEASED');
     }
 
     if (
@@ -1208,10 +1437,17 @@ export class BookingsService {
     return this.populateBookingDetail(id);
   }
 
+  /**
+   * Admin assign. Partners: unchanged (must be AVAILABLE, accept in the app).
+   * Fixxer staff: a slot is required; a clash returns 409 SLOT_CONFLICT with free
+   * alternatives unless `slot.override` is set with a reason. Staff jobs are accepted on
+   * assignment and the booking stays ASSIGNED until the technician is on the way.
+   */
   async assignTechnician(
     id: string,
     technicianId: string,
     audit?: BookingAuditContext,
+    slot?: AssignSlotInput,
   ): Promise<any> {
     const existing = await this.bookingModel.findById(id).exec();
     if (!existing) {
@@ -1222,32 +1458,24 @@ export class BookingsService {
       ? String(existing.technicianId)
       : '';
     const sameTechnician = previousTechnicianId === String(technicianId);
+    let staffSlot: SlotWindow | null = null;
 
     try {
       assertBookingAssignable(existing.status);
       const tech = await this.technicianModel.findById(technicianId).exec();
-      // Re-selecting the current assignee is fine even while ON_JOB on this booking.
-      if (sameTechnician) {
+      if (tech && isFixxerStaff(tech)) {
+        if (!tech.isActive) {
+          throw new TechnicianEngineError('Technician is not active');
+        }
+        staffSlot = this.requireStaffSlot(slot, audit);
+      } else if (sameTechnician && isTechOccupyingStatus(existing.status)) {
+        // Re-selecting the current assignee is fine while this booking occupies them.
+        // A RESCHEDULED booking doesn't, so they must be free again (may be on another job).
         if (!tech?.isActive) {
           throw new TechnicianEngineError('Technician is not active and available');
         }
       } else {
-        // Heal a stale ON_JOB left behind by a job that ended without releasing
-        // the technician (e.g. cancelled before cancel released technicians).
-        if (
-          tech?.isActive &&
-          tech.availabilityStatus === 'ON_JOB' &&
-          !(await this.technicianHasOtherActiveJob(String(tech._id), id))
-        ) {
-          await this.technicianModel
-            .updateOne(
-              { _id: tech._id, availabilityStatus: 'ON_JOB' },
-              { $set: { availabilityStatus: 'AVAILABLE' } },
-            )
-            .exec();
-          tech.availabilityStatus = 'AVAILABLE';
-        }
-        assertAssignableTechnician(tech);
+        await this.assertTechnicianFreeFor(tech, id);
       }
     } catch (err) {
       if (err instanceof TechnicianEngineError) {
@@ -1259,30 +1487,58 @@ export class BookingsService {
     const keepCode =
       sameTechnician && !!existing.fixxerCodeCiphertext;
     const issued = keepCode ? null : this.prepareAssignmentCode();
+    const now = new Date();
 
-    const updatedBooking =
-      await this.bookingModel
-        .findByIdAndUpdate(
-          id,
-          {
-            $set: {
-              technicianId: new Types.ObjectId(technicianId),
-              status: 'ASSIGNED',
-              assignmentStatus: 'PENDING_ACCEPTANCE',
-              assignedAt: new Date(),
-              acceptedAt: null,
-              declinedAt: null,
-              declineReason: null,
-              dispatchStatus: 'ADMIN_ASSIGNED',
-              ...(issued
-                ? { ...issued.fields, fixxerCodeVerifiedAt: null }
-                : {}),
-            },
-            ...(issued ? { $unset: { assignmentEmailSentAt: 1 } } : {}),
-          },
-          { returnDocument: 'after' },
-        )
-        .exec();
+    const $set: Record<string, unknown> = {
+      technicianId: new Types.ObjectId(technicianId),
+      status: 'ASSIGNED',
+      assignmentStatus: 'PENDING_ACCEPTANCE',
+      assignedAt: now,
+      acceptedAt: null,
+      declinedAt: null,
+      declineReason: null,
+      dispatchStatus: 'ADMIN_ASSIGNED',
+      ...(issued
+        ? { ...issued.fields, fixxerCodeVerifiedAt: null }
+        : {}),
+    };
+    const $unset: Record<string, 1> = issued ? { assignmentEmailSentAt: 1 } : {};
+    if (staffSlot) {
+      // Admin-managed staff: no accept step in the app.
+      Object.assign($set, {
+        assignmentStatus: 'ACCEPTED',
+        acceptedAt: now,
+        scheduledStart: staffSlot.start,
+        scheduledEnd: staffSlot.end,
+        expectedArrivalAt: staffSlot.start,
+      });
+    } else if (existing.scheduledStart) {
+      // Moving a slotted booking to a partner drops the staff slot.
+      Object.assign($unset, { scheduledStart: 1, scheduledEnd: 1, expectedArrivalAt: 1 });
+    }
+    const update = Object.keys($unset).length ? { $set, $unset } : { $set };
+
+    let slotCheck: SlotCheck | null = null;
+    const eligibility = staffSlot ? await this.eligibilityOf(existing) : undefined;
+    const updatedBooking = staffSlot
+      ? await this.schedule().withTechnicianLock(technicianId, async (session) => {
+          slotCheck = await this.schedule().checkSlot(
+            technicianId,
+            staffSlot!,
+            id,
+            session,
+            eligibility,
+          );
+          if (slotCheckHasClash(slotCheck) && !slot?.override) {
+            throw this.slotConflict(slotCheck);
+          }
+          return this.bookingModel
+            .findByIdAndUpdate(id, update, { returnDocument: 'after', session })
+            .exec();
+        })
+      : await this.bookingModel
+          .findByIdAndUpdate(id, update, { returnDocument: 'after' })
+          .exec();
 
     if (!updatedBooking) {
       throw new NotFoundException(
@@ -1295,46 +1551,379 @@ export class BookingsService {
     }
 
     if (this.technicianEngine) {
-      await this.technicianEngine.onAdminAssigned({
-        technicianId,
-        previousTechnicianId,
-      });
+      await this.technicianEngine.onAdminAssigned({ technicianId });
     }
 
-    await this.notificationDispatch.notify(
-      technicianId,
-      'NEW_JOB',
-      'New job assigned',
-      'You have been assigned a new service job.',
-      { bookingId: id },
-    );
+    // Free the previous technician — unless they've since taken another job
+    // (e.g. this booking was RESCHEDULED and they were assigned elsewhere).
+    if (previousTechnicianId && previousTechnicianId !== String(technicianId)) {
+      await this.releaseTechnicianIfIdle(
+        { _id: id, technicianId: previousTechnicianId },
+        'RELEASED',
+      );
+    }
 
+    // Fixxer staff have no app access — only partners get the app notification.
+    if (!staffSlot) {
+      await this.notificationDispatch.notify(
+        technicianId,
+        'NEW_JOB',
+        'New job assigned',
+        'You have been assigned a new service job.',
+        { bookingId: id },
+      );
+    }
+
+    const actorRole = (audit?.actorRole || 'ADMIN') as BookingAuditContext['actorRole'];
+    const events: BookingChangeEventInput[] = [];
     if (previousTechnicianId !== String(technicianId)) {
-      await this.appendChangeHistory(id, [
-        {
-          field: 'technicianId',
-          previous: previousTechnicianId || null,
-          next: technicianId,
-          actorRole: audit?.actorRole || 'ADMIN',
+      events.push({
+        field: 'technicianId',
+        previous: previousTechnicianId || null,
+        next: technicianId,
+        actorRole,
+        actorId: audit?.actorId,
+        reason: audit?.reason,
+      });
+      if (String(existing.status || '').toUpperCase() !== 'ASSIGNED') {
+        events.push({
+          field: 'status',
+          previous: existing.status,
+          next: 'ASSIGNED',
+          actorRole,
           actorId: audit?.actorId,
           reason: audit?.reason,
-        },
-        ...(String(existing.status || '').toUpperCase() !== 'ASSIGNED'
-          ? [
-              {
-                field: 'status' as const,
-                previous: existing.status,
-                next: 'ASSIGNED',
-                actorRole: (audit?.actorRole || 'ADMIN') as BookingAuditContext['actorRole'],
-                actorId: audit?.actorId,
-                reason: audit?.reason,
-              },
-            ]
-          : []),
-      ]);
+        });
+      }
     }
+    const slotChanged =
+      (existing.scheduledStart ? new Date(existing.scheduledStart).getTime() : null) !==
+        (staffSlot ? staffSlot.start.getTime() : null) ||
+      (existing.scheduledEnd ? new Date(existing.scheduledEnd).getTime() : null) !==
+        (staffSlot ? staffSlot.end.getTime() : null);
+    if (slotChanged) {
+      events.push(
+        this.scheduleEvent(existing, staffSlot, actorRole, audit, slotCheck),
+      );
+    }
+    await this.appendChangeHistory(id, events);
 
     return this.populateBookingDetail(id);
+  }
+
+  /**
+   * Admin "change time" for a Fixxer-staff booking.
+   * - Not started (ASSIGNED): move the slot freely; same clash rules as assign (409
+   *   unless override with reason). Also completes acceptance — staff have no app.
+   * - On the way / in progress: only the END can change (extend / shorten). Extending
+   *   pushes that technician's later not-started jobs forward right away, cascading.
+   */
+  async rescheduleSlot(
+    id: string,
+    slot: AssignSlotInput,
+    audit?: BookingAuditContext,
+  ): Promise<any> {
+    const existing = await this.bookingModel.findById(id).exec();
+    if (!existing) throw new NotFoundException('Booking not found');
+    if (!existing.technicianId) {
+      throw new BadRequestException('Assign a technician before setting a time');
+    }
+    const technicianId = String(existing.technicianId);
+    const tech = await this.technicianModel.findById(technicianId).lean().exec();
+    if (!isFixxerStaff(tech)) {
+      throw new BadRequestException('Time slots are only used for Fixxer technicians');
+    }
+    const status = String(existing.status || '').toUpperCase();
+    const live = (LIVE_JOB_STATUSES as readonly string[]).includes(status);
+    if (status !== 'ASSIGNED' && !live) {
+      throw new BadRequestException(
+        'Only an active job (assigned, on the way or in progress) can be re-timed',
+      );
+    }
+
+    let window: SlotWindow;
+    try {
+      // A running job keeps its start; only the end moves.
+      const input =
+        live && existing.scheduledStart
+          ? { ...slot, start: existing.scheduledStart }
+          : slot;
+      window = this.requireStaffSlot(input, audit, { runningJob: live });
+    } catch (err) {
+      if (err instanceof TechnicianEngineError) throw new BadRequestException(err.message);
+      throw err;
+    }
+    // Working hours are soft: running past 9 PM needs "anyway" + a reason.
+    const hoursClash: SlotCheck | null =
+      live && !isWithinWorkingHours(window)
+        ? {
+            conflicts: [],
+            technicianUnavailable: false,
+            outsideWorkingHours: true,
+            nextFreeStart: null,
+            freeTechnicians: [],
+          }
+        : null;
+    if (hoursClash && !slot.override) throw this.slotConflict(hoursClash);
+
+    const eligibility = await this.eligibilityOf(existing);
+    const now = new Date();
+    // Recorded in history so an out-of-hours extension shows as an override.
+    let slotCheck: SlotCheck | null = hoursClash;
+    let pushed: SlotShift[] = [];
+    await this.schedule().withTechnicianLock(technicianId, async (session) => {
+      if (!live) {
+        slotCheck = await this.schedule().checkSlot(technicianId, window, id, session, eligibility);
+        if (slotCheckHasClash(slotCheck) && !slot.override) {
+          throw this.slotConflict(slotCheck);
+        }
+      }
+      await this.bookingModel
+        .updateOne(
+          { _id: id, status: existing.status },
+          {
+            $set: {
+              scheduledStart: window.start,
+              scheduledEnd: window.end,
+              ...(live ? {} : { expectedArrivalAt: window.start }),
+              ...(existing.assignmentStatus !== 'ACCEPTED'
+                ? { assignmentStatus: 'ACCEPTED', acceptedAt: now }
+                : {}),
+            },
+          },
+          { session },
+        )
+        .exec();
+      if (live) {
+        const jobs = await this.schedule().jobsForTechnicianDay(technicianId, window.start, session);
+        const plan = planPushAfter(jobs, id, now);
+        pushed = await this.applyShifts(
+          session,
+          technicianId,
+          plan.shifts,
+          'Pushed: earlier job was extended',
+          now,
+          audit,
+        );
+      }
+    });
+
+    await this.appendChangeHistory(id, [
+      this.scheduleEvent(
+        existing,
+        window,
+        (audit?.actorRole || 'ADMIN') as BookingAuditContext['actorRole'],
+        audit,
+        slotCheck,
+      ),
+    ]);
+    const detail = await this.populateBookingDetail(id);
+    return pushed.length ? { ...detail, pushedBookings: pushed.length } : detail;
+  }
+
+  /**
+   * Overrun rule for one Fixxer technician (cron): if a job is past its end and not
+   * closed, push their later not-started jobs forward in 1-hour steps. Never moves a
+   * job past 9 PM — those are reported as overflow and left for the admin.
+   */
+  async applyOverrunShift(
+    technicianId: string,
+    now = new Date(),
+  ): Promise<{ shifted: number; overflow: string[] }> {
+    const schedule = this.schedule();
+    const preview = planOverrunShift(
+      await schedule.jobsForTechnicianDay(technicianId, now),
+      now,
+    );
+    if (!preview.shifts.length) return { shifted: 0, overflow: preview.overflow };
+
+    const applied = await schedule.withTechnicianLock(technicianId, async (session) => {
+      const plan = planOverrunShift(
+        await schedule.jobsForTechnicianDay(technicianId, now, session),
+        now,
+      );
+      const moved = await this.applyShifts(
+        session,
+        technicianId,
+        plan.shifts,
+        'Auto-shifted: previous job not closed on time',
+        now,
+      );
+      return { moved, overflow: plan.overflow };
+    });
+
+    return { shifted: applied.moved.length, overflow: applied.overflow };
+  }
+
+  /**
+   * Write planned shifts (not-started jobs only, guarded on their current start so a
+   * concurrent change wins) with an append-only `schedule` history event each.
+   */
+  private async applyShifts(
+    session: ClientSession,
+    technicianId: string,
+    shifts: SlotShift[],
+    reason: string,
+    now: Date,
+    audit?: BookingAuditContext,
+  ): Promise<SlotShift[]> {
+    const applied: SlotShift[] = [];
+    for (const shift of shifts) {
+      const res = await this.bookingModel
+        .updateOne(
+          {
+            _id: shift.bookingId,
+            technicianId: new Types.ObjectId(technicianId),
+            status: 'ASSIGNED',
+            scheduledStart: shift.from.start,
+          },
+          {
+            $set: {
+              scheduledStart: shift.to.start,
+              scheduledEnd: shift.to.end,
+              expectedArrivalAt: shift.to.start,
+            },
+            $push: {
+              changeHistory: buildChangeEvent({
+                field: 'schedule',
+                previous: { start: shift.from.start, end: shift.from.end },
+                next: { start: shift.to.start, end: shift.to.end },
+                actorRole: audit?.actorRole || 'SYSTEM',
+                actorId: audit?.actorId,
+                reason,
+                at: now,
+              }),
+            },
+          },
+          { session },
+        )
+        .exec();
+      if (res.modifiedCount) applied.push(shift);
+    }
+    return applied;
+  }
+
+  /** Service categories + pincode of a booking, for "who else is free" suggestions. */
+  async slotEligibilityFor(bookingId: string): Promise<SlotEligibility | undefined> {
+    if (!Types.ObjectId.isValid(bookingId)) return undefined;
+    const booking = await this.bookingModel
+      .findById(bookingId, { serviceId: 1, addressData: 1 })
+      .lean()
+      .exec();
+    return booking ? this.eligibilityOf(booking) : undefined;
+  }
+
+  private async eligibilityOf(booking: {
+    serviceId?: unknown;
+    addressData?: { zip?: string };
+  }): Promise<SlotEligibility | undefined> {
+    try {
+      const categories = booking.serviceId
+        ? await this.jobDispatch.resolveCategorySlugs(booking.serviceId as any)
+        : [];
+      return { categories, zip: booking.addressData?.zip };
+    } catch {
+      return { zip: booking.addressData?.zip };
+    }
+  }
+
+  private schedule(): TechnicianScheduleService {
+    if (!this.technicianSchedule) {
+      throw new BadRequestException('Scheduling is not available');
+    }
+    return this.technicianSchedule;
+  }
+
+  /** Validate an admin slot; an override must carry a reason. Throws TechnicianEngineError. */
+  private requireStaffSlot(
+    slot: AssignSlotInput | undefined,
+    audit?: BookingAuditContext,
+    opts: { runningJob?: boolean } = {},
+  ): SlotWindow {
+    if (!slot?.start || !slot?.end) {
+      throw new TechnicianEngineError(
+        'Pick a date, start time and duration to schedule a Fixxer technician',
+      );
+    }
+    const window = assertValidSlot(slot);
+    const now = new Date();
+    if (opts.runningJob) {
+      // A running job keeps its (past) start; only its new end must be ahead.
+      if (window.end.getTime() <= now.getTime()) {
+        throw new TechnicianEngineError('The new end time has already passed');
+      }
+    } else {
+      assertNotInPast(window, now);
+    }
+    if (slot.override && !String(audit?.reason || '').trim()) {
+      throw new TechnicianEngineError('Give a reason to assign over a busy slot');
+    }
+    return window;
+  }
+
+  private slotConflict(check: SlotCheck): ConflictException {
+    return new ConflictException({
+      statusCode: 409,
+      code: 'SLOT_CONFLICT',
+      message: describeSlotClash(check),
+      conflicts: check.conflicts,
+      technicianUnavailable: check.technicianUnavailable,
+      outsideWorkingHours: check.outsideWorkingHours,
+      nextFreeStart: check.nextFreeStart,
+      freeTechnicians: check.freeTechnicians,
+    });
+  }
+
+  private scheduleEvent(
+    existing: { scheduledStart?: Date | null; scheduledEnd?: Date | null },
+    next: SlotWindow | null,
+    actorRole: BookingAuditContext['actorRole'],
+    audit: BookingAuditContext | undefined,
+    check: SlotCheck | null,
+  ): BookingChangeEventInput {
+    const overridden = !!check && slotCheckHasClash(check);
+    const reason = overridden
+      ? `Assigned over busy slot (${describeSlotClash(check)}) — ${String(audit?.reason || '').trim()}`
+      : audit?.reason;
+    return {
+      field: 'schedule',
+      previous: existing.scheduledStart
+        ? { start: existing.scheduledStart, end: existing.scheduledEnd }
+        : null,
+      next: next ? { start: next.start, end: next.end } : null,
+      actorRole,
+      actorId: audit?.actorId,
+      reason,
+    };
+  }
+
+  /**
+   * Re-activating a staff booking (e.g. RESCHEDULED → ASSIGNED): its slot must exist
+   * and still be free. To move it, use "change time" / assign with override.
+   */
+  private async assertStaffSlotStillFree(existing: BookingDocument): Promise<void> {
+    if (!existing.scheduledStart || !existing.scheduledEnd) {
+      throw new BadRequestException(
+        'Set a time slot for this Fixxer technician first (assign again with a time).',
+      );
+    }
+    try {
+      assertNotInPast({ start: existing.scheduledStart, end: existing.scheduledEnd }, new Date());
+    } catch {
+      throw new BadRequestException(
+        'This job\'s time slot has passed. Assign again with a new time.',
+      );
+    }
+    const check = await this.schedule().checkSlot(
+      String(existing.technicianId),
+      { start: existing.scheduledStart, end: existing.scheduledEnd },
+      String(existing._id),
+    );
+    if (slotCheckHasClash(check)) {
+      throw new BadRequestException(
+        `${describeSlotClash(check)} Assign again with a new time or another technician.`,
+      );
+    }
   }
 
   private jobDetailsHasContent(
