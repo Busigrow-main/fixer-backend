@@ -24,6 +24,7 @@
     "seed:offers": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-offers.ts",
     "technicians:release-stale": "ts-node -r tsconfig-paths/register src/scripts/release-stale-technicians.ts",
     "seed:performance-test": "ts-node -r tsconfig-paths/register src/scripts/seed-performance-test-data.ts",
+    "seed:settlement-test": "ts-node -r tsconfig-paths/register src/scripts/seed-settlement-test-data.ts",
     "earnings:recalc": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
     "db:adapt": "ts-node -r tsconfig-paths/register src/scripts/recalc-technician-earnings.ts",
     "ac:scrape": "ts-node -r tsconfig-paths/register src/scripts/ac-pipeline/scrape-product-images.ts",
