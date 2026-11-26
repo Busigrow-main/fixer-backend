@@ -7,9 +7,12 @@ import { Model, Types } from 'mongoose';
 import request from 'supertest';
 
 import { Booking, BookingSchema } from '../../bookings/schemas/booking.schema';
+import { Feedback, FeedbackSchema } from '../../feedback/schemas/feedback.schema';
+import { Visit, VisitSchema } from '../../visits/schemas/visit.schema';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Earning, EarningSchema } from '../schemas/earning.schema';
 import { Settlement, SettlementSchema } from '../settlements/schemas/settlement.schema';
+import { SettlementItem, SettlementItemSchema } from '../settlements/schemas/settlement-item.schema';
 import { PerformanceSummaryController } from './performance-summary.controller';
 import { PerformanceSummaryService } from './performance-summary.service';
 import {
@@ -37,6 +40,9 @@ describe('PerformanceSummaryController API', () => {
           { name: Booking.name, schema: BookingSchema },
           { name: Earning.name, schema: EarningSchema },
           { name: Settlement.name, schema: SettlementSchema },
+          { name: SettlementItem.name, schema: SettlementItemSchema },
+          { name: Feedback.name, schema: FeedbackSchema },
+          { name: Visit.name, schema: VisitSchema },
           {
             name: ServicePerformanceSummary.name,
             schema: ServicePerformanceSummarySchema,
@@ -127,7 +133,7 @@ describe('PerformanceSummaryController API', () => {
       .expect(400);
   });
 
-  it('applies technician and service-type filters and hides incomplete summaries', async () => {
+  it('applies technician and service-type filters while keeping non-completed reports visible', async () => {
     const technicianId = new Types.ObjectId();
     await summaryModel.deleteMany({});
     await summaryModel.create([
@@ -139,6 +145,7 @@ describe('PerformanceSummaryController API', () => {
         generationStatus: PerformanceSummaryGenerationStatus.COMPLETED,
         technicianBreakdown: [{ technicianId, completedJobs: 1, earnings: 10 }],
         serviceBreakdown: [{ serviceType: 'REPAIR', totalJobs: 1 }],
+        metricsByTechnicianAndServiceType: [{ technicianId, serviceType: 'REPAIR', totalJobs: 1, completedJobs: 1, completionRateNumerator: 1, earnings: 10 }],
       },
       {
         businessDate: '2026-11-12',
@@ -154,11 +161,30 @@ describe('PerformanceSummaryController API', () => {
       .set('x-test-role', 'ADMIN')
       .expect(200);
 
-    expect(response.body.total).toBe(1);
-    expect(response.body.data[0].businessDate).toBe('2026-11-11');
+    expect(response.body.total).toBe(2);
+    expect(response.body.data.map((row: { businessDate: string }) => row.businessDate)).toEqual(['2026-11-12', '2026-11-11']);
     await request(app.getHttpServer())
       .get('/api/v1/admin/performance-summaries/2026-11-12')
       .set('x-test-role', 'ADMIN')
-      .expect(404);
+      .expect(200)
+      .expect(({ body }) => expect(body.generationStatus).toBe(PerformanceSummaryGenerationStatus.PREPARING));
+  });
+
+  it('allows admins to retry a failed report date', async () => {
+    await summaryModel.deleteMany({});
+    await summaryModel.create({
+      businessDate: '2026-11-11',
+      timeZone: 'Asia/Kolkata',
+      windowStart: new Date('2026-11-10T18:30:00.000Z'),
+      windowEnd: new Date('2026-11-11T18:30:00.000Z'),
+      generationStatus: PerformanceSummaryGenerationStatus.FAILED,
+      generationFailureReason: 'temporary database error',
+      generationLeaseUntil: new Date(Date.now() - 1000),
+    });
+    const result = await request(app.getHttpServer())
+      .post('/api/v1/admin/performance-summaries/2026-11-11/generate')
+      .set('x-test-role', 'ADMIN')
+      .expect(201);
+    expect(result.body.generationStatus).toBe(PerformanceSummaryGenerationStatus.COMPLETED);
   });
 });

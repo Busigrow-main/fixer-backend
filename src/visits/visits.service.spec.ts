@@ -615,7 +615,7 @@ describe('VisitsService inventory quantity', () => {
       quantity: 1,
       cost: 0,
       serialNumber: 'UNIT-SERIAL-001',
-    });
+    }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() });
 
     expect(usage.quantity).toBe(1);
     expect(usage.cost).toBe(757.5);
@@ -636,7 +636,7 @@ describe('VisitsService inventory quantity', () => {
     const usage = await service.addSparePartToVisit(String(visit._id), {
       isThirdParty: false,
       sparePartId: String(spare._id),
-    });
+    }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() });
 
     expect(usage.quantity).toBe(1);
     const untouched = await sparePartModel.findById(spare._id).lean();
@@ -660,7 +660,7 @@ describe('VisitsService inventory quantity', () => {
         isThirdParty: false,
         sparePartId: String(spare._id),
         quantity: 60,
-      }),
+      }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() }),
     ).resolves.toMatchObject({ quantity: 60, stockDeducted: true });
 
     const empty = await sparePartModel.findById(spare._id).lean();
@@ -673,7 +673,7 @@ describe('VisitsService inventory quantity', () => {
         isThirdParty: false,
         sparePartId: String(spare2._id),
         quantity: 61,
-      }),
+      }, undefined, { approvedPartRequestId: new Types.ObjectId().toString() }),
     ).rejects.toThrow(/cannot exceed available stock \(60\)/);
 
     const usage = await service.addSparePartToVisit(String(visit2._id), {

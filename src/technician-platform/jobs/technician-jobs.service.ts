@@ -156,6 +156,8 @@ export class TechnicianJobsService {
             status: 'ASSIGNED',
             assignmentStatus: 'ACCEPTED',
             assignedAt: now,
+            firstAssignedAt: now,
+            firstAssignedTechnicianId: new Types.ObjectId(technicianId),
             acceptedAt: now,
             dispatchStatus: 'CLAIMED',
             ...issued.fields,

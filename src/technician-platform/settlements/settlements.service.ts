@@ -26,6 +26,8 @@ import {
   SettlementItemDocument,
 } from './schemas/settlement-item.schema';
 import {
+  AddSettlementAdjustmentDto,
+  MarkSettlementPayableDto,
   RecordSettlementPaymentDto,
   ReconcileSettlementDto,
 } from './settlements.dto';
@@ -35,8 +37,10 @@ const PREPARATION_LEASE_MS = 10 * 60 * 1000;
 const TERMINAL_SETTLEMENT_STATUSES = [
   SettlementStatus.PREPARED,
   SettlementStatus.APPROVED,
+  SettlementStatus.PAYABLE,
   SettlementStatus.REJECTED,
   SettlementStatus.PAID,
+  SettlementStatus.RECONCILED,
   SettlementStatus.CANCELLED,
 ];
 
@@ -58,6 +62,28 @@ function businessDate(at: Date): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function parseBusinessDate(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new BadRequestException('settlementDate must use YYYY-MM-DD');
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (date.toISOString().slice(0, 10) !== value) {
+    throw new BadRequestException('settlementDate is invalid');
+  }
+  return date;
+}
+
+function previousBusinessDate(at: Date): string {
+  const date = parseBusinessDate(businessDate(at));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function windowForBusinessDate(settlementDate: string) {
+  const utcDate = parseBusinessDate(settlementDate);
+  const startAt = new Date(utcDate.getTime() - (5 * 60 + 30) * 60 * 1000);
+  return { startAt, cutoffAt: new Date(startAt.getTime() + 24 * 60 * 60 * 1000) };
+}
+
 @Injectable()
 export class SettlementsService {
   private readonly logger = new Logger(SettlementsService.name);
@@ -71,35 +97,55 @@ export class SettlementsService {
     private readonly earningModel: Model<EarningDocument>,
   ) {}
 
-  async prepareAll(cutoffAt = new Date()) {
-    const settlementDate = businessDate(cutoffAt);
+  async prepareAll(anchorAt?: Date, requestedSettlementDate?: string) {
+    if (anchorAt && Number.isNaN(anchorAt.getTime())) {
+      throw new BadRequestException('cutoffAt is invalid');
+    }
+    if (requestedSettlementDate && anchorAt) {
+      throw new BadRequestException('Provide settlementDate or cutoffAt, not both');
+    }
+    const settlementDate = requestedSettlementDate || previousBusinessDate(anchorAt || new Date());
+    parseBusinessDate(settlementDate);
+    const window = windowForBusinessDate(settlementDate);
     const technicianIds = await this.earningModel.distinct('technicianId', {
-      earnedAt: { $lte: cutoffAt },
+      earnedAt: { $gte: window.startAt, $lt: window.cutoffAt },
     }).exec();
     const prepared = [];
+    const errors: Array<{ technicianId: string; reason: string }> = [];
 
     for (const technicianId of technicianIds) {
       try {
         prepared.push(await this.prepareTechnician(
           String(technicianId),
           settlementDate,
-          cutoffAt,
+          window.cutoffAt,
         ));
       } catch (error) {
         this.logger.error(
           `Settlement preparation failed for technician ${String(technicianId)}`,
           error,
         );
+        errors.push({
+          technicianId: String(technicianId),
+          reason: 'Preparation failed; inspect the settlement audit trail for details.',
+        });
       }
     }
 
-    return prepared;
+    return {
+      settlementDate,
+      windowStart: window.startAt,
+      cutoffAt: window.cutoffAt,
+      candidateTechnicians: technicianIds.length,
+      settlements: prepared,
+      errors,
+    };
   }
 
   async prepareTechnician(
     technicianId: string,
-    settlementDate = businessDate(new Date()),
-    cutoffAt = new Date(),
+    settlementDate = previousBusinessDate(new Date()),
+    cutoffAt = windowForBusinessDate(settlementDate).cutoffAt,
   ) {
     const technicianObjectId = this.toObjectId(technicianId, 'technician ID');
     const token = randomUUID();
@@ -141,6 +187,16 @@ export class SettlementsService {
 
     if (!settlement) {
       throw new ConflictException('Unable to create settlement');
+    }
+    // If another concurrent worker won the upsert and holds an active lease,
+    // return the existing settlement without preparing again.
+    if (
+      settlement.preparationToken &&
+      settlement.preparationToken !== token &&
+      settlement.preparationLeaseUntil &&
+      settlement.preparationLeaseUntil > new Date()
+    ) {
+      return settlement;
     }
     if (TERMINAL_SETTLEMENT_STATUSES.includes(settlement.status)) {
       return settlement;
@@ -191,6 +247,7 @@ export class SettlementsService {
         await this.claimEligibleEarnings(
           settlement._id,
           technicianObjectId,
+          windowForBusinessDate(settlementDate).startAt,
           cutoffAt,
         );
       }
@@ -262,6 +319,7 @@ export class SettlementsService {
   private async claimEligibleEarnings(
     settlementId: Types.ObjectId,
     technicianId: Types.ObjectId,
+    startAt: Date,
     cutoffAt: Date,
   ) {
     const existingClaims = await this.settlementItemModel.find({
@@ -276,7 +334,7 @@ export class SettlementsService {
     const claimedIds = new Set(existingClaims.map((item) => String(item.earningId)));
     const earnings = await this.earningModel.find({
       technicianId,
-      earnedAt: { $lte: cutoffAt },
+      earnedAt: { $gte: startAt, $lt: cutoffAt },
     }).sort({ earnedAt: 1, _id: 1 }).lean().exec();
 
     for (const earning of earnings) {
@@ -320,6 +378,83 @@ export class SettlementsService {
     });
   }
 
+  async markPayable(id: string, dto: MarkSettlementPayableDto, admin: AuthenticatedAdmin) {
+    const adminId = this.toObjectId(admin.userId, 'admin ID');
+    return this.transition(id, SettlementStatus.APPROVED, {
+      $set: { status: SettlementStatus.PAYABLE },
+      $push: {
+        auditTrail: {
+          action: 'MARKED_PAYABLE',
+          performedBy: adminId,
+          performedAt: new Date(),
+          reason: dto.notes?.trim() || undefined,
+        },
+      },
+    });
+  }
+
+  async addAdjustment(
+    id: string,
+    dto: AddSettlementAdjustmentDto,
+    admin: AuthenticatedAdmin,
+  ) {
+    const adminId = this.toObjectId(admin.userId, 'admin ID');
+    if (!Number.isFinite(dto.amount) || dto.amount === 0) {
+      throw new BadRequestException('Adjustment amount must be a non-zero number');
+    }
+    const reason = dto.reason.trim();
+    if (!reason) throw new BadRequestException('Adjustment reason is required');
+    const idempotencyKey = dto.idempotencyKey?.trim();
+    if (!idempotencyKey) throw new BadRequestException('Adjustment idempotency key is required');
+    const settlementId = this.toObjectId(id, 'settlement ID');
+    const result = await this.settlementModel.findOneAndUpdate(
+      {
+        _id: settlementId,
+        status: { $in: [SettlementStatus.APPROVED, SettlementStatus.PAYABLE] },
+        netPayable: { $gte: Math.max(0, -dto.amount) },
+        'adjustmentEntries.idempotencyKey': { $ne: idempotencyKey },
+      },
+      {
+        $inc: { adjustments: dto.amount, netPayable: dto.amount },
+        $push: {
+          adjustmentEntries: {
+            idempotencyKey,
+            amount: dto.amount,
+            reason,
+            performedBy: adminId,
+            performedAt: new Date(),
+          },
+          auditTrail: {
+            action: 'ADJUSTMENT_ADDED',
+            performedBy: adminId,
+            performedAt: new Date(),
+            reason,
+            metadata: { amount: dto.amount },
+          },
+        },
+      },
+      { new: true },
+    ).exec();
+    if (result) return result;
+    const existing = await this.settlementModel.findById(settlementId).lean().exec();
+    if (!existing) throw new NotFoundException('Settlement not found');
+    const priorAdjustment = (existing.adjustmentEntries || []).find(
+      (entry) => entry.idempotencyKey === idempotencyKey,
+    );
+    if (priorAdjustment) {
+      if (
+        Number(priorAdjustment.amount) === dto.amount &&
+        priorAdjustment.reason === reason &&
+        String(priorAdjustment.performedBy) === String(adminId)
+      ) return existing;
+      throw new ConflictException('Adjustment idempotency key was already used for a different adjustment');
+    }
+    if (![SettlementStatus.APPROVED, SettlementStatus.PAYABLE].includes(existing.status)) {
+      throw new ConflictException('Adjustments are only allowed after approval and before payment');
+    }
+    throw new ConflictException('Adjustment cannot reduce the payable amount below zero');
+  }
+
   async reject(id: string, reason: string, admin: AuthenticatedAdmin) {
     const adminId = this.toObjectId(admin.userId, 'admin ID');
     return this.transition(id, SettlementStatus.PREPARED, {
@@ -331,29 +466,78 @@ export class SettlementsService {
   async recordPayment(id: string, dto: RecordSettlementPaymentDto, admin: AuthenticatedAdmin) {
     const adminId = this.toObjectId(admin.userId, 'admin ID');
     const successful = dto.successful === true;
-    const status = successful ? SettlementStatus.PAID : SettlementStatus.APPROVED;
-    const paymentStatus = successful
-      ? SettlementPaymentStatus.SUCCESS
-      : SettlementPaymentStatus.FAILED;
-    return this.transition(id, SettlementStatus.APPROVED, {
-      $set: {
-        status,
-        paymentStatus,
-        paymentReference: dto.paymentReference,
-        paymentMethod: dto.paymentMethod,
-        paymentInitiatedAt: new Date(),
-        ...(successful ? { paidAt: new Date() } : { paymentFailureReason: dto.failureReason }),
-      },
-      $push: {
-        auditTrail: {
-          action: successful ? 'PAID' : 'PAYMENT_FAILED',
-          performedBy: adminId,
-          performedAt: new Date(),
-          metadata: { paymentReference: dto.paymentReference },
-          reason: dto.failureReason,
+    if (successful && !dto.paymentReference?.trim()) {
+      throw new BadRequestException('Payment reference is required for successful confirmation');
+    }
+    if (!successful && !dto.failureReason?.trim()) {
+      throw new BadRequestException('Failure reason is required when payment fails');
+    }
+    const settlementId = this.toObjectId(id, 'settlement ID');
+    const now = new Date();
+    const update: Record<string, unknown> = successful
+      ? {
+          $set: {
+            status: SettlementStatus.PAID,
+            paymentStatus: SettlementPaymentStatus.SUCCESS,
+            paymentReference: dto.paymentReference!.trim(),
+            paymentMethod: dto.paymentMethod?.trim() || undefined,
+            paymentInitiatedAt: now,
+            paidAt: now,
+          },
+          $unset: { paymentFailureReason: 1 },
+          $push: {
+            auditTrail: {
+              action: 'PAID',
+              performedBy: adminId,
+              performedAt: now,
+              metadata: { paymentReference: dto.paymentReference!.trim() },
+            },
+          },
+        }
+      : {
+          $set: {
+            status: SettlementStatus.PAYABLE,
+            paymentStatus: SettlementPaymentStatus.FAILED,
+            paymentInitiatedAt: now,
+            paymentFailureReason: dto.failureReason!.trim(),
+          },
+          $push: {
+            auditTrail: {
+              action: 'PAYMENT_FAILED',
+              performedBy: adminId,
+              performedAt: now,
+              reason: dto.failureReason!.trim(),
+              metadata: dto.paymentReference?.trim()
+                ? { paymentReference: dto.paymentReference.trim() }
+                : undefined,
+            },
+          },
+        };
+    try {
+      const result = await this.settlementModel.findOneAndUpdate(
+        {
+          _id: settlementId,
+          status: SettlementStatus.PAYABLE,
+          paymentStatus: { $in: [SettlementPaymentStatus.NOT_INITIATED, SettlementPaymentStatus.FAILED] },
         },
-      },
-    });
+        update,
+        { new: true },
+      ).exec();
+      if (result) return result;
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new ConflictException('Payment reference is already recorded on another settlement');
+      }
+      throw error;
+    }
+    const existing = await this.settlementModel.findById(settlementId).lean().exec();
+    if (!existing) throw new NotFoundException('Settlement not found');
+    if (
+      successful && [SettlementStatus.PAID, SettlementStatus.RECONCILED].includes(existing.status) &&
+      existing.paymentReference === dto.paymentReference?.trim() &&
+      (!dto.paymentMethod?.trim() || existing.paymentMethod === dto.paymentMethod.trim())
+    ) return existing;
+    throw new ConflictException(`Settlement must be PAYABLE before recording payment; current status is ${existing.status}`);
   }
 
   async reconcile(id: string, dto: ReconcileSettlementDto, admin: AuthenticatedAdmin) {
@@ -362,7 +546,7 @@ export class SettlementsService {
     const result = await this.settlementModel.findOneAndUpdate(
       {
         _id: settlementId,
-        status: SettlementStatus.PAID,
+        status: { $in: [SettlementStatus.PAID, SettlementStatus.RECONCILED] },
         paymentReference: { $exists: true, $ne: '' },
       },
       {
@@ -371,10 +555,15 @@ export class SettlementsService {
           reconciledAt: new Date(),
           reconciledBy: adminId,
           reconciliationNotes: dto.notes,
+          status: dto.status === SettlementReconciliationStatus.MATCHED
+            ? SettlementStatus.RECONCILED
+            : SettlementStatus.PAID,
         },
         $push: {
           auditTrail: {
-            action: 'RECONCILED',
+            action: dto.status === SettlementReconciliationStatus.MATCHED
+              ? 'RECONCILED'
+              : 'RECONCILIATION_DISPUTED',
             performedBy: adminId,
             performedAt: new Date(),
             reason: dto.notes,
@@ -394,7 +583,7 @@ export class SettlementsService {
     const result = await this.settlementModel.findOneAndUpdate(
       {
         _id: settlementId,
-        status: { $in: [SettlementStatus.PREPARED, SettlementStatus.APPROVED] },
+        status: { $in: [SettlementStatus.PREPARED, SettlementStatus.APPROVED, SettlementStatus.PAYABLE] },
       },
       {
         $set: { status: SettlementStatus.CANCELLED },

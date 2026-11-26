@@ -85,9 +85,8 @@ describe('SettlementsService', () => {
       },
     ]);
 
-    const cutoff = new Date('2026-11-10T16:00:00.000Z');
-    await service.prepareAll(cutoff);
-    await service.prepareAll(cutoff);
+    await service.prepareAll(undefined, '2026-11-10');
+    await service.prepareAll(undefined, '2026-11-10');
 
     expect(await settlementModel.countDocuments()).toBe(1);
     expect(await settlementItemModel.countDocuments()).toBe(2);
@@ -105,12 +104,12 @@ describe('SettlementsService', () => {
       amount: 800,
       type: 'LABOUR',
       paymentMethod: 'UPI',
-      earnedAt: new Date('2026-11-09T10:00:00.000Z'),
+      earnedAt: new Date('2026-11-10T10:00:00.000Z'),
     });
 
     await Promise.all([
-      service.prepareTechnician(technicianId.toString(), '2026-11-10', new Date('2026-11-10T16:00:00.000Z')),
-      service.prepareTechnician(technicianId.toString(), '2026-11-10', new Date('2026-11-10T16:00:00.000Z')),
+      service.prepareTechnician(technicianId.toString(), '2026-11-10', new Date('2026-11-10T18:30:00.000Z')),
+      service.prepareTechnician(technicianId.toString(), '2026-11-10', new Date('2026-11-10T18:30:00.000Z')),
     ]);
 
     expect(await settlementModel.countDocuments()).toBe(1);
@@ -125,14 +124,14 @@ describe('SettlementsService', () => {
         amount: 100,
         type: 'BONUS',
         paymentMethod: 'CASH',
-        earnedAt: new Date('2026-01-01T10:00:00.000Z'),
+        earnedAt: new Date('2026-11-10T08:00:00.000Z'),
       },
       {
         technicianId,
         amount: 200,
         type: 'BONUS',
         paymentMethod: 'CASH',
-        earnedAt: new Date('2026-01-02T10:00:00.000Z'),
+        earnedAt: new Date('2026-11-10T09:00:00.000Z'),
       },
       {
         technicianId,
@@ -145,7 +144,7 @@ describe('SettlementsService', () => {
     const priorSettlement = await settlementModel.create({
       technicianId,
       settlementDate: '2026-11-09',
-      cutoffAt: new Date('2026-11-09T16:00:00.000Z'),
+      cutoffAt: new Date('2026-11-09T18:30:00.000Z'),
       status: SettlementStatus.PREPARED,
       paymentStatus: SettlementPaymentStatus.NOT_INITIATED,
       reconciliationStatus: SettlementReconciliationStatus.PENDING,
@@ -161,7 +160,7 @@ describe('SettlementsService', () => {
       claimStatus: SettlementItemClaimStatus.FINALIZED,
     });
 
-    const [prepared] = await service.prepareAll(new Date('2026-11-10T16:00:00.000Z'));
+    const prepared = (await service.prepareAll(undefined, '2026-11-10')).settlements[0];
     const result = await service.getById(prepared!._id.toString());
     expect(result.items.map((item) => String(item.earningId))).toEqual([String(older._id)]);
     expect(result.totalEarnings).toBe(100);
@@ -180,7 +179,7 @@ describe('SettlementsService', () => {
     const settlement = await settlementModel.create({
       technicianId,
       settlementDate: '2026-11-10',
-      cutoffAt: new Date('2026-11-10T16:00:00.000Z'),
+      cutoffAt: new Date('2026-11-10T18:30:00.000Z'),
       status: SettlementStatus.PREPARING,
       paymentStatus: SettlementPaymentStatus.NOT_INITIATED,
       reconciliationStatus: SettlementReconciliationStatus.PENDING,
@@ -201,7 +200,7 @@ describe('SettlementsService', () => {
     await service.prepareTechnician(
       technicianId.toString(),
       '2026-11-10',
-      new Date('2026-11-10T16:00:00.000Z'),
+      new Date('2026-11-10T18:30:00.000Z'),
     );
 
     expect(await settlementItemModel.countDocuments({
@@ -230,7 +229,7 @@ describe('SettlementsService', () => {
     const settlement = await settlementModel.create({
       technicianId,
       settlementDate: '2026-11-10',
-      cutoffAt: new Date('2026-11-10T16:00:00.000Z'),
+      cutoffAt: new Date('2026-11-10T18:30:00.000Z'),
       status: SettlementStatus.PREPARATION_FAILED,
       paymentStatus: SettlementPaymentStatus.NOT_INITIATED,
       reconciliationStatus: SettlementReconciliationStatus.PENDING,
@@ -249,7 +248,7 @@ describe('SettlementsService', () => {
     await service.prepareTechnician(
       technicianId.toString(),
       '2026-11-10',
-      new Date('2026-11-10T16:00:00.000Z'),
+      new Date('2026-11-10T18:30:00.000Z'),
     );
 
     expect(await settlementItemModel.countDocuments({ earningId: earning._id })).toBe(1);
@@ -269,7 +268,7 @@ describe('SettlementsService', () => {
       paymentMethod: 'ONLINE',
       earnedAt: new Date('2026-11-10T10:00:00.000Z'),
     });
-    const [prepared] = await service.prepareAll(new Date('2026-11-10T16:00:00.000Z'));
+    const prepared = (await service.prepareAll(undefined, '2026-11-10')).settlements[0];
 
     await expect(service.recordPayment(prepared!._id.toString(), {
       paymentReference: 'UTR-1',
@@ -278,10 +277,12 @@ describe('SettlementsService', () => {
 
     const approved = await service.approve(prepared!._id.toString(), { userId: adminId });
     expect(approved.status).toBe(SettlementStatus.APPROVED);
+    await service.markPayable(prepared!._id.toString(), {}, { userId: adminId });
     await expect(service.recordPayment(prepared!._id.toString(), {
-      paymentReference: 'UTR-1',
-    } as RecordSettlementPaymentDto, { userId: adminId })).resolves.toMatchObject({
-      status: SettlementStatus.APPROVED,
+      successful: false,
+      failureReason: 'Bank transfer not found',
+    }, { userId: adminId })).resolves.toMatchObject({
+      status: SettlementStatus.PAYABLE,
       paymentStatus: SettlementPaymentStatus.FAILED,
     });
 
@@ -298,7 +299,42 @@ describe('SettlementsService', () => {
       notes: 'Bank statement matched',
     }, { userId: adminId });
     expect(reconciled.reconciliationStatus).toBe(SettlementReconciliationStatus.MATCHED);
+    expect(reconciled.status).toBe(SettlementStatus.RECONCILED);
     expect(reconciled.paymentReference).toBe('UTR-1');
+    await expect(service.recordPayment(prepared!._id.toString(), {
+      paymentReference: 'UTR-1',
+      paymentMethod: 'BANK_TRANSFER',
+      successful: true,
+    }, { userId: adminId })).resolves.toMatchObject({ status: SettlementStatus.RECONCILED });
+  });
+
+  it('applies an adjustment once when the same idempotency key is retried', async () => {
+    const technicianId = new Types.ObjectId();
+    const adminId = new Types.ObjectId().toString();
+    await earningModel.create({
+      technicianId,
+      amount: 500,
+      type: 'BONUS',
+      paymentMethod: 'ONLINE',
+      earnedAt: new Date('2026-11-10T10:00:00.000Z'),
+    });
+    const prepared = (await service.prepareAll(undefined, '2026-11-10')).settlements[0];
+    await service.approve(prepared!._id.toString(), { userId: adminId });
+    const adjustment = {
+      idempotencyKey: '72dd0f52-98cb-4733-aa3e-5547ac4238fb',
+      amount: -25,
+      reason: 'Corrected overstatement',
+    };
+
+    const first = await service.addAdjustment(prepared!._id.toString(), adjustment, { userId: adminId });
+    const retry = await service.addAdjustment(prepared!._id.toString(), adjustment, { userId: adminId });
+    expect(first.adjustments).toBe(-25);
+    expect(retry.adjustments).toBe(-25);
+    expect(retry.adjustmentEntries).toHaveLength(1);
+    await expect(service.addAdjustment(prepared!._id.toString(), {
+      ...adjustment,
+      amount: -30,
+    }, { userId: adminId })).rejects.toThrow('Adjustment idempotency key was already used for a different adjustment');
   });
 
   it('keeps rejected and cancelled settlement earnings finalized', async () => {
@@ -321,12 +357,12 @@ describe('SettlementsService', () => {
         earnedAt: new Date('2026-11-10T10:00:00.000Z'),
       },
     ]);
-    const [rejected] = await service.prepareAll(new Date('2026-11-10T16:00:00.000Z'));
+    const rejected = (await service.prepareAll(undefined, '2026-11-10')).settlements.find((row: any) => String(row?.technicianId) === String(rejectedTechnicianId));
     await service.reject(rejected!._id.toString(), 'Incorrect amount', { userId: adminId });
     const cancelled = await service.prepareTechnician(
       cancelledTechnicianId.toString(),
       '2026-11-10',
-      new Date('2026-11-10T16:00:00.000Z'),
+      new Date('2026-11-10T18:30:00.000Z'),
     );
     await service.cancel(cancelled!._id.toString(), 'Duplicate batch', { userId: adminId });
 
@@ -336,7 +372,7 @@ describe('SettlementsService', () => {
     await expect(service.prepareTechnician(
       rejectedTechnicianId.toString(),
       '2026-11-10',
-      new Date('2026-11-10T16:00:00.000Z'),
+      new Date('2026-11-10T18:30:00.000Z'),
     )).resolves.toMatchObject({ status: SettlementStatus.REJECTED });
   });
 

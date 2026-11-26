@@ -9,8 +9,10 @@ export enum SettlementStatus {
     PREPARED = 'PREPARED',
     PREPARATION_FAILED = 'PREPARATION_FAILED',
     APPROVED = 'APPROVED',
+    PAYABLE = 'PAYABLE',
     REJECTED = 'REJECTED',
     PAID = 'PAID',
+    RECONCILED = 'RECONCILED',
     CANCELLED = 'CANCELLED',
   }
 
@@ -48,6 +50,27 @@ export class SettlementAuditEntry {
 export const SettlementAuditEntrySchema =
   SchemaFactory.createForClass(SettlementAuditEntry);
 
+@Schema({ _id: true })
+export class SettlementAdjustment {
+  @Prop({ trim: true })
+  idempotencyKey?: string;
+
+  @Prop({ required: true })
+  amount: number;
+
+  @Prop({ required: true, trim: true, maxlength: 500 })
+  reason: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  performedBy: Types.ObjectId;
+
+  @Prop({ required: true, default: Date.now })
+  performedAt: Date;
+}
+
+export const SettlementAdjustmentSchema =
+  SchemaFactory.createForClass(SettlementAdjustment);
+
 @Schema({ timestamps: true })
 export class Settlement {
   @Prop({
@@ -71,6 +94,9 @@ export class Settlement {
 
   @Prop({ required: true, default: 0 })
   adjustments: number;
+
+  @Prop({ type: [SettlementAdjustmentSchema], default: [] })
+  adjustmentEntries: SettlementAdjustment[];
 
   @Prop({ required: true, default: 0 })
   netPayable: number;
@@ -164,3 +190,4 @@ SettlementSchema.index(
 
 SettlementSchema.index({ status: 1, settlementDate: -1 });
 SettlementSchema.index({ paymentStatus: 1, settlementDate: -1 });
+SettlementSchema.index({ paymentReference: 1 }, { unique: true, sparse: true });

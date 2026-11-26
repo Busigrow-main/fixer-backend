@@ -12,8 +12,10 @@ export class SettlementScheduler {
   @Cron('0 21 * * *', { timeZone: 'Asia/Kolkata' })
   async prepareNightlySettlements() {
     try {
-      const settlements = await this.settlementsService.prepareAll();
-      this.logger.log(`Prepared ${settlements.length} technician settlement(s)`);
+      const result = await this.settlementsService.prepareAll();
+      this.logger.log(
+        `Prepared ${result.settlements.length} technician settlement(s) for ${result.settlementDate}; ${result.errors.length} failed`,
+      );
     } catch (error) {
       this.logger.error('Nightly settlement preparation failed', error);
     }

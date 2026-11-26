@@ -70,6 +70,17 @@ export const JobDetailsSchema =
   SchemaFactory.createForClass(JobDetails);
 
 @Schema({ _id: false })
+export class PartsWaitEvent {
+  @Prop({ type: String, enum: ['WAIT_STARTED', 'PARTS_AVAILABLE'], required: true })
+  event: 'WAIT_STARTED' | 'PARTS_AVAILABLE';
+
+  @Prop({ required: true })
+  at: Date;
+}
+
+export const PartsWaitEventSchema = SchemaFactory.createForClass(PartsWaitEvent);
+
+@Schema({ _id: false })
 export class AdditionalCharge {
   @Prop({ required: true })
   label: string;
@@ -306,6 +317,13 @@ export class Booking {
   @Prop()
   assignedAt?: Date;
 
+  /** First assignment timestamp; kept separate from mutable reassignment time. */
+  @Prop()
+  firstAssignedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'Technician' })
+  firstAssignedTechnicianId?: Types.ObjectId;
+
   @Prop()
   acceptedAt?: Date;
 
@@ -539,6 +557,9 @@ export class Booking {
   @Prop()
   jobClosedAt?: Date;
 
+  @Prop({ type: Types.ObjectId, ref: 'Technician' })
+  jobClosedByTechnicianId?: Types.ObjectId;
+
   @Prop()
   paidAt?: Date;
 
@@ -618,6 +639,10 @@ export class Booking {
   /** Manual / system parts-wait flag (shop part orders are not booking-linked). */
   @Prop({ default: false })
   opsPartsWait?: boolean;
+
+  /** Explicit parts-wait start/available events. Older flag-only records are not backfilled. */
+  @Prop({ type: [PartsWaitEventSchema], default: [] })
+  partsWaitEvents: PartsWaitEvent[];
 
   /** Deduped overdue alert: last reason notified + when. */
   @Prop()

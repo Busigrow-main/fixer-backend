@@ -20,6 +20,8 @@ import {
   PrepareSettlementsDto,
   RejectSettlementDto,
   ReconcileSettlementDto,
+  MarkSettlementPayableDto,
+  AddSettlementAdjustmentDto,
 } from './settlements.dto';
 import { SettlementsService } from './settlements.service';
 
@@ -36,6 +38,7 @@ export class SettlementsController {
   prepare(@Body() body: PrepareSettlementsDto) {
     return this.settlementsService.prepareAll(
       body.cutoffAt ? new Date(body.cutoffAt) : undefined,
+      body.settlementDate,
     );
   }
 
@@ -52,6 +55,24 @@ export class SettlementsController {
   @Post(':id/approve')
   approve(@Param('id') id: string, @Request() request: { user: { userId: string } }) {
     return this.settlementsService.approve(id, request.user);
+  }
+
+  @Post(':id/payable')
+  markPayable(
+    @Param('id') id: string,
+    @Body() body: MarkSettlementPayableDto,
+    @Request() request: { user: { userId: string } },
+  ) {
+    return this.settlementsService.markPayable(id, body, request.user);
+  }
+
+  @Post(':id/adjustments')
+  addAdjustment(
+    @Param('id') id: string,
+    @Body() body: AddSettlementAdjustmentDto,
+    @Request() request: { user: { userId: string } },
+  ) {
+    return this.settlementsService.addAdjustment(id, body, request.user);
   }
 
   @Post(':id/reject')

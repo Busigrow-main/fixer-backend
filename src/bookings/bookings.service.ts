@@ -1608,6 +1608,31 @@ export class BookingsService {
     }
     await this.appendChangeHistory(id, events);
 
+    if (previousTechnicianId !== String(technicianId)) {
+      await this.appendChangeHistory(id, [
+        {
+          field: 'technicianId',
+          previous: previousTechnicianId || null,
+          next: technicianId,
+          actorRole: audit?.actorRole || 'ADMIN',
+          actorId: audit?.actorId,
+          reason: audit?.reason,
+        },
+        ...(String(existing.status || '').toUpperCase() !== 'ASSIGNED'
+          ? [
+              {
+                field: 'status' as const,
+                previous: existing.status,
+                next: 'ASSIGNED',
+                actorRole: (audit?.actorRole || 'ADMIN') as BookingAuditContext['actorRole'],
+                actorId: audit?.actorId,
+                reason: audit?.reason,
+              },
+            ]
+          : []),
+      ]);
+    }
+
     return this.populateBookingDetail(id);
   }
 

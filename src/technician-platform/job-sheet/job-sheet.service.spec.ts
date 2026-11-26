@@ -295,7 +295,43 @@ describe('JobSheetService', () => {
           quantity: 1,
           isThirdParty: false,
         }),
-      ).rejects.toThrow('Serial number is required');
+      ).rejects.toThrow('Serial number is required for inventory parts under warranty');
+    });
+  });
+
+  describe('inventory returns', () => {
+    it('delegates return ownership and replay to the transaction service and refreshes the invoice', async () => {
+      const visitId = new Types.ObjectId().toString();
+      const usageId = new Types.ObjectId().toString();
+      const result = {
+        transaction: { _id: new Types.ObjectId(), type: 'RETURN' },
+        usage: { _id: usageId, quantity: 3 },
+        replayed: true,
+      };
+      mockVisits.returnInventoryPart.mockResolvedValue(result);
+      const generateInvoice = jest
+        .spyOn(module.get(BookingsService), 'generateInvoiceData')
+        .mockResolvedValue({} as any);
+
+      const response = await service.returnPart(
+        bookingId,
+        techId.toString(),
+        visitId,
+        usageId,
+        { quantity: 2, idempotencyKey: 'return-retry-key' },
+      );
+
+      expect(response).toEqual({ transaction: result.transaction, usage: result.usage });
+      expect(mockVisits.returnInventoryPart).toHaveBeenCalledWith({
+        bookingId,
+        technicianId: techId.toString(),
+        visitId,
+        usageId,
+        quantity: 2,
+        idempotencyKey: 'return-retry-key',
+      });
+      expect(generateInvoice).toHaveBeenCalledWith(bookingId);
+      generateInvoice.mockRestore();
     });
   });
 

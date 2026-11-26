@@ -28,6 +28,10 @@ import {
   Warranty,
   WarrantySchema,
 } from '../warranties/schemas/warranty.schema';
+import {
+  FeedbackFollowUp,
+  FeedbackFollowUpSchema,
+} from '../feedback/schemas/feedback-follow-up.schema';
 import { CustomerServiceHistoryService } from './customer-service-history.service';
 
 @Module({
@@ -43,6 +47,7 @@ import { CustomerServiceHistoryService } from './customer-service-history.servic
       },
       { name: Feedback.name, schema: FeedbackSchema },
       { name: Warranty.name, schema: WarrantySchema },
+      { name: FeedbackFollowUp.name, schema: FeedbackFollowUpSchema },
     ]),
     AuthModule,
     UsersModule,

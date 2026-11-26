@@ -107,6 +107,7 @@ export class VisitsService {
         .populate({ path: 'bookingId', select: 'status serviceId createdAt' })
         .populate({ path: 'visitId', select: 'status visitOrder scheduledDate' })
         .populate({ path: 'relatedTransactionId', select: 'type quantity createdAt' })
+        .populate({ path: 'partRequestId', select: 'status requestedQuantity approvedQuantity' })
         .lean()
         .exec(),
       this.partInventoryTransactionModel.countDocuments(filter).exec(),
@@ -129,6 +130,8 @@ export class VisitsService {
         relatedIssue: transaction.type === 'RETURN'
           ? this.partTransactionReference(transaction.relatedTransactionId, ['type', 'quantity', 'createdAt'])
           : null,
+        partRequest: this.partTransactionReference(transaction.partRequestId, ['status', 'requestedQuantity', 'approvedQuantity']),
+        returnCondition: transaction.returnCondition || null,
         timestamp: transaction.createdAt,
       })),
       total,
@@ -208,10 +211,20 @@ export class VisitsService {
     visitId: string,
     partData: any,
     audit?: BookingAuditContext,
-    options: { session?: ClientSession; stockAlreadyDeducted?: boolean } = {},
+    options: {
+      session?: ClientSession;
+      stockAlreadyDeducted?: boolean;
+      approvedPartRequestId?: string;
+    } = {},
   ): Promise<SparePartUsage> {
     const payload = { ...partData };
     delete payload._skipSerialAssert;
+    if (options.approvedPartRequestId) {
+      if (!Types.ObjectId.isValid(options.approvedPartRequestId)) {
+        throw new BadRequestException('Invalid approved part request reference');
+      }
+      payload.partRequestId = new Types.ObjectId(options.approvedPartRequestId);
+    }
 
     if (payload.warrantyMonths != null) {
       const warrantyMonths = Number(payload.warrantyMonths);
@@ -444,6 +457,7 @@ export class VisitsService {
     quantity: number;
     idempotencyKey: string;
     usage: Record<string, unknown>;
+    approvedPartRequestId?: string;
   }): Promise<SparePartUsageDocument> {
     const { bookingId, technicianId, visitId, sparePartId, quantity } = input;
     if (!Number.isInteger(quantity) || quantity < 1) {
@@ -535,7 +549,11 @@ export class VisitsService {
             sourcedBy: 'INVENTORY',
           },
           { actorRole: 'TECHNICIAN', actorId: technicianId },
-          { session, stockAlreadyDeducted: true },
+          {
+            session,
+            stockAlreadyDeducted: true,
+            approvedPartRequestId: input.approvedPartRequestId,
+          },
         ) as SparePartUsageDocument;
 
         await this.partInventoryTransactionModel.create(
@@ -801,7 +819,7 @@ export class VisitsService {
     }
 
     const inventoryIssue = await this.partInventoryTransactionModel
-      .findOne({ type: 'ISSUE', sparePartUsageId: usage._id })
+      .findOne({ type: { $in: ['ISSUE', 'CONSUME'] }, sparePartUsageId: usage._id })
       .exec();
     if (inventoryIssue) {
       throw new BadRequestException('Inventory-issued parts must be returned through the return endpoint');
