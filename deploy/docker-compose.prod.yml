@@ -7,13 +7,13 @@ services:
     image: mongo:7
     container_name: fixxer-mongo
     restart: unless-stopped
-    command: ["mongod", "--wiredTigerCacheSizeGB", "${MONGO_CACHE_GB:-0.25}"]   # 0.25 on 2 GB box, 1 on 8 GB
+    command: ["mongod", "--replSet", "rs0", "--wiredTigerCacheSizeGB", "${MONGO_CACHE_GB:-0.25}"]   # rs0 = single-node replica set (transactions need it); cache 0.25 on 2 GB box, 1 on 8 GB
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
       - /opt/fixxer/data/mongo:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]   # ping, not isWritablePrimary: must pass before rs.initiate on first boot
       interval: 10s
       timeout: 5s
       retries: 10
